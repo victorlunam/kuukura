@@ -187,10 +187,9 @@ func (a *app) cmdLogin(args []string) int {
 
 	q := url.Values{"cli_port": {strconv.Itoa(port)}, "cli_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "cli_state": {state}, "cli_profile": {pr.name}}
 	loginURL := pr.url + "/auth/login?" + q.Encode()
-	a.say("Opening your browser to sign in...")
-	if err := a.openURL(loginURL); err != nil {
-		a.say("Open this link to sign in:\n  %s", loginURL)
-	}
+	// Always print the link: the default browser may not be the one you want (another profile or account).
+	a.say("Opening your browser to sign in. If it does not open, or you want another browser, copy this link:\n  %s", loginURL)
+	_ = a.openURL(loginURL)
 	var res result
 	select {
 	case res = <-got:

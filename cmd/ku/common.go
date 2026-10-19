@@ -63,10 +63,9 @@ func (a *app) stepUp(c *client, purpose, subject string) (string, error) {
 	if err := c.call("POST", "/auth/stepup", map[string]string{"purpose": purpose, "subject": subject, "profile": c.profile}, &r); err != nil {
 		return "", err
 	}
+	fmt.Fprintf(a.err, "If the browser does not open, copy this link:\n  %s\n", r.URL)
 	fmt.Fprint(a.err, "Confirm with Touch ID...")
-	if err := a.openURL(r.URL); err != nil {
-		fmt.Fprintf(a.err, "\nOpen this link to confirm:\n  %s\n", r.URL)
-	}
+	_ = a.openURL(r.URL)
 	deadline := time.Now().Add(2 * time.Minute)
 	for time.Now().Before(deadline) {
 		var s struct {

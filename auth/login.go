@@ -138,17 +138,30 @@ type Pending struct {
 func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending, error) {
 	f, ok := s.flows.Take(state)
 	if !ok {
-		return Pending{}, ErrLogin
+		return Pending{}, deny("unknown_state", "") // expired, already used, or the server restarted
 	}
 	id, err := s.provider.Exchange(ctx, code, f.verifier, f.nonce)
+	if err != nil {
+		var re *oauth2.RetrieveError
+		if errors.As(err, &re) {
+			return Pending{}, deny("provider_exchange_failed", re.ErrorCode) // e.g. invalid_grant, redirect_uri_mismatch
+		}
+		return Pending{}, deny("provider_exchange_failed", "")
+	}
 	email := strings.ToLower(strings.TrimSpace(id.Email))
-	if err != nil || !id.EmailVerified || email == "" || id.Subject == "" {
-		return Pending{}, ErrLogin
+	if !id.EmailVerified {
+		return Pending{}, deny("email_not_verified", "")
+	}
+	if email == "" || id.Subject == "" {
+		return Pending{}, deny("missing_claims", "")
 	}
 	if f.invite != "" { // read before the transaction: sqlite has a single connection
 		want, err := s.tokens.PeekInvite(ctx, f.invite)
-		if err != nil || strings.ToLower(want) != email {
-			return Pending{}, ErrLogin
+		if err != nil {
+			return Pending{}, deny("invite_invalid", "")
+		}
+		if strings.ToLower(want) != email {
+			return Pending{}, deny("invite_email_mismatch", "")
 		}
 	}
 	var out Pending
@@ -159,7 +172,7 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		if f.invite != "" {
 			var err error
 			if pid, err = s.tokens.ConsumeInvite(ctx, tx, f.invite); err != nil {
-				return ErrLogin
+				return deny("invite_invalid", "")
 			}
 			if err := s.bindIdentity(ctx, tx, pid, id.Subject, email); err != nil {
 				return err
@@ -168,12 +181,15 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		} else {
 			err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT p.id, p.status FROM identities i JOIN principals p ON p.id = i.principal_id
 				WHERE i.provider = ? AND i.subject = ?`), s.provider.Name(), id.Subject).Scan(&pid, &status)
+			if errors.Is(err, sql.ErrNoRows) {
+				return deny("no_identity_for_this_google_account", "") // invite-only: that account was never invited
+			}
 			if err != nil {
-				return ErrLogin
+				return err
 			}
 			if status == "disabled" {
 				failedFor = &pid
-				return ErrLogin
+				return deny("disabled", "")
 			}
 		}
 		scope, ttl, mode := ScopeMFA, pendingMFATTL, "mfa"
@@ -192,9 +208,30 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		if failedFor != nil {
 			_ = s.log.Record(ctx, audit.Entry{Principal: *failedFor, Action: "login_failed", Result: audit.ResultDenied, IP: ip})
 		}
-		return Pending{}, ErrLogin
+		var le *LoginError
+		if errors.As(err, &le) {
+			return Pending{}, le
+		}
+		return Pending{}, deny("internal", "")
 	}
 	return out, nil
+}
+
+// LoginError is ErrLogin plus a machine-readable reason for the server log. The user never sees the reason
+// (it could reveal which accounts exist); operators find it in the logs.
+type LoginError struct{ Reason, Detail string }
+
+func (e *LoginError) Error() string          { return ErrLogin.Error() }
+func (e *LoginError) Is(target error) bool   { return target == ErrLogin }
+func deny(reason, detail string) *LoginError { return &LoginError{reason, detail} }
+
+// LoginReason returns the reason code and detail of a failed login, if there is one.
+func LoginReason(err error) (reason, detail string) {
+	var le *LoginError
+	if errors.As(err, &le) {
+		return le.Reason, le.Detail
+	}
+	return "", ""
 }
 
 func (s *Service) bindIdentity(ctx context.Context, tx *sql.Tx, pid uuid.UUID, subject, email string) error {
@@ -204,7 +241,7 @@ func (s *Service) bindIdentity(ctx context.Context, tx *sql.Tx, pid uuid.UUID, s
 	case err == nil && owner == pid:
 		return nil
 	case err == nil:
-		return ErrLogin // that Google account already belongs to someone else
+		return deny("google_account_belongs_to_someone_else", "")
 	case !errors.Is(err, sql.ErrNoRows):
 		return err
 	}

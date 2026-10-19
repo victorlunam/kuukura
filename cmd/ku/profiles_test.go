@@ -135,6 +135,9 @@ func TestLoginFlow(t *testing.T) {
 		if r.code != 0 || !strings.Contains(r.out, "✓ Signed in to default") {
 			t.Fatalf("login: %q %q", r.out, r.errOut)
 		}
+		if !strings.Contains(r.errOut, "copy this link:\n  "+w.srv.URL+"/auth/login?") || !strings.Contains(r.errOut, "cli_profile=default") {
+			t.Fatalf("login must print the sign-in link so it can be copied: %q", r.errOut)
+		}
 		tok, err := w.store.Get("default")
 		if err != nil || !strings.HasPrefix(tok, "ku_") {
 			t.Fatal("the token goes to the Keychain")

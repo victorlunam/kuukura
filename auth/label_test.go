@@ -43,3 +43,9 @@ func TestProfileNameSurvivesLogin(t *testing.T) {
 		}
 	})
 }
+
+// stateOf extracts the state parameter from the provider URL StartLogin returned.
+func stateOf(authURL string) string {
+	u, _ := url.Parse(authURL)
+	return u.Query().Get("state")
+}

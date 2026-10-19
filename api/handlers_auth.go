@@ -27,11 +27,14 @@ func (s *Server) login(c echo.Context) error {
 }
 
 func (s *Server) callback(c echo.Context) error {
-	if c.QueryParam("error") != "" {
+	if e := c.QueryParam("error"); e != "" { // Google reported a problem (access_denied, ...)
+		s.log.Warn("login denied", "id", requestID(c), "reason", "provider_returned_error", "detail", auth.CleanLabel(strings.ToLower(e)))
 		return s.failPage(c)
 	}
 	p, err := s.Auth.Callback(c.Request().Context(), c.QueryParam("state"), c.QueryParam("code"), c.RealIP())
 	if err != nil {
+		reason, detail := auth.LoginReason(err)
+		s.log.Warn("login denied", "id", requestID(c), "reason", reason, "detail", detail) // codes only, no user data
 		return s.failPage(c)
 	}
 	return s.factorPage(c, p)
