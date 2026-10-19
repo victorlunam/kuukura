@@ -13,7 +13,7 @@
 <body data-mode="{{.Mode}}" data-t="{{.Token}}" data-id="{{.ID}}">
 {{.Sprite}}
 <main class="card">
-  <div class="brand">{{.Mark}}<span>kuukura</span>{{if .Host}}<small>{{.Host}}</small>{{end}}</div>
+  <div class="brand">{{.Mark}}<span>kuukura</span>{{if .Label}}<small>{{.Label}}</small>{{end}}</div>
   {{if .Step}}<div class="steps" role="img" aria-label="Step {{.Step}} of 3"><i class="on"></i><i{{if ge .Step 2}} class="on"{{end}}></i><i{{if ge .Step 3}} class="on"{{end}}></i></div>{{end}}
   <div class="ill" id="ill">{{.Art}}</div>
 

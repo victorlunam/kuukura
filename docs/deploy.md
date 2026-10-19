@@ -89,6 +89,7 @@ two roles:
 
 | Variable | Meaning |
 |---|---|
+| `VAULT_NAME` | Optional instance name for the page header, e.g. `neodev` (max 32 plain characters). Defaults to the domain. Pages opened from the CLI show the user's profile name instead. |
 | `VAULT_DOMAIN` | Bare domain, e.g. `vault.example.com`. Also the passkey RP ID. **Changing it invalidates every passkey** (users re-enroll via break-glass invites). |
 | `VAULT_ADDR` | Listen address, default `:8080`. |
 | `VAULT_STORAGE` | `sqlite` or `postgres`. |

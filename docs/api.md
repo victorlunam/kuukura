@@ -46,7 +46,8 @@ tags optional and ANDed (`key:value`, each part `^[a-z0-9._-]{1,64}$`, max 10, o
 ## Login (CLI: browser + localhost PKCE)
 
 1. CLI generates a verifier, listens on `127.0.0.1:<port>`, opens
-   `GET /auth/login?cli_port=53682&cli_challenge=<base64url sha256(verifier)>&cli_state=<random>`.
+   `GET /auth/login?cli_port=53682&cli_challenge=<base64url sha256(verifier)>&cli_state=<random>&cli_profile=work`.
+   `cli_profile` is optional, display-only (`^[a-z0-9._-]{1,32}$`, anything else is ignored): the pages show it in the header.
 2. The server redirects to Google (code flow + PKCE, `email_verified` required). `GET /auth/callback` shows a
    page for the second step (passkey, TOTP or recovery code; enrollment on first login).
 3. On success the browser goes to `http://127.0.0.1:<port>/callback?code=<one-time>&state=<cli_state>`.
@@ -66,7 +67,8 @@ Pages' JSON endpoints (bearer = the short mid-login token the page holds): `POST
 
 For reveal, `--out`, `--authorize off` and running `requires_authorize` secrets. Machines never get one.
 
-1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off", "subject": "STRIPE_KEY env:prod" }` ->
+1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off", "subject": "STRIPE_KEY env:prod", "profile": "work" }`
+   (`profile` optional, display-only, same rules as `cli_profile`) ->
    201 `{ "id": "...", "url": "https://vault.example.com/stepup?id=..." }`. `subject` is the selector as
    `NAME tag tag` (name uppercased, tags sorted).
 2. The CLI opens `url`; the page runs a WebAuthn assertion (user verification required).

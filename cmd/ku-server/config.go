@@ -18,6 +18,7 @@ type config struct {
 	SQLitePath   string // VAULT_SQLITE_PATH
 	DatabaseURL  string // VAULT_DATABASE_URL (the app login role)
 	MigrateURL   string // VAULT_MIGRATE_DATABASE_URL (table owner, used only for migrations; defaults to VAULT_DATABASE_URL)
+	Name         string // VAULT_NAME: optional instance name for the page header (max 32 chars)
 	KeyProvider  string // VAULT_KEY_PROVIDER: manual (default) | aws-kms
 	MasterKey    []byte // from VAULT_MASTER_KEY_FILE (preferred) or VAULT_MASTER_KEY
 	KMSKeyARN    string // VAULT_KMS_KEY_ARN
@@ -45,7 +46,7 @@ func loadConfig(needServe bool) (config, error) {
 		Domain: env("VAULT_DOMAIN"), Addr: env("VAULT_ADDR"), Storage: env("VAULT_STORAGE"),
 		SQLitePath: env("VAULT_SQLITE_PATH"), DatabaseURL: env("VAULT_DATABASE_URL"), MigrateURL: env("VAULT_MIGRATE_DATABASE_URL"),
 		KeyProvider: env("VAULT_KEY_PROVIDER"), KMSKeyARN: env("VAULT_KMS_KEY_ARN"),
-		OIDCClientID: env("VAULT_OIDC_CLIENT_ID"),
+		OIDCClientID: env("VAULT_OIDC_CLIENT_ID"), Name: env("VAULT_NAME"),
 	}
 	var errs []error
 	need := func(ok bool, msg string) {
@@ -57,6 +58,7 @@ func loadConfig(needServe bool) (config, error) {
 	if c.Addr == "" {
 		c.Addr = ":8080"
 	}
+	need(len(c.Name) <= 32 && !strings.ContainsAny(c.Name, "<>&\"'`\n\r"), "VAULT_NAME must be at most 32 characters of plain text")
 	if env("VAULT_DEV_HTTP") == "true" {
 		need(c.Domain == "localhost", "VAULT_DEV_HTTP=true is only allowed with VAULT_DOMAIN=localhost")
 		c.DevHTTP = true

@@ -54,7 +54,7 @@ func runServe(args []string) error {
 	}
 	srv := api.New(api.Deps{
 		Secrets: secrets.New(p, kp, alog), Admin: access.NewAdmin(p, alog), Identity: identity.New(p, alog, tokens),
-		Auth: authSvc, Tokens: tokens, Audit: alog, Storage: p, BaseURL: c.baseURL(), AllowHTTP: c.DevHTTP, Log: log,
+		Auth: authSvc, Tokens: tokens, Audit: alog, Storage: p, BaseURL: c.baseURL(), AllowHTTP: c.DevHTTP, Name: c.Name, Log: log,
 	})
 	hs := &http.Server{Addr: c.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 2 * time.Minute}

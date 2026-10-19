@@ -18,6 +18,7 @@ func (s *Server) login(c echo.Context) error {
 	if port == 0 && c.QueryParam("cli_challenge") == "" && c.QueryParam("cli_state") == "" {
 		cli = auth.CLIParams{}
 	}
+	cli.Profile = c.QueryParam("cli_profile") // display only; auth.StartLogin sanitizes it
 	u, err := s.Auth.StartLogin(c.QueryParam("invite"), cli)
 	if err != nil {
 		return s.failPage(c)
@@ -171,6 +172,7 @@ func (s *Server) enrollTOTPConfirm(c echo.Context) error {
 type stepUpReq struct {
 	Purpose string `json:"purpose"`
 	Subject string `json:"subject"`
+	Profile string `json:"profile"` // the CLI profile name, shown on the confirmation page (display only)
 }
 
 func (s *Server) stepUpStart(c echo.Context) error {
@@ -185,7 +187,11 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if err != nil {
 		return errForbidden
 	}
-	return c.JSON(http.StatusCreated, map[string]string{"id": id, "url": s.BaseURL + "/stepup?id=" + id})
+	link := s.BaseURL + "/stepup?id=" + id
+	if p := auth.CleanLabel(r.Profile); p != "" {
+		link += "&profile=" + p
+	}
+	return c.JSON(http.StatusCreated, map[string]string{"id": id, "url": link})
 }
 
 func (s *Server) stepUpStatus(c echo.Context) error {

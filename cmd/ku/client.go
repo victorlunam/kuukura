@@ -12,9 +12,10 @@ import (
 // client talks to exactly one server: the resolved profile's. Redirects are never followed
 // (see app.http), so the token cannot travel anywhere else.
 type client struct {
-	a     *app
-	base  string
-	token string
+	a       *app
+	base    string
+	token   string
+	profile string // shown on the server's confirmation pages (display only)
 }
 
 // problem is an RFC 9457 error from the server.
@@ -116,5 +117,5 @@ func (a *app) withProfile(flagProfile string, needToken bool) (*client, profile,
 		}
 		p.token = tok
 	}
-	return &client{a: a, base: p.url, token: p.token}, p, nil
+	return &client{a: a, base: p.url, token: p.token, profile: p.name}, p, nil
 }

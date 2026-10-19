@@ -31,6 +31,7 @@ type Deps struct {
 	Storage   storage.Provider
 	BaseURL   string // e.g. https://vault.example.com (http://localhost:8080 in local dev)
 	AllowHTTP bool   // local development on localhost only
+	Name      string // optional instance name shown in the page header (e.g. "neodev"); defaults to the host
 	Log       *slog.Logger
 	Now       func() time.Time // rate limits; defaults to time.Now
 }

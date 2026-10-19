@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -75,6 +76,17 @@ type CLIParams struct {
 	Port      int
 	Challenge string // base64url SHA-256 of the CLI's verifier
 	State     string
+	Profile   string // the CLI profile name, shown on the pages (display only, never trusted)
+}
+
+var labelRE = regexp.MustCompile(`^[a-z0-9._-]{1,32}$`)
+
+// CleanLabel returns s if it is a safe profile name to display, else "".
+func CleanLabel(s string) string {
+	if labelRE.MatchString(s) {
+		return s
+	}
+	return ""
 }
 
 type flow struct {
@@ -104,6 +116,7 @@ func random(n int) string {
 // StartLogin returns the provider URL. invite is optional (invite acceptance).
 func (s *Service) StartLogin(invite string, cli CLIParams) (string, error) {
 	// An invite acceptance may come without a CLI (the invitee logs in later with `ku login`).
+	cli.Profile = CleanLabel(cli.Profile)
 	noCLI := invite != "" && cli == CLIParams{}
 	if !noCLI && (cli.Port < 1024 || cli.Port > 65535 || len(cli.Challenge) != 43 || cli.State == "" || len(cli.State) > 128) {
 		return "", ErrLogin
@@ -118,6 +131,7 @@ type Pending struct {
 	Token       string
 	PrincipalID uuid.UUID
 	Mode        string
+	Profile     string // CLI profile name to display, if the CLI sent one
 }
 
 // Callback handles the provider redirect. Only an invited email or an existing identity gets through.
@@ -170,7 +184,7 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		if err != nil {
 			return err
 		}
-		out = Pending{iss.Raw, pid, mode}
+		out = Pending{iss.Raw, pid, mode, f.cli.Profile}
 		s.pending.Put(iss.ID.String(), pendingData{cli: f.cli})
 		return nil
 	})

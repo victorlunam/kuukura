@@ -185,7 +185,7 @@ func (a *app) cmdLogin(args []string) int {
 		_ = srv.Shutdown(ctx)
 	}()
 
-	q := url.Values{"cli_port": {strconv.Itoa(port)}, "cli_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "cli_state": {state}}
+	q := url.Values{"cli_port": {strconv.Itoa(port)}, "cli_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "cli_state": {state}, "cli_profile": {pr.name}}
 	loginURL := pr.url + "/auth/login?" + q.Encode()
 	a.say("Opening your browser to sign in...")
 	if err := a.openURL(loginURL); err != nil {

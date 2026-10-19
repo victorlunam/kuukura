@@ -50,7 +50,7 @@ func art(name string) template.HTML {
 type pageData struct {
 	Title, Mode, Token, ID, Nonce string
 	Link, Email, Detail           string
-	Host, Origin                  string
+	Label, Origin                 string
 	Step                          int
 	Hint                          bool // show the `ku login` command on a result page
 	Art, ArtDone                  template.HTML
@@ -65,7 +65,12 @@ func (s *Server) page(c echo.Context, status int, d pageData) error {
 	d.Nonce = base64.RawURLEncoding.EncodeToString(n)
 	d.CSS, d.JS, d.Sprite, d.Mark = pageCSS, pageJS, pageSprite, pageMark
 	d.Origin = s.BaseURL
-	d.Host = strings.TrimPrefix(strings.TrimPrefix(s.BaseURL, "https://"), "http://")
+	if d.Label == "" { // the CLI's profile name when it sent one, else the instance name, else the host
+		d.Label = s.Name
+	}
+	if d.Label == "" {
+		d.Label = strings.TrimPrefix(strings.TrimPrefix(s.BaseURL, "https://"), "http://")
+	}
 	if d.Mode == "stepup" {
 		d.ArtDone = art("done")
 	}
@@ -89,13 +94,13 @@ func (s *Server) donePage(c echo.Context) error {
 
 func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
 	if p.Mode == "enroll" {
-		return s.page(c, http.StatusOK, pageData{Title: "Secure your account", Mode: "enroll", Token: p.Token, Art: art("passkey"), Step: 2})
+		return s.page(c, http.StatusOK, pageData{Title: "Secure your account", Mode: "enroll", Token: p.Token, Art: art("passkey"), Step: 2, Label: p.Profile})
 	}
-	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "mfa", Token: p.Token, Art: art("shield")})
+	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "mfa", Token: p.Token, Art: art("shield"), Label: p.Profile})
 }
 
 func (s *Server) stepUpPage(c echo.Context) error {
-	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "stepup", ID: c.QueryParam("id"), Art: art("confirm")})
+	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "stepup", ID: c.QueryParam("id"), Art: art("confirm"), Label: auth.CleanLabel(c.QueryParam("profile"))})
 }
 
 func (s *Server) invitePage(c echo.Context) error {

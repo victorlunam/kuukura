@@ -60,7 +60,7 @@ func (a *app) stepUp(c *client, purpose, subject string) (string, error) {
 		ID  string `json:"id"`
 		URL string `json:"url"`
 	}
-	if err := c.call("POST", "/auth/stepup", map[string]string{"purpose": purpose, "subject": subject}, &r); err != nil {
+	if err := c.call("POST", "/auth/stepup", map[string]string{"purpose": purpose, "subject": subject, "profile": c.profile}, &r); err != nil {
 		return "", err
 	}
 	fmt.Fprint(a.err, "Confirm with Touch ID...")
