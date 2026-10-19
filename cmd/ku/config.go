@@ -29,7 +29,8 @@ type link struct {
 	Profile string `json:"profile,omitempty"`
 }
 
-var profileRE = regexp.MustCompile(`^[a-z0-9._-]{1,32}$`)
+// A profile name starts with a letter or digit, so it can never be "." or ".." (it is also a file name).
+var profileRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}$`)
 
 func (a *app) loadConfig() (configFile, error) {
 	var c configFile

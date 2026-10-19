@@ -2,14 +2,37 @@
 
 package main
 
-import "errors"
+import (
+	"errors"
 
-type noKeychain struct{}
+	"github.com/zalando/go-keyring"
+)
 
-func newKeychain() tokenStore { return noKeychain{} }
+// The system keychain on Windows (Credential Manager) and Linux (Secret Service: GNOME Keyring, KWallet).
+// Pure Go, no cgo. Where there is none (a headless server, a container), Set/Get return an error and the
+// sessionStore falls back to a private file.
+type keyringStore struct{}
 
-var errNoKeychain = errors.New("the Keychain is only available on macOS. In CI set KU_URL and KU_TOKEN")
+func newSystemStore() tokenStore { return keyringStore{} }
 
-func (noKeychain) Get(string) (string, error) { return "", errNoToken }
-func (noKeychain) Set(string, string) error   { return errNoKeychain }
-func (noKeychain) Delete(string) error        { return nil }
+const keyringService = "kuukura"
+
+func (keyringStore) Get(profile string) (string, error) {
+	tok, err := keyring.Get(keyringService, profile)
+	if errors.Is(err, keyring.ErrNotFound) {
+		return "", errNoToken
+	}
+	return tok, err
+}
+
+func (keyringStore) Set(profile, token string) error {
+	return keyring.Set(keyringService, profile, token)
+}
+
+func (keyringStore) Delete(profile string) error {
+	err := keyring.Delete(keyringService, profile)
+	if errors.Is(err, keyring.ErrNotFound) {
+		return nil
+	}
+	return err
+}

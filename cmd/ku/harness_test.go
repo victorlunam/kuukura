@@ -94,6 +94,7 @@ type world struct {
 	mu      sync.Mutex
 
 	totpSecrets map[string]string // authenticator-app secrets by principal email (users enrolled with TOTP only)
+	altStore    tokenStore        // a test can swap the in-memory Keychain for the real session store
 	skew        time.Duration
 }
 
@@ -350,7 +351,7 @@ func (w *world) ku(stdin string, tty bool, env map[string]string, args ...string
 	var out, errb bytes.Buffer
 	a := &app{
 		in: strings.NewReader(stdin), out: &out, err: &errb,
-		getenv: func(k string) string { return env[k] }, store: w.store,
+		getenv: func(k string) string { return env[k] }, store: w.sessionStore(),
 		http: &http.Client{Transport: w.srv.Client().Transport, Timeout: 20 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		openURL: w.browser, isTTY: tty, home: w.home, cwd: w.home, poll: 5 * time.Millisecond,
@@ -381,5 +382,12 @@ func (w *world) loginAs(token string) {
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 var _ = filepath.Join
+
+func (w *world) sessionStore() tokenStore {
+	if w.altStore != nil {
+		return w.altStore
+	}
+	return w.store
+}
 
 func readFile(p string) (string, error) { b, err := os.ReadFile(p); return string(b), err }

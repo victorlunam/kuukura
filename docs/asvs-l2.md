@@ -26,7 +26,7 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 | | Recovery code storage | SHA-256 of an 80-bit random code | `auth/factors.go` | Met |
 | V7 Session management | Token generation/storage | 256-bit random `ku_` tokens, only SHA-256 stored, constant-time compare | `auth/tokens.go`, `TestTokenLifecycle` | Met |
 | | Timeouts, logout, revocation | 8 h absolute, 1 h idle (server-enforced), logout and disable revoke; machine keys ~90 d | `auth/tokens_test.go`, `TestWorkspaceAdminAndMachines` | Met |
-| | Client storage | macOS Keychain, this-device-only, never config files (default login keychain; data protection keychain needs signed entitlements) | `cmd/ku/keychain_darwin.go` | Partial |
+| | Client storage | System keychain first (macOS Keychain, Windows Credential Manager, Linux Secret Service); only when there is none, a private file (0600, never config.toml, never both places). Sessions last 8 h, revocable on the server | `cmd/ku/store.go`, `store_test.go`, `docs/install.md` | Partial (the file fallback is not encrypted; macOS uses the login keychain, not the data protection keychain, which needs a signed binary) |
 | V8 Authorization | Deny by default, least privilege | Grants (`read`/`write` on tag sets) only; admin role gives no secret access; machine = own grants AND owner's | `access/`, tests | Met |
 | | Step-up for sensitive actions | Passkey with user verification; single-use, 60 s, bound to principal/purpose/selector; machines never | `auth/login_test.go`, `TestTouchIDGates` | Met |
 | V9 Self-contained tokens | | Tokens are opaque, not JWTs | | N/A |

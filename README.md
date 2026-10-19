@@ -15,6 +15,7 @@ ku link shop && ku run env:dev -- npm run dev
 ```
 
 - Deploy with Docker: [docs/deploy.md](docs/deploy.md) (Docker Compose, Dokploy, Swarm/Portainer; published image, nothing built on your server)
+- Install the CLI on macOS, Linux or Windows, and where the session is kept: [docs/install.md](docs/install.md)
 - Local test with real Google login and Touch ID: [docs/local-testing.md](docs/local-testing.md)
 - API: [docs/api.md](docs/api.md)
 - Key rotation drill: [docs/runbook-key-rotation-drill.md](docs/runbook-key-rotation-drill.md)

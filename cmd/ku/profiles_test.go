@@ -17,6 +17,21 @@ func testApp(t *testing.T, env map[string]string) (*app, *memStore, *strings.Bui
 	return a, st, &out
 }
 
+// A profile name is also a file name, so these must never be accepted.
+func TestProfileNamesCannotBeAPath(t *testing.T) {
+	a, _, _ := testApp(t, nil)
+	for _, bad := range []string{".", "..", ".hidden", "-x", "a/b", `a\b`, "A", "a b", ""} {
+		if a.cmdProfile([]string{"add", bad, "--url", "https://x.example.test"}) == 0 {
+			t.Fatalf("profile %q must be rejected", bad)
+		}
+	}
+	for _, ok := range []string{"work", "some_name", "a.b-c", "0shop"} {
+		if a.cmdProfile([]string{"add", ok, "--url", "https://x.example.test"}) != 0 {
+			t.Fatalf("profile %q must be accepted", ok)
+		}
+	}
+}
+
 func TestConfigDirHonorsXDG(t *testing.T) {
 	env := map[string]string{}
 	a, _, _ := testApp(t, env)
@@ -144,6 +159,42 @@ func TestProfileCommandsAndKeychain(t *testing.T) {
 	if strings.Contains(b, "ku_tok") {
 		t.Fatal("token in config")
 	}
+}
+
+// On a machine without a keychain (a server, a container, WSL) the whole flow still works: login saves the session
+// to a private file, commands read it, and removing the profile deletes it. The token never enters config.toml.
+func TestLoginWithoutAKeychainUsesAPrivateFile(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		w := newWorld(t, p)
+		w.admin()
+		cfg := filepath.Join(w.home, ".config", "kuukura")
+		var warned []string
+		w.altStore = newSessionStore(nil, cfg, func(m string) { warned = append(warned, m) })
+
+		mustOK(t, w.ku("", false, nil, "profile", "add", "default", "--url", w.srv.URL))
+		r := w.ku("", false, nil, "login")
+		if r.code != 0 || !strings.Contains(r.out, "✓ Signed in to default") {
+			t.Fatalf("login: %q %q", r.out, r.errOut)
+		}
+		file := filepath.Join(cfg, "sessions", "default")
+		tok, err := readFile(file)
+		if err != nil || !strings.HasPrefix(tok, "ku_") {
+			t.Fatalf("the session must be in the private file: %v", err)
+		}
+		if len(warned) != 1 || !strings.Contains(warned[0], file) {
+			t.Fatalf("one warning naming the file: %v", warned)
+		}
+		if conf, _ := readFile(filepath.Join(cfg, "config.toml")); strings.Contains(conf, tok) {
+			t.Fatal("the token must never be in config.toml")
+		}
+		if r := w.ku("", false, nil, "secret", "list"); r.code != 0 {
+			t.Fatalf("commands read the session from the file: %q", r.errOut)
+		}
+		mustOK(t, w.ku("", false, nil, "profile", "remove", "default"))
+		if _, err := readFile(file); err == nil {
+			t.Fatal("removing the profile must delete its session file")
+		}
+	})
 }
 
 func TestLoginFlow(t *testing.T) {

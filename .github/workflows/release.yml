@@ -47,11 +47,14 @@ jobs:
     strategy:
       matrix:
         include:
-          # the CLI needs cgo on macOS (Keychain), so it is built on a mac runner
-          - { os: macos-14, goos: darwin, goarch: arm64 }
-          - { os: macos-13, goos: darwin, goarch: amd64 }
-          - { os: ubuntu-latest, goos: linux, goarch: amd64 }
-          - { os: ubuntu-latest, goos: linux, goarch: arm64 }
+          # macOS needs cgo (the Keychain), so it is built on a mac runner (clang builds both architectures).
+          # Linux and Windows are pure Go (Secret Service / Credential Manager without cgo) and cross-build anywhere.
+          - { os: macos-latest, goos: darwin, goarch: arm64, cgo: "1" }
+          - { os: macos-latest, goos: darwin, goarch: amd64, cgo: "1" }
+          - { os: ubuntu-latest, goos: linux, goarch: amd64, cgo: "0" }
+          - { os: ubuntu-latest, goos: linux, goarch: arm64, cgo: "0" }
+          - { os: ubuntu-latest, goos: windows, goarch: amd64, cgo: "0" }
+          - { os: ubuntu-latest, goos: windows, goarch: arm64, cgo: "0" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -63,15 +66,25 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
           full="${GITHUB_REF_NAME#v}"
+          ext=""; [ "$GOOS" = "windows" ] && ext=".exe"
           mkdir -p out
-          go build -trimpath -ldflags "-s -w -X main.version=$full" -o out/kuukura ./cmd/ku
-          tar -C out -czf "kuukura_${full}_${GOOS}_${GOARCH}.tar.gz" kuukura
+          go build -trimpath -ldflags "-s -w -X main.version=$full" -o "out/kuukura$ext" ./cmd/ku
+          cp "out/kuukura$ext" "out/ku$ext"   # the documented short name
+          if [ "$GOOS" = "windows" ]; then
+            (cd out && zip -q "../kuukura_${full}_${GOOS}_${GOARCH}.zip" "kuukura$ext" "ku$ext")
+          else
+            tar -C out -czf "kuukura_${full}_${GOOS}_${GOARCH}.tar.gz" kuukura ku
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: kuukura_*.tar.gz
+          path: |
+            kuukura_*.tar.gz
+            kuukura_*.zip
+          if-no-files-found: error
 
   publish:
     needs: [image, cli]
@@ -81,10 +94,11 @@ jobs:
         with:
           pattern: cli-*
           merge-multiple: true
-      - run: sha256sum kuukura_*.tar.gz > checksums.txt
+      - run: sha256sum kuukura_*.tar.gz kuukura_*.zip > checksums.txt
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             kuukura_*.tar.gz
+            kuukura_*.zip
             checksums.txt
           generate_release_notes: true

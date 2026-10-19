@@ -10,7 +10,7 @@ import (
 // to another device. Tokens are never written to config files.
 type keychainStore struct{}
 
-func newKeychain() tokenStore { return keychainStore{} }
+func newSystemStore() tokenStore { return keychainStore{} }
 
 const keychainService = "kuukura"
 

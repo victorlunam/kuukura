@@ -37,30 +37,50 @@ func main() {
 	cwd, _ := os.Getwd()
 	a := &app{
 		in: os.Stdin, out: os.Stdout, err: os.Stderr, getenv: os.Getenv,
-		store: newKeychain(),
 		http: &http.Client{Timeout: 30 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, // a token never follows a redirect
 		openURL: openBrowser, isTTY: isTerminal(os.Stdin), home: home, cwd: cwd, poll: time.Second,
 	}
+	// the system keychain first; a private file only where there is none
+	a.store = newSessionStore(newSystemStore(), a.configDir(), func(m string) { a.say("%s", m) })
 	a.readSecret = a.promptHidden
 	os.Exit(a.run(os.Args[1:]))
 }
 
-func openBrowser(url string) error {
-	name := "xdg-open"
-	if runtime.GOOS == "darwin" {
-		name = "open"
+// openCommand is the program that opens a URL in the default browser on each OS.
+func openCommand(goos, url string) (string, []string) {
+	switch goos {
+	case "darwin":
+		return "open", []string{url}
+	case "windows":
+		// not `cmd /c start`: the shell would treat & in the URL as a command separator
+		return "rundll32", []string{"url.dll,FileProtocolHandler", url}
+	default:
+		return "xdg-open", []string{url}
 	}
-	return exec.Command(name, url).Start() // #nosec G204 -- fixed binary, URL is one argument
 }
 
-// configDir is ~/.config/kuukura, or $XDG_CONFIG_HOME/kuukura when that is set. Use XDG_CONFIG_HOME to keep a
-// separate configuration (for tests); do not change HOME, because the macOS Keychain lives under it.
-func (a *app) configDir() string {
-	if x := a.getenv("XDG_CONFIG_HOME"); x != "" && filepath.IsAbs(x) {
-		return filepath.Join(x, "kuukura")
+func openBrowser(url string) error {
+	name, args := openCommand(runtime.GOOS, url)
+	return exec.Command(name, args...).Start() // #nosec G204 -- fixed binary per OS, the URL is one argument
+}
+
+// configRoot is where the per-user configuration lives: $XDG_CONFIG_HOME when set, %AppData% on Windows,
+// ~/.config elsewhere (macOS included, as the spec says).
+func configRoot(goos, home, xdg, appData string) string {
+	switch {
+	case xdg != "" && filepath.IsAbs(xdg):
+		return xdg
+	case goos == "windows" && appData != "":
+		return appData
 	}
-	return filepath.Join(a.home, ".config", "kuukura")
+	return filepath.Join(home, ".config")
+}
+
+// configDir is <config root>/kuukura. Use XDG_CONFIG_HOME to keep a separate configuration (for tests); do not
+// change HOME, because the macOS Keychain lives under it.
+func (a *app) configDir() string {
+	return filepath.Join(configRoot(runtime.GOOS, a.home, a.getenv("XDG_CONFIG_HOME"), a.getenv("APPDATA")), "kuukura")
 }
 
 // say prints a status line to stderr so stdout stays clean for values and pipes.
