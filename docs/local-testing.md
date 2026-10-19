@@ -25,6 +25,11 @@ WebAuthn works on `localhost` without HTTPS, so you can exercise the full login 
 
 The CLI accepts `http://` server URLs only for `localhost`, `127.0.0.1` and `::1`.
 
+**macOS asks for your keychain password ("ku wants to access key ...")?** That is the Keychain protecting the saved
+session. It ties each item to the program that created it, and a CLI you just built is a different, unsigned program
+every time you rebuild it. Choose **Always Allow** once per build. A release binary signed with a Developer ID keeps its
+identity across versions, so it asks once and then stops (signing the macOS release is still to do).
+
 To try the CLI with a throwaway configuration, set `XDG_CONFIG_HOME` (for example `export XDG_CONFIG_HOME=/tmp/ku-test`).
 Do not change `HOME`: the macOS Keychain lives under it, and the CLI would fail to store the session
 ("A keychain cannot be found to store ...").
