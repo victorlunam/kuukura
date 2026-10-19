@@ -141,7 +141,7 @@ h1 { font-size: 1.6rem; line-height: 1.2; letter-spacing: -.025em; margin: 10px 
 .btn.ghost:hover:not([disabled]) { background: var(--soft-2); }
 .btn.google { background: #fff; color: #1f2937; border-color: #dadce0; }
 .btn.google:hover { background: #f8f9fa; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
-.btn.small { min-height: 38px; padding: 8px 12px; font-size: .9rem; border-radius: 11px; width: auto; }
+.btn.small { min-height: 38px; padding: 8px 12px; font-size: .9rem; border-radius: 11px; width: auto; white-space: nowrap; }
 .btn.small svg { width: 17px; height: 17px; }
 
 .or { display: flex; align-items: center; gap: 12px; margin: 18px 0 6px; color: var(--muted); font-size: .82rem; }
@@ -170,7 +170,9 @@ input.code { text-align: center; font-size: 1.5rem; letter-spacing: .5em; text-i
 .panel { border: 1px solid var(--line); background: var(--soft-2); border-radius: 14px; padding: 14px; margin: 14px 0; }
 .qr { display: grid; place-items: center; background: #fff; border-radius: 12px; padding: 10px; width: 178px; height: 178px; margin: 0 auto 12px; }
 .qr svg { width: 100%; height: 100%; display: block; }
-.secret { display: flex; align-items: center; gap: 8px; justify-content: space-between; font: 500 .85rem var(--mono); word-break: break-all; }
+.secret { display: flex; align-items: center; gap: 10px; justify-content: space-between; font: 500 .85rem var(--mono); }
+.secret code { flex: 1 1 auto; min-width: 0; word-break: break-all; line-height: 1.45; }
+.secret .btn { flex: none; white-space: nowrap; }
 .codes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; padding: 0; list-style: none; counter-reset: c; }
 .codes li { font: 600 .8rem var(--mono); background: var(--soft-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 4px; text-align: center; white-space: nowrap; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -180,7 +182,7 @@ input.code { text-align: center; font-size: 1.5rem; letter-spacing: .5em; text-i
 .check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--acc); flex: none; }
 .term { display: flex; align-items: center; gap: 10px; background: #0b1220; color: #e7edf6; border-radius: 13px; padding: 12px 14px; font: 500 .95rem var(--mono); }
 .term svg { width: 18px; height: 18px; color: var(--amber); flex: none; }
-.term code { flex: 1; word-break: break-all; font-size: .88rem; }
+.term code { flex: 1; min-width: 0; overflow-wrap: anywhere; word-break: normal; font-size: .88rem; line-height: 1.5; } /* wrap at spaces first, inside a word only as a last resort */
 .term + .term { margin-top: 8px; }
 .term button { background: transparent; border: 0; color: #aab6c8; cursor: pointer; padding: 4px; border-radius: 8px; display: grid; }
 .term button:hover { color: #fff; }

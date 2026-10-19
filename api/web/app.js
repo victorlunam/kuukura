@@ -123,6 +123,8 @@
       $('#sec').textContent = j.secret;
       if (j.qr) $('#qr').innerHTML = j.qr; // server-generated SVG of the otpauth URL
       $('#tf').hidden = false;
+      $('#setup h1').textContent = 'Set up your authenticator app';
+      $('#setup .lead').hidden = true;
       tb.hidden = true;
       pk.hidden = true;
       document.querySelector('.or').hidden = true;
