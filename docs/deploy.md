@@ -124,7 +124,8 @@ Lost every second factor? Run the same command for that admin's email: it issues
 ## 6. Using it
 
 ```sh
-ku login --url https://vault.example.com     # creates profile "default"
+ku profile add work --url https://vault.example.com   # the profile holds the server URL
+ku login                                              # signs in to the active profile
 ku secret set DATABASE_URL app:shop          # value from a hidden prompt
 ku workspace grant dev@example.com write app:shop
 ku link shop && ku run env:dev -- npm run dev

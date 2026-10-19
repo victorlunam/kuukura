@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b1220">
+<title>{{.Title}} · kuukura</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style nonce="{{.Nonce}}">{{.CSS}}</style>
+</head>
+<body data-mode="{{.Mode}}" data-t="{{.Token}}" data-id="{{.ID}}">
+{{.Sprite}}
+<main class="card">
+  <div class="brand">{{.Mark}}<span>kuukura</span>{{if .Host}}<small>{{.Host}}</small>{{end}}</div>
+  {{if .Step}}<div class="steps" role="img" aria-label="Step {{.Step}} of 3"><i class="on"></i><i{{if ge .Step 2}} class="on"{{end}}></i><i{{if ge .Step 3}} class="on"{{end}}></i></div>{{end}}
+  <div class="ill" id="ill">{{.Art}}</div>
+
+  {{if eq .Mode "invite"}}
+  <h1>You're invited</h1>
+  <p class="lead">Your team set up a vault for you. Sign in with the Google account for <b>{{.Email}}</b> to join.</p>
+  <a class="btn google" href="{{.Link}}"><svg aria-hidden="true"><use href="#i-google"/></svg>Continue with Google</a>
+  <p class="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>This invite works once and is tied to that email. Next you will add a passkey to protect your account.</span></p>
+
+  {{else if eq .Mode "mfa"}}
+  <h1>Confirm it's you</h1>
+  <p class="lead">One more step to finish signing in.</p>
+  <div id="mfa">
+    <button class="btn primary" id="pk" type="button"><svg aria-hidden="true"><use href="#i-fingerprint"/></svg>Use your passkey</button>
+    <div class="or">or</div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-totp" aria-selected="true">Authenticator code</button>
+      <button type="button" role="tab" id="tab-rec" aria-selected="false">Recovery code</button>
+    </div>
+    <form id="f-totp" autocomplete="off">
+      <label for="totp">6-digit code from your authenticator app</label>
+      <input class="code" id="totp" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-describedby="m">
+      <button class="btn ghost" type="submit">Verify</button>
+    </form>
+    <form id="f-rec" autocomplete="off" hidden>
+      <label for="rec">One of your recovery codes</label>
+      <input id="rec" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" aria-describedby="m">
+      <button class="btn ghost" type="submit">Use recovery code</button>
+    </form>
+  </div>
+
+  {{else if eq .Mode "enroll"}}
+  <div id="setup">
+    <h1>Secure your account</h1>
+    <p class="lead">Add a passkey so only you can sign in: Touch ID, Face ID, Windows Hello or a security key.</p>
+    <button class="btn primary" id="pk" type="button"><svg aria-hidden="true"><use href="#i-fingerprint"/></svg>Add a passkey</button>
+    <div class="or">or</div>
+    <button class="btn ghost" id="tb" type="button"><svg aria-hidden="true"><use href="#i-phone"/></svg>Use an authenticator app</button>
+    <form id="tf" autocomplete="off" hidden>
+      <div class="panel">
+        <div class="qr" id="qr" role="img" aria-label="QR code for your authenticator app"></div>
+        <div class="secret"><code id="sec"></code><button class="btn ghost small" type="button" data-copy="#sec"><svg aria-hidden="true"><use href="#i-copy"/></svg>Copy</button></div>
+        <p class="hint">Scan the code or enter the key in your authenticator app, then type the 6-digit code it shows.</p>
+      </div>
+      <label for="totp">6-digit code</label>
+      <input class="code" id="totp" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-describedby="m">
+      <button class="btn primary" type="submit">Confirm and finish</button>
+    </form>
+  </div>
+  <div id="rc" hidden>
+    <h1>Save your recovery codes</h1>
+    <p class="lead">If you lose your passkey, each code lets you in once. They are <b>not shown again</b>.</p>
+    <ul class="codes" id="codes"></ul>
+    <div class="row">
+      <button class="btn ghost small" type="button" id="copy-codes"><svg aria-hidden="true"><use href="#i-copy"/></svg>Copy</button>
+      <button class="btn ghost small" type="button" id="dl-codes"><svg aria-hidden="true"><use href="#i-download"/></svg>Download</button>
+    </div>
+    <label class="check"><input type="checkbox" id="saved"><span>I saved these codes somewhere safe</span></label>
+    <button class="btn primary" id="go" type="button" disabled>Continue</button>
+  </div>
+
+  {{else if eq .Mode "stepup"}}
+  <div id="ask">
+    <h1>Confirm it's you</h1>
+    <p class="lead">A command in your terminal is asking for a confirmation. Approve it with your passkey.</p>
+    <button class="btn primary" id="pk" type="button"><svg aria-hidden="true"><use href="#i-fingerprint"/></svg>Confirm with Touch ID</button>
+  </div>
+  <template id="art-done">{{.ArtDone}}</template>
+  <div id="okay" hidden>
+    <h1>Confirmed</h1>
+    <p class="lead"><span class="ok-badge"><svg aria-hidden="true"><use href="#i-check"/></svg>Done.</span> You can close this tab and go back to your terminal.</p>
+  </div>
+
+  {{else if eq .Mode "done"}}
+  <h1>You're all set</h1>
+  <p class="lead">Your account is ready. Sign in from your terminal:</p>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd">ku login</code><button type="button" data-copy="#cmd" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>On a new machine, add this server first:<br><code>ku profile add work --url {{.Origin}}</code></span></p>
+
+  {{else}}
+  <h1>{{.Title}}</h1>
+  <p class="lead">{{.Detail}}</p>
+  {{if .Hint}}<div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd">ku login</code><button type="button" data-copy="#cmd" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>{{end}}
+  {{end}}
+
+  <p class="msg" id="m" role="alert" hidden></p>
+</main>
+<footer>A <b>self-hosted</b> secrets vault. Values are decrypted only on this server.</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script nonce="{{.Nonce}}">{{.JS}}</script>
+</body>
+</html>

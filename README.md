@@ -1,10 +1,15 @@
+<p align="center">
+  <img src="api/web/assets/banner.svg" alt="kuukura: secrets for your team, self-hosted" width="720">
+</p>
+
 # kuukura
 
 Self-hosted secrets vault for one organization. Server `ku-server`, CLI `kuukura` (alias `ku`).
 Decryption happens only on the server; the CLI is a secure channel. Values are never accepted as CLI arguments.
 
 ```sh
-ku login --url https://vault.example.com
+ku profile add work --url https://vault.example.com
+ku login
 ku secret set DATABASE_URL app:shop      # hidden prompt
 ku link shop && ku run env:dev -- npm run dev
 ```

@@ -16,7 +16,8 @@ WebAuthn works on `localhost` without HTTPS, so you can exercise the full login 
    ```
 3. Register a passkey in the browser (Touch ID on macOS), then in a terminal:
    ```sh
-   ku login --url http://localhost:8080
+   ku profile add local --url http://localhost:8080
+   ku login
    ku secret set DEMO_KEY app:demo                   # hidden prompt
    ku secret get DEMO_KEY --reveal                   # opens the browser: confirm with Touch ID
    ```

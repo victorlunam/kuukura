@@ -76,6 +76,8 @@ func (s *Server) routes() {
 	ip := func(c echo.Context) string { return c.RealIP() }
 	pub := s.limit(s.public, ip)
 	e.GET("/healthz", s.healthz)
+	e.GET("/favicon.svg", s.asset) // brand assets are static and public (no rate limit: pages load several)
+	e.GET("/assets/:name", s.asset)
 
 	// browser pages and the login flow (unauthenticated, 10/min per IP)
 	e.GET("/invite", s.invitePage, s.httpsOnly, pub)

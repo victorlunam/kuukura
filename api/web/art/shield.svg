@@ -1,0 +1,10 @@
+<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A shield with a keyhole">
+  <ellipse class="f-soft" cx="120" cy="138" rx="58" ry="7"/>
+  <circle class="f-soft" cx="120" cy="72" r="60"/>
+  <path class="f-card s-ink" d="M120 20l42 15v34c0 28-17 48-42 58-25-10-42-30-42-58V35z" stroke-width="3" stroke-linejoin="round"/>
+  <circle class="f-ink" cx="120" cy="64" r="9"/>
+  <path class="s-ink" d="M120 70v22" stroke-width="6" stroke-linecap="round"/>
+  <path class="f-amber" d="M190 34l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
+  <circle class="f-acc" cx="52" cy="46" r="3"/>
+  <circle class="f-acc" cx="196" cy="100" r="2.4"/>
+</svg>

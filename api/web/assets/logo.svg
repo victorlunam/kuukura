@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 64" fill="none" role="img" aria-label="kuukura">
+  <style>
+    .word { fill: #0B1220 }
+    @media (prefers-color-scheme: dark) { .word { fill: #EEF2F7 } }
+  </style>
+  <rect width="64" height="64" rx="16" fill="#0B1220"/>
+  <rect x=".75" y=".75" width="62.5" height="62.5" rx="15.25" stroke="#fff" stroke-opacity=".14" stroke-width="1.5"/>
+  <circle cx="32" cy="32" r="17" stroke="#fff" stroke-width="3.5"/>
+  <circle cx="32" cy="32" r="8.5" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-dasharray="3 4.2"/>
+  <circle cx="32" cy="15" r="3.2" fill="#F5A524"/>
+  <text class="word" x="80" y="43" font-family="ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="34" font-weight="700" letter-spacing="-0.5">kuukura</text>
+</svg>

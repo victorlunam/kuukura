@@ -139,30 +139,14 @@ func (a *app) cmdLink(args []string) int {
 
 // cmdLogin signs in through the browser with a localhost PKCE callback and stores the token in the Keychain.
 func (a *app) cmdLogin(args []string) int {
-	p, err := parseArgs(args, "url", "profile")
+	p, err := parseArgs(args, "profile")
 	if err != nil || len(p.pos) != 0 {
-		return a.fail("Use: ku login [--url <url>]")
+		return a.fail("Use: ku login")
 	}
 	if a.getenv("KU_URL") != "" || a.getenv("KU_TOKEN") != "" {
 		return a.fail("KU_URL and KU_TOKEN are set, so there is nothing to log in to.")
 	}
-	cfg, err := a.loadConfig()
-	if err != nil {
-		return a.fail("%v", err)
-	}
-	if u := p.flags["url"]; u != "" {
-		if len(cfg.Profiles) > 0 {
-			return a.fail("You already have profiles. Add this one with: ku profile add <name> --url %s", u)
-		}
-		clean, err := validateURL(u)
-		if err != nil {
-			return a.fail("%v.", err)
-		}
-		cfg.Profiles["default"], cfg.Active = profileCfg{URL: clean}, "default"
-		if err := a.saveConfig(cfg); err != nil {
-			return a.fail("%v", err)
-		}
-	}
+	// The server URL lives in the profile: add one first with `ku profile add <name> --url <url>`.
 	pr, err := a.resolve(p.flags["profile"])
 	if err != nil {
 		return a.fail("%v.", err)
@@ -185,8 +169,10 @@ func (a *app) cmdLogin(args []string) int {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		fmt.Fprintln(w, "You are signed in. You can close this tab.")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+		w.Header().Set("Cache-Control", "no-store")
+		fmt.Fprint(w, signedInPage)
 		select {
 		case got <- result{r.URL.Query().Get("code")}:
 		default:

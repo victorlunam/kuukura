@@ -1,0 +1,14 @@
+<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A locked vault and an exclamation mark">
+  <ellipse class="f-soft" cx="120" cy="138" rx="78" ry="8"/>
+  <rect class="f-card s-ink" x="64" y="24" width="112" height="104" rx="18" stroke-width="3"/>
+  <circle class="f-soft s-ink" cx="120" cy="76" r="33" stroke-width="3"/>
+  <circle class="s-mut" cx="120" cy="76" r="21" stroke-width="2" stroke-dasharray="3 5"/>
+  <circle class="f-ink" cx="120" cy="56" r="4"/>
+  <rect class="f-ink" x="84" y="126" width="14" height="6" rx="2"/>
+  <rect class="f-ink" x="142" y="126" width="14" height="6" rx="2"/>
+  <circle class="f-amber" cx="170" cy="36" r="17"/>
+  <path d="M170 28v10" stroke="#0B1220" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="170" cy="45" r="2.4" fill="#0B1220"/>
+  <circle class="f-acc" cx="40" cy="60" r="3"/>
+  <circle class="f-acc" cx="208" cy="96" r="2.4"/>
+</svg>

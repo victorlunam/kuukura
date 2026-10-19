@@ -123,7 +123,15 @@ func TestLoginFlow(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		w := newWorld(t, p)
 		w.admin() // enrolled admin with a passkey
-		r := w.ku("", false, nil, "login", "--url", w.srv.URL)
+		// no profile yet: login explains what to do first
+		if r := w.ku("", false, nil, "login"); r.code != 1 || !strings.Contains(r.errOut, "ku profile add <name> --url") {
+			t.Fatalf("login without a profile: %q", r.errOut)
+		}
+		if r := w.ku("", false, nil, "login", "--url", w.srv.URL); r.code != 1 {
+			t.Fatal("login no longer takes --url")
+		}
+		mustOK(t, w.ku("", false, nil, "profile", "add", "default", "--url", w.srv.URL))
+		r := w.ku("", false, nil, "login")
 		if r.code != 0 || !strings.Contains(r.out, "✓ Signed in to default") {
 			t.Fatalf("login: %q %q", r.out, r.errOut)
 		}
@@ -138,10 +146,6 @@ func TestLoginFlow(t *testing.T) {
 		// the session works
 		if r := w.ku("", false, nil, "secret", "list"); r.code != 0 {
 			t.Fatalf("list after login: %q", r.errOut)
-		}
-		// first use created profile "default"; a second --url is refused
-		if r := w.ku("", false, nil, "login", "--url", "https://other.example.test"); r.code != 1 {
-			t.Fatal("second --url must point to profile add")
 		}
 	})
 }

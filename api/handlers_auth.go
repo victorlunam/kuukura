@@ -147,7 +147,11 @@ func (s *Server) enrollTOTPBegin(c echo.Context) error {
 	if err != nil {
 		return errUnauthorized
 	}
-	return c.JSON(http.StatusOK, map[string]string{"secret": secret, "uri": uri})
+	qr, err := qrSVG(uri)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, map[string]string{"secret": secret, "uri": uri, "qr": qr})
 }
 
 func (s *Server) enrollTOTPConfirm(c echo.Context) error {

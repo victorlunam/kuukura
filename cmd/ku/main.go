@@ -66,9 +66,9 @@ func (a *app) fail(format string, args ...any) int {
 
 const usage = `Usage: ku <command>
 
-  login [--url <url>]            sign in
+  profile add|use|list|remove    manage servers (start here: ku profile add <name> --url <url>)
+  login                          sign in to the active profile
   link <app>                     link this folder to an app
-  profile add|use|list|remove    manage servers
   run [name] [tags] -- <cmd>     run a command with secrets
   secret list|set|get|update|revoke|archive
   workspace invite|group|grant|ungrant|remove|audit

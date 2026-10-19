@@ -160,7 +160,7 @@ func (a *app) resolve(flagProfile string) (profile, error) {
 	case cfg.Active != "":
 		return named(cfg.Active)
 	}
-	return profile{}, errors.New("no server yet. Run: ku login --url https://your-server")
+	return profile{}, errors.New("no server yet. Add one first: ku profile add <name> --url https://your-server")
 }
 
 func sortedKeys[V any](m map[string]V) []string {

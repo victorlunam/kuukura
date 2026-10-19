@@ -1,0 +1,14 @@
+<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="An empty vault with its door open">
+  <ellipse class="f-soft" cx="124" cy="136" rx="78" ry="8"/>
+  <rect class="f-card s-ink" x="70" y="26" width="112" height="100" rx="16" stroke-width="3"/>
+  <rect class="f-soft" x="82" y="38" width="88" height="76" rx="9"/>
+  <rect class="s-mut" x="98" y="62" width="56" height="34" rx="6" stroke-width="2" stroke-dasharray="4 5"/>
+  <path class="f-card s-ink" d="M70 34 L40 46 V114 L70 118 Z" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse class="s-ink" cx="55" cy="80" rx="5" ry="11" stroke-width="3"/>
+  <circle class="f-amber" cx="55" cy="80" r="2.4"/>
+  <rect class="f-ink" x="66" y="46" width="8" height="12" rx="2"/>
+  <rect class="f-ink" x="66" y="94" width="8" height="12" rx="2"/>
+  <path class="f-amber" d="M200 30l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
+  <circle class="f-acc" cx="214" cy="68" r="3"/>
+  <circle class="f-acc" cx="26" cy="30" r="2.6"/>
+</svg>

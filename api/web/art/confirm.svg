@@ -1,0 +1,14 @@
+<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A fingerprint asking for confirmation">
+  <circle class="s-acc pulse" cx="120" cy="75" r="68" stroke-width="2" stroke-dasharray="2 8" stroke-linecap="round"/>
+  <circle class="f-soft" cx="120" cy="75" r="54"/>
+  <circle class="f-card s-ink" cx="120" cy="75" r="40" stroke-width="3"/>
+  <g class="s-acc" stroke-width="3.4" stroke-linecap="round" fill="none">
+    <path d="M100 98v-12a20 20 0 0 1 40 0v8"/>
+    <path d="M108 104v-18a12 12 0 0 1 24 0v12"/>
+    <path d="M116 106v-20a4 4 0 0 1 8 0v14"/>
+    <path d="M120 100v12" opacity="0"/>
+    <path d="M92 74a28 28 0 0 1 56 0"/>
+  </g>
+  <path class="f-amber" d="M196 34l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
+  <circle class="f-acc" cx="46" cy="44" r="3"/>
+</svg>
