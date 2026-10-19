@@ -35,7 +35,7 @@ func (s *Server) callback(c echo.Context) error {
 	if err != nil {
 		reason, detail := auth.LoginReason(err)
 		s.log.Warn("login denied", "id", requestID(c), "reason", reason, "detail", detail) // codes only, no user data
-		return s.failPage(c)
+		return s.loginFailedPage(c, reason, auth.LoginEmail(err))
 	}
 	return s.factorPage(c, p)
 }

@@ -96,6 +96,7 @@
 
   {{else}}
   <h1>{{.Title}}</h1>
+  {{if .Email}}<p class="lead">You signed in with <b>{{.Email}}</b>.</p>{{end}}
   <p class="lead">{{.Detail}}</p>
   {{if .Hint}}<div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd">ku login</code><button type="button" data-copy="#cmd" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>{{end}}
   {{end}}

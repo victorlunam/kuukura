@@ -88,6 +88,24 @@ func (s *Server) failPage(c echo.Context) error {
 	})
 }
 
+// loginFailedPage explains the two failures that are about the Google account the person just chose (it is shown
+// only back to them, so it reveals nothing about anyone else); every other reason stays generic.
+func (s *Server) loginFailedPage(c echo.Context, reason, email string) error {
+	switch reason {
+	case "no_identity_for_this_google_account":
+		return s.page(c, http.StatusUnauthorized, pageData{
+			Title: "This Google account has no access", Mode: "fail", Art: art("alert"), Hint: true, Email: email,
+			Detail: "This vault is invite-only and that account has not been invited. Sign in with the Google account that was invited, or ask your admin to invite it.",
+		})
+	case "invite_email_mismatch":
+		return s.page(c, http.StatusUnauthorized, pageData{
+			Title: "Wrong Google account for this invite", Mode: "fail", Art: art("alert"), Email: email,
+			Detail: "This invite belongs to a different Google account. Open the invite link again and choose the account it was sent to. The invite is still valid.",
+		})
+	}
+	return s.failPage(c)
+}
+
 func (s *Server) donePage(c echo.Context) error {
 	return s.page(c, http.StatusOK, pageData{Title: "You're all set", Mode: "done", Art: art("done"), Step: 3,
 		Suggest: s.suggestProfile(auth.CleanLabel(c.QueryParam("profile")))})

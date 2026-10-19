@@ -40,8 +40,9 @@ func TestLoginDenialReasons(t *testing.T) {
 			t.Fatalf("exchange: %v", err)
 		}
 		// a Google account that was never invited
-		if _, err := e.callbackFor(start(""), good); reason(err) != "no_identity_for_this_google_account" {
-			t.Fatalf("not invited: %v", err)
+		_, err := e.callbackFor(start(""), good)
+		if reason(err) != "no_identity_for_this_google_account" || auth.LoginEmail(err) != "ok@example.test" {
+			t.Fatalf("not invited: %v (email %q)", err, auth.LoginEmail(err))
 		}
 		if _, err := e.callbackFor(start(""), auth.Identity{Subject: "s", Email: "x@example.test"}); reason(err) != "email_not_verified" {
 			t.Fatalf("unverified: %v", err)
