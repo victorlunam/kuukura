@@ -441,6 +441,15 @@ type stepUp struct {
 	grantedAt        time.Time
 }
 
+// ErrStepUpGone: the confirmation request is unknown, expired, or lost in a server restart. It is still an
+// ErrLogin for callers that only care that nothing was confirmed; the pages use it to say "run it again".
+var ErrStepUpGone error = &stepUpGone{}
+
+type stepUpGone struct{}
+
+func (*stepUpGone) Error() string        { return ErrLogin.Error() }
+func (*stepUpGone) Is(target error) bool { return target == ErrLogin }
+
 // ErrNoFactor: the account has no second step set up, so it cannot confirm anything.
 var ErrNoFactor = errors.New("auth: no second factor")
 
@@ -467,7 +476,7 @@ func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject str
 func (s *Service) StepUpMethods(ctx context.Context, id string) (passkey, totp bool, err error) {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
-		return false, false, ErrLogin
+		return false, false, ErrStepUpGone
 	}
 	return s.factorsOf(ctx, s.p.DB(), r.principal)
 }
@@ -476,7 +485,7 @@ func (s *Service) StepUpMethods(ctx context.Context, id string) (passkey, totp b
 func (s *Service) FinishStepUpTOTP(ctx context.Context, id, code string) error {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
-		return ErrLogin
+		return ErrStepUpGone
 	}
 	ok, err := s.consumeTOTP(ctx, r.principal, code)
 	if err != nil {
@@ -493,7 +502,7 @@ func (s *Service) FinishStepUpTOTP(ctx context.Context, id, code string) error {
 func (s *Service) BeginStepUp(ctx context.Context, id string) (*protocol.CredentialAssertion, error) {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
-		return nil, ErrLogin
+		return nil, ErrStepUpGone
 	}
 	return s.beginAssertion(ctx, r.principal, func(sd *webauthn.SessionData) {
 		s.stepUps.Update(id, func(r *stepUp) { r.session = sd })
@@ -503,7 +512,10 @@ func (s *Service) BeginStepUp(ctx context.Context, id string) (*protocol.Credent
 // FinishStepUp verifies the assertion and marks the request granted.
 func (s *Service) FinishStepUp(ctx context.Context, id string, body []byte) error {
 	r, ok := s.stepUps.Peek(id)
-	if !ok || r.session == nil {
+	if !ok {
+		return ErrStepUpGone
+	}
+	if r.session == nil {
 		return ErrLogin
 	}
 	u, stored, err := s.loadUser(ctx, r.principal)

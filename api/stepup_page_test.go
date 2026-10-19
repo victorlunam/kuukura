@@ -51,7 +51,11 @@ func TestConfirmationPageAndMethods(t *testing.T) {
 
 		// a code cannot confirm a request for an account that has no authenticator app, nor an unknown request
 		e.problem(e.do("POST", "/stepup/"+id+"/totp", "", map[string]string{"code": "000000"}), 401, "unauthorized")
-		e.problem(e.do("POST", "/stepup/nope/totp", "", map[string]string{"code": "000000"}), 401, "unauthorized")
+		// a request that is gone (expired, or lost in a server restart) says so, so the page can tell the person to
+		// run the command again instead of offering a retry that cannot work
+		e.problem(e.do("POST", "/stepup/nope/totp", "", map[string]string{"code": "000000"}), 404, "confirmation-expired")
+		e.problem(e.do("POST", "/stepup/nope/begin", "", nil), 404, "confirmation-expired")
+		e.problem(e.do("POST", "/stepup/nope/finish", "", "{}"), 404, "confirmation-expired")
 		if d := e.do("GET", "/auth/stepup/"+id, user, nil); d.json()["done"] == true {
 			t.Fatal("nothing may be confirmed by those attempts")
 		}

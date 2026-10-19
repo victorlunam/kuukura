@@ -26,7 +26,8 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 403 | `forbidden` | not permitted (deny by default; every denial is audited) |
 | 403 | `step-up-required` | a passkey confirmation is needed (see Step-up) |
 | 403 | `second-factor-required` | `POST /auth/stepup` on an account with no passkey and no authenticator app |
-| 404 | `not-found` | nothing matches, or archived |
+| 404 | `not-found` | nothing matches, archived, or a secret the caller may not read (indistinguishable) |
+| 404 | `confirmation-expired` | the confirmation request is unknown, expired, or was lost in a server restart; run the command again |
 | 409 | `needs-confirmation` | `POST /secrets/versions` without `create` and no exact match |
 | 409 | `ambiguous` | several secrets match; `items` lists them |
 | 409 | `blocked` | current version is compromised; `items` names them |

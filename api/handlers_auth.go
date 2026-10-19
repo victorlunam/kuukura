@@ -226,10 +226,20 @@ func (s *Server) stepUpStatus(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]bool{"done": s.Auth.StepUpDone(info(c), c.Param("id"))})
 }
 
+// stepUpErr: a confirmation that no longer exists (expired, or lost when the server restarted) is a 404 the page
+// can explain ("run the command again"); every other failure stays the generic 401.
+func stepUpErr(err error) error {
+	if errors.Is(err, auth.ErrStepUpGone) {
+		return &apiError{http.StatusNotFound, "confirmation-expired", "This confirmation expired",
+			"Run the command in your terminal again to get a new one.", nil, nil}
+	}
+	return errUnauthorized
+}
+
 func (s *Server) stepUpBegin(c echo.Context) error {
 	o, err := s.Auth.BeginStepUp(c.Request().Context(), c.Param("id"))
 	if err != nil {
-		return errUnauthorized
+		return stepUpErr(err)
 	}
 	return c.JSON(http.StatusOK, o)
 }
@@ -241,7 +251,7 @@ func (s *Server) stepUpTOTP(c echo.Context) error {
 		return err
 	}
 	if err := s.Auth.FinishStepUpTOTP(c.Request().Context(), c.Param("id"), r.Code); err != nil {
-		return errUnauthorized
+		return stepUpErr(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -252,7 +262,7 @@ func (s *Server) stepUpFinish(c echo.Context) error {
 		return err
 	}
 	if err := s.Auth.FinishStepUp(c.Request().Context(), c.Param("id"), b); err != nil {
-		return errUnauthorized
+		return stepUpErr(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

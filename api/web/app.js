@@ -26,7 +26,11 @@
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (!r.ok) throw new Error('request failed');
+    if (!r.ok) {
+      const e = new Error('request failed');
+      e.status = r.status;
+      throw e;
+    }
     return r.status === 204 ? {} : r.json();
   }
   // Wrap an action: spinner on the button, friendly error, no details.
@@ -37,6 +41,12 @@
     try {
       await fn();
     } catch (err) {
+      if (err && err.status === 404 && mode === 'stepup') {
+        // the request is gone (it expired, or the server restarted): retrying here cannot work
+        say('This confirmation expired. Run the command in your terminal again to get a new one.');
+        document.querySelectorAll('#ask button, #ask input').forEach((el) => { el.disabled = true; });
+        return;
+      }
       say(err && err.name === 'NotAllowedError' ? 'The confirmation was cancelled or timed out. Try again.' : 'That did not work. Check and try again.');
     } finally {
       busy(btn, false);
