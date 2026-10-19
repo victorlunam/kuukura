@@ -384,11 +384,23 @@ type stepUp struct {
 	grantedAt        time.Time
 }
 
+// ErrNoPasskey: the account has no passkey, so it cannot confirm anything.
+var ErrNoPasskey = errors.New("auth: no passkey")
+
 // StartStepUp opens a step-up request for the caller. Machines can never get one.
 // The returned id is a capability for the browser page and the grant for the API call.
-func (s *Service) StartStepUp(in Info, purpose, subject string) (string, error) {
+func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject string) (string, error) {
 	if in.Machine || !in.HasScope(ScopeWrite) && !in.HasScope(ScopeRead) {
 		return "", ErrLogin
+	}
+	// A confirmation is a passkey assertion. An account with only an authenticator app can sign in but cannot
+	// confirm, so say so now instead of leaving the caller waiting for a page that cannot succeed.
+	var n int
+	if err := s.p.DB().QueryRowContext(ctx, s.p.Rebind(`SELECT COUNT(*) FROM credentials WHERE principal_id = ? AND kind = 'passkey'`), in.PrincipalID).Scan(&n); err != nil {
+		return "", err
+	}
+	if n == 0 {
+		return "", ErrNoPasskey
 	}
 	id := random(32)
 	s.stepUps.Put(id, stepUp{principal: in.PrincipalID, purpose: purpose, subject: subject})

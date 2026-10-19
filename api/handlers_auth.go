@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -186,7 +187,11 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if r.Purpose != purposeReveal && r.Purpose != purposeRun && r.Purpose != purposeAuthorizeOff || r.Subject == "" {
 		return badRequest("Unknown purpose.")
 	}
-	id, err := s.Auth.StartStepUp(info(c), r.Purpose, r.Subject)
+	id, err := s.Auth.StartStepUp(c.Request().Context(), info(c), r.Purpose, r.Subject)
+	if errors.Is(err, auth.ErrNoPasskey) {
+		return &apiError{http.StatusForbidden, "passkey-required", "A passkey is required",
+			"Confirmations use a passkey, and this account only has an authenticator app.", nil, nil}
+	}
 	if err != nil {
 		return errForbidden
 	}

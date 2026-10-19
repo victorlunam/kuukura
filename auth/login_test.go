@@ -241,6 +241,11 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 			t.Fatal("recovery codes are stored hashed")
 		}
 
+		// an account with only an authenticator app can sign in but cannot confirm anything (that needs a passkey)
+		if _, err := e.svc.StartStepUp(ctx, si, "reveal", "A"); !errors.Is(err, auth.ErrNoPasskey) {
+			t.Fatalf("step-up without a passkey: %v", err)
+		}
+
 		// logout invalidates the session
 		if err := e.svc.Logout(ctx, si, "203.0.113.9"); err != nil {
 			t.Fatal(err)
@@ -325,7 +330,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		si := e.info(sess.Raw)
 
 		// step-up: bound to principal, purpose and subject; single use; 60 s
-		id, err := e.svc.StartStepUp(si, "reveal", "STRIPE_KEY env:prod")
+		id, err := e.svc.StartStepUp(ctx, si, "reveal", "STRIPE_KEY env:prod")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -350,7 +355,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 			t.Fatal("grant is bound to its request")
 		}
 		// start over for the happy path and expiry
-		id, _ = e.svc.StartStepUp(si, "reveal", "A")
+		id, _ = e.svc.StartStepUp(ctx, si, "reveal", "A")
 		a, _ = e.svc.BeginStepUp(ctx, id)
 		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true))
 		if !e.svc.ConsumeStepUp(si, id, "reveal", "A") {
@@ -359,7 +364,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if e.svc.ConsumeStepUp(si, id, "reveal", "A") {
 			t.Fatal("grants are single use")
 		}
-		id, _ = e.svc.StartStepUp(si, "run", "A")
+		id, _ = e.svc.StartStepUp(ctx, si, "run", "A")
 		a, _ = e.svc.BeginStepUp(ctx, id)
 		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true))
 		e.clock = e.clock.Add(61 * time.Second)
@@ -372,7 +377,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, si.PrincipalID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := e.svc.StartStepUp(auth.Info{PrincipalID: mid, Machine: true, Scopes: []string{"read"}}, "reveal", "A"); err == nil {
+		if _, err := e.svc.StartStepUp(ctx, auth.Info{PrincipalID: mid, Machine: true, Scopes: []string{"read"}}, "reveal", "A"); err == nil {
 			t.Fatal("machines can never get a step-up")
 		}
 	})

@@ -25,6 +25,7 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 401 | `unauthorized` | any authentication failure (always generic) |
 | 403 | `forbidden` | not permitted (deny by default; every denial is audited) |
 | 403 | `step-up-required` | a passkey confirmation is needed (see Step-up) |
+| 403 | `passkey-required` | `POST /auth/stepup` on an account that has no passkey (only an authenticator app) |
 | 404 | `not-found` | nothing matches, or archived |
 | 409 | `needs-confirmation` | `POST /secrets/versions` without `create` and no exact match |
 | 409 | `ambiguous` | several secrets match; `items` lists them |
