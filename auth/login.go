@@ -117,7 +117,7 @@ func random(n int) string {
 func (s *Service) StartLogin(invite string, cli CLIParams) (string, error) {
 	// An invite acceptance may come without a CLI (the invitee logs in later with `ku login`).
 	cli.Profile = CleanLabel(cli.Profile)
-	noCLI := invite != "" && cli == CLIParams{}
+	noCLI := invite != "" && cli.Port == 0 && cli.Challenge == "" && cli.State == ""
 	if !noCLI && (cli.Port < 1024 || cli.Port > 65535 || len(cli.Challenge) != 43 || cli.State == "" || len(cli.State) > 128) {
 		return "", ErrLogin
 	}
@@ -242,6 +242,9 @@ func (s *Service) finish(ctx context.Context, tx *sql.Tx, in Info, ip string) (s
 		return "", err
 	}
 	if d.cli.Port == 0 {
+		if d.cli.Profile != "" { // the profile name the inviter suggested, for the "all set" page
+			return "/auth/done?profile=" + d.cli.Profile, nil
+		}
 		return "/auth/done", nil
 	}
 	code := random(32)

@@ -50,7 +50,7 @@ func (a *app) cmdWorkspace(args []string) int {
 		var r struct {
 			Link string `json:"link"`
 		}
-		if err := c.call("POST", "/workspace/invites", map[string]any{"email": pos[0]}, &r); err != nil {
+		if err := c.call("POST", "/workspace/invites", map[string]any{"email": pos[0], "profile": c.profile}, &r); err != nil {
 			return report(err)
 		}
 		fmt.Fprintf(a.out, "✓ Invited %s. Send them this link (valid 24 hours, works once):\n%s\n", pos[0], r.Link)

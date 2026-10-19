@@ -180,7 +180,8 @@ input.code { text-align: center; font-size: 1.5rem; letter-spacing: .5em; text-i
 .check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--acc); flex: none; }
 .term { display: flex; align-items: center; gap: 10px; background: #0b1220; color: #e7edf6; border-radius: 13px; padding: 12px 14px; font: 500 .95rem var(--mono); }
 .term svg { width: 18px; height: 18px; color: var(--amber); flex: none; }
-.term code { flex: 1; }
+.term code { flex: 1; word-break: break-all; font-size: .88rem; }
+.term + .term { margin-top: 8px; }
 .term button { background: transparent; border: 0; color: #aab6c8; cursor: pointer; padding: 4px; border-radius: 8px; display: grid; }
 .term button:hover { color: #fff; }
 .term button svg { color: inherit; width: 18px; height: 18px; }

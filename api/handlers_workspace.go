@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/victorlunam/kuukura/audit"
+	"github.com/victorlunam/kuukura/auth"
 	"github.com/victorlunam/kuukura/storage"
 )
 
@@ -16,6 +17,7 @@ type inviteReq struct {
 	Email   string `json:"email"`
 	Name    string `json:"name"`
 	Machine bool   `json:"machine"`
+	Profile string `json:"profile"` // the inviter's CLI profile name: a display-only suggestion for the invitee
 }
 
 // invite creates a person invite (link, 24 h) or a machine identity (key shown once).
@@ -37,6 +39,9 @@ func (s *Server) invite(c echo.Context) error {
 		return err
 	}
 	link := s.BaseURL + "/invite?token=" + url.QueryEscape(inv.Token)
+	if p := auth.CleanLabel(r.Profile); p != "" {
+		link += "&profile=" + p
+	}
 	return c.JSON(http.StatusCreated, map[string]any{"link": link, "expires_at": inv.ExpiresAt})
 }
 

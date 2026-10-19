@@ -89,9 +89,10 @@
 
   {{else if eq .Mode "done"}}
   <h1>You're all set</h1>
-  <p class="lead">Your account is ready. Sign in from your terminal:</p>
-  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd">ku login</code><button type="button" data-copy="#cmd" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>On a new machine, add this server first:<br><code>ku profile add work --url {{.Origin}}</code></span></p>
+  <p class="lead">Your account is ready. In your terminal, add this server and sign in:</p>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add {{.Suggest}} --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd2">ku login</code><button type="button" data-copy="#cmd2" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>The profile name is just a label on your machine. The address is what matters.</span></p>
 
   {{else}}
   <h1>{{.Title}}</h1>

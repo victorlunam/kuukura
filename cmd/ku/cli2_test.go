@@ -143,6 +143,9 @@ func TestWorkspaceCommands(t *testing.T) {
 		if !strings.Contains(r.out, "https://"+testDomain+"/invite?token=ku_") {
 			t.Fatalf("invite: %q", r.out)
 		}
+		if !strings.Contains(r.out, "&profile=default") {
+			t.Fatalf("the invite link suggests the inviter's profile name: %q", r.out)
+		}
 		w.member(admin, "dev@example.test")
 		mustOK(t, w.ku("", false, nil, "workspace", "group", "pay", "+dev@example.test"))
 		mustOK(t, w.ku("", false, nil, "workspace", "grant", "pay", "write", "team:pay"))

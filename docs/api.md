@@ -120,7 +120,9 @@ Adding `k:v` replaces an existing value for key `k`. `rename` needs exactly one 
 
 Being admin does not grant secret access.
 
-- `POST /workspace/invites` `{ "email": "dev@example.com" }` -> 201 `{ "link": "https://.../invite?token=ku_...", "expires_at": "..." }`
+- `POST /workspace/invites` `{ "email": "dev@example.com", "profile": "work" }` -> 201 `{ "link": "https://.../invite?token=ku_...&profile=work", "expires_at": "..." }`
+  (`profile` is optional and display-only: the inviter's CLI profile name, offered to the invitee as the suggested name in
+  `ku profile add <name> --url ...` on the final page. The invitee can name theirs anything; the URL is what matters.)
   (24 h, single use, bound to the email); `{ "name": "ci-deploy", "machine": true }` -> 201
   `{ "token": "ku_...", "expires_at": "..." }` (shown once; ~90 days).
 - `PATCH /workspace/groups/{g}` `{ "add": ["dev@example.com"], "remove": [] }` -> 204 (creates the group on first use).

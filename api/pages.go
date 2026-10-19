@@ -49,7 +49,7 @@ func art(name string) template.HTML {
 
 type pageData struct {
 	Title, Mode, Token, ID, Nonce string
-	Link, Email, Detail           string
+	Link, Email, Detail, Suggest  string
 	Label, Origin                 string
 	Step                          int
 	Hint                          bool // show the `ku login` command on a result page
@@ -89,7 +89,32 @@ func (s *Server) failPage(c echo.Context) error {
 }
 
 func (s *Server) donePage(c echo.Context) error {
-	return s.page(c, http.StatusOK, pageData{Title: "You're all set", Mode: "done", Art: art("done"), Step: 3})
+	return s.page(c, http.StatusOK, pageData{Title: "You're all set", Mode: "done", Art: art("done"), Step: 3,
+		Suggest: s.suggestProfile(auth.CleanLabel(c.QueryParam("profile")))})
+}
+
+var slugRE = regexp.MustCompile(`[^a-z0-9._-]+`)
+
+// suggestProfile picks the name shown in `ku profile add <name> --url ...`. It is only a suggestion: the
+// name is a local label and the URL is what matters. Order: the inviter's profile name, the instance name,
+// the host.
+func (s *Server) suggestProfile(fromInviter string) string {
+	if fromInviter != "" {
+		return fromInviter
+	}
+	base := s.Name
+	if base == "" {
+		base = strings.TrimPrefix(strings.TrimPrefix(s.BaseURL, "https://"), "http://")
+		base, _, _ = strings.Cut(base, ":") // drop a port
+	}
+	slug := strings.Trim(slugRE.ReplaceAllString(strings.ToLower(base), "-"), "-.")
+	if len(slug) > 32 {
+		slug = slug[:32]
+	}
+	if slug == "" {
+		return "vault"
+	}
+	return slug
 }
 
 func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
@@ -112,9 +137,13 @@ func (s *Server) invitePage(c echo.Context) error {
 			Detail: "It may have expired or already been used. Ask your admin for a new one.",
 		})
 	}
+	link := "/auth/login?invite=" + url.QueryEscape(tok)
+	if p := auth.CleanLabel(c.QueryParam("profile")); p != "" { // the inviter's profile name, carried to the "all set" page
+		link += "&cli_profile=" + p
+	}
 	return s.page(c, http.StatusOK, pageData{
 		Title: "You're invited", Mode: "invite", Art: art("vault-empty"), Step: 1,
-		Email: email, Link: "/auth/login?invite=" + url.QueryEscape(tok),
+		Email: email, Link: link,
 	})
 }
 
