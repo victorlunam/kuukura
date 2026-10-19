@@ -233,7 +233,17 @@ func (w *world) browser(raw string) error {
 		return errors.New("no device could confirm")
 	case u.Path == "/auth/login":
 		q := u.Query()
-		resp, err := hc.Get(w.srv.URL + "/auth/login?" + u.RawQuery)
+		// the printed link opens the sign-in card; the person then presses "Continue with Google" (go=1)
+		card, err := hc.Get(w.srv.URL + "/auth/login?" + u.RawQuery)
+		if err != nil || card.StatusCode != 200 {
+			w.t.Fatalf("sign-in card: %v %v", err, card)
+		}
+		cardBody, _ := io.ReadAll(card.Body)
+		card.Body.Close()
+		if !strings.Contains(string(cardBody), "Continue with Google") || !strings.Contains(string(cardBody), "some_name") && !strings.Contains(string(cardBody), "default") {
+			w.t.Fatalf("the sign-in card shows the button and the profile name")
+		}
+		resp, err := hc.Get(w.srv.URL + "/auth/login?" + u.RawQuery + "&go=1")
 		if err != nil || resp.StatusCode != 302 {
 			w.t.Fatalf("login start: %v %v", err, resp)
 		}

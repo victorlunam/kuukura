@@ -88,14 +88,19 @@ func (s *Server) failPage(c echo.Context) error {
 	})
 }
 
+// signInPage is the first card of `ku login`: the same look as the invite, with the Google button.
+func (s *Server) signInPage(c echo.Context, profile, link string) error {
+	return s.page(c, http.StatusOK, pageData{Title: "Sign in", Mode: "signin", Art: art("vault-empty"), Link: link, Label: profile})
+}
+
 // loginFailedPage explains the two failures that are about the Google account the person just chose (it is shown
 // only back to them, so it reveals nothing about anyone else); every other reason stays generic.
 func (s *Server) loginFailedPage(c echo.Context, reason, email string) error {
 	switch reason {
 	case "no_identity_for_this_google_account":
 		return s.page(c, http.StatusUnauthorized, pageData{
-			Title: "This Google account has no access", Mode: "fail", Art: art("alert"), Hint: true, Email: email,
-			Detail: "This vault is invite-only and that account has not been invited. Sign in with the Google account that was invited, or ask your admin to invite it.",
+			Title: "No account found", Mode: "fail", Art: art("alert"), Hint: true, Email: email,
+			Detail: "This Google account is not registered in this vault. It is invite-only: sign in with the account you were invited with, or ask your admin to invite this one.",
 		})
 	case "invite_email_mismatch":
 		return s.page(c, http.StatusUnauthorized, pageData{
@@ -155,7 +160,7 @@ func (s *Server) invitePage(c echo.Context) error {
 			Detail: "It may have expired or already been used. Ask your admin for a new one.",
 		})
 	}
-	link := "/auth/login?invite=" + url.QueryEscape(tok)
+	link := "/auth/login?go=1&invite=" + url.QueryEscape(tok)   // this page already is the button page
 	if p := auth.CleanLabel(c.QueryParam("profile")); p != "" { // the inviter's profile name, carried to the "all set" page
 		link += "&cli_profile=" + p
 	}

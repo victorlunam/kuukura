@@ -26,7 +26,7 @@ func TestLoginFailedPages(t *testing.T) {
 		return rec.Body.String()
 	}
 	b := render("no_identity_for_this_google_account", "stranger@example.test")
-	if !strings.Contains(b, "This Google account has no access") || !strings.Contains(b, "You signed in with <b>stranger@example.test</b>") {
+	if !strings.Contains(b, "No account found") || !strings.Contains(b, "not registered in this vault") || !strings.Contains(b, "You chose <b>stranger@example.test</b>") {
 		t.Fatal("the not-invited account is named")
 	}
 	b = render("invite_email_mismatch", "other@example.test")

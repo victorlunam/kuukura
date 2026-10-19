@@ -23,6 +23,12 @@
   <a class="btn google" href="{{.Link}}"><svg aria-hidden="true"><use href="#i-google"/></svg>Continue with Google</a>
   <p class="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>This invite works once and is tied to that email. Next you will add a passkey to protect your account.</span></p>
 
+  {{else if eq .Mode "signin"}}
+  <h1>Sign in</h1>
+  <p class="lead">Choose your Google account to continue. Your terminal is waiting.</p>
+  <a class="btn google" href="{{.Link}}"><svg aria-hidden="true"><use href="#i-google"/></svg>Continue with Google</a>
+  <p class="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>Only invited accounts can sign in. Next you will confirm with your passkey or authenticator app.</span></p>
+
   {{else if eq .Mode "mfa"}}
   <h1>Confirm it's you</h1>
   <p class="lead">One more step to finish signing in.</p>
@@ -96,7 +102,7 @@
 
   {{else}}
   <h1>{{.Title}}</h1>
-  {{if .Email}}<p class="lead">You signed in with <b>{{.Email}}</b>.</p>{{end}}
+  {{if .Email}}<p class="lead">You chose <b>{{.Email}}</b>.</p>{{end}}
   <p class="lead">{{.Detail}}</p>
   {{if .Hint}}<div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd">ku login</code><button type="button" data-copy="#cmd" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>{{end}}
   {{end}}

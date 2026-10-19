@@ -113,12 +113,19 @@ func random(n int) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+// ValidCLIParams reports whether a login may start with these CLI parameters. An invite acceptance may come
+// without a CLI (the invitee logs in later with `ku login`). The sign-in page checks this before showing its button.
+func ValidCLIParams(invite string, cli CLIParams) bool {
+	if invite != "" && cli.Port == 0 && cli.Challenge == "" && cli.State == "" {
+		return true
+	}
+	return cli.Port >= 1024 && cli.Port <= 65535 && len(cli.Challenge) == 43 && cli.State != "" && len(cli.State) <= 128
+}
+
 // StartLogin returns the provider URL. invite is optional (invite acceptance).
 func (s *Service) StartLogin(invite string, cli CLIParams) (string, error) {
-	// An invite acceptance may come without a CLI (the invitee logs in later with `ku login`).
 	cli.Profile = CleanLabel(cli.Profile)
-	noCLI := invite != "" && cli.Port == 0 && cli.Challenge == "" && cli.State == ""
-	if !noCLI && (cli.Port < 1024 || cli.Port > 65535 || len(cli.Challenge) != 43 || cli.State == "" || len(cli.State) > 128) {
+	if !ValidCLIParams(invite, cli) {
 		return "", ErrLogin
 	}
 	state, nonce, verifier := random(32), random(32), oauth2.GenerateVerifier()

@@ -232,7 +232,7 @@ func TestPagesAreLockedDown(t *testing.T) {
 		inv, _ := e.ids.BootstrapAdmin(ctx, "root@example.test")
 		r := e.do("GET", "/invite?token="+inv.Token, "", nil)
 		csp := r.Header().Get("Content-Security-Policy")
-		if r.Code != 200 || !strings.Contains(csp, "default-src 'none'") || !strings.Contains(r.Body.String(), "/auth/login?invite=") {
+		if r.Code != 200 || !strings.Contains(csp, "default-src 'none'") || !strings.Contains(r.Body.String(), "/auth/login?go=1&amp;invite=") {
 			t.Fatalf("invite page: %d %s", r.Code, csp)
 		}
 		if r := e.do("GET", "/invite?token=ku_nope", "", nil); r.Code != 404 {

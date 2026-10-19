@@ -19,8 +19,17 @@ func (s *Server) login(c echo.Context) error {
 	if port == 0 && c.QueryParam("cli_challenge") == "" && c.QueryParam("cli_state") == "" {
 		cli = auth.CLIParams{}
 	}
-	cli.Profile = c.QueryParam("cli_profile") // display only; auth.StartLogin sanitizes it
-	u, err := s.Auth.StartLogin(c.QueryParam("invite"), cli)
+	cli.Profile = auth.CleanLabel(c.QueryParam("cli_profile")) // display only
+	invite := c.QueryParam("invite")
+	if !auth.ValidCLIParams(invite, cli) {
+		return s.failPage(c)
+	}
+	// Opening the link from the terminal shows the sign-in card first; only the button (go=1) goes to Google.
+	// A page that merely loads never starts a login.
+	if c.QueryParam("go") == "" {
+		return s.signInPage(c, cli.Profile, "/auth/login?"+c.QueryString()+"&go=1")
+	}
+	u, err := s.Auth.StartLogin(invite, cli)
 	if err != nil {
 		return s.failPage(c)
 	}
