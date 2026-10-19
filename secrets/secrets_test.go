@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -406,6 +407,50 @@ func TestLimitsAndValidation(t *testing.T) {
 		}
 		if g, err := e.svc.Reveal(ctx, u, Selector{Name: "GEN"}, true); err != nil || len(g.Data) != 43 {
 			t.Fatal("generated value")
+		}
+	})
+}
+
+func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+
+		kf1, _ := keys.GenerateMasterKey(1)
+		kp1, _ := keys.ParseMasterKeys(kf1)
+		k2, _ := keys.GenerateMasterKey(2)
+		ring, err := keys.ParseMasterKeys(append(append([]byte{}, kf1...), k2...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		svc1, svc2 := New(p, kp1, e.log), New(p, ring, e.log)
+		if _, err := svc1.Set(ctx, u, SetInput{Name: "ROT", Tags: []string{"app:shop"}, Value: []byte(fakeValue), Create: true}); err != nil {
+			t.Fatal(err)
+		}
+		var before []byte
+		if err := p.DB().QueryRow(`SELECT ciphertext FROM secret_versions`).Scan(&before); err != nil {
+			t.Fatal(err)
+		}
+		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
+			t.Fatalf("data stays readable with the extended ring: %v", err)
+		}
+		if n, err := svc2.RewrapAll(ctx); err != nil || n != 1 {
+			t.Fatalf("rewrapped %d: %v", n, err)
+		}
+		var keyID string
+		var after []byte
+		if err := p.DB().QueryRow(`SELECT key_id, ciphertext FROM secret_versions`).Scan(&keyID, &after); err != nil {
+			t.Fatal(err)
+		}
+		if keyID != "manual:v2" || !bytes.Equal(before, after) {
+			t.Fatalf("key_id %s, ciphertext changed: %v", keyID, !bytes.Equal(before, after))
+		}
+		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
+			t.Fatalf("readable after rewrap: %v", err)
+		}
+		if n, _ := svc2.RewrapAll(ctx); n != 0 {
+			t.Fatal("nothing left to rewrap")
 		}
 	})
 }

@@ -19,6 +19,8 @@ func run(args []string) error {
 	switch args[0] {
 	case "init":
 		return runInit(args[1:])
+	case "admin":
+		return runAdmin(args[1:])
 	}
 	return fmt.Errorf("unknown command %q", args[0])
 }

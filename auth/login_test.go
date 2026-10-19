@@ -1,0 +1,460 @@
+package auth_test
+
+import (
+	"bytes"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"net/url"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/fxamacker/cbor/v2"
+	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
+
+	"github.com/victorlunam/kuukura/access"
+	"github.com/victorlunam/kuukura/audit"
+	"github.com/victorlunam/kuukura/auth"
+	"github.com/victorlunam/kuukura/identity"
+	"github.com/victorlunam/kuukura/keys"
+	"github.com/victorlunam/kuukura/storage"
+	"github.com/victorlunam/kuukura/storage/storagetest"
+)
+
+var ctx = context.Background()
+
+const (
+	rpID   = "vault.example.test"
+	origin = "https://vault.example.test"
+)
+
+// fakeIDP is a stand-in for Google: codes map to identities.
+type fakeIDP struct{ byCode map[string]auth.Identity }
+
+func (f *fakeIDP) Name() string { return "google" }
+func (f *fakeIDP) AuthURL(state, nonce, verifier string) string {
+	return "https://idp.test/auth?state=" + state
+}
+func (f *fakeIDP) Exchange(_ context.Context, code, _, _ string) (auth.Identity, error) {
+	id, ok := f.byCode[code]
+	if !ok {
+		return auth.Identity{}, errors.New("bad code")
+	}
+	return id, nil
+}
+
+type env struct {
+	t      *testing.T
+	p      storage.Provider
+	svc    *auth.Service
+	tokens *auth.Tokens
+	ids    *identity.Service
+	log    *audit.Log
+	idp    *fakeIDP
+	clock  time.Time
+}
+
+func setup(t *testing.T, p storage.Provider) *env {
+	e := &env{t: t, p: p, clock: time.Now().UTC(), idp: &fakeIDP{map[string]auth.Identity{}}}
+	e.log = audit.New(p)
+	e.tokens = auth.NewTokens(p)
+	e.tokens.Now = func() time.Time { return e.clock }
+	kf, _ := keys.GenerateMasterKey(1)
+	kp, _ := keys.ParseMasterKeys(kf)
+	var err error
+	e.svc, err = auth.NewService(p, e.log, e.tokens, e.idp, kp, auth.Config{RPID: rpID, RPOrigin: origin, Issuer: "kuukura"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.ids = identity.New(p, e.log, e.tokens)
+	return e
+}
+
+type cli struct {
+	verifier string
+	params   auth.CLIParams
+}
+
+func newCLI() cli {
+	v := strings.Repeat("v", 43)
+	sum := sha256.Sum256([]byte(v))
+	return cli{v, auth.CLIParams{Port: 53682, Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), State: "st4te"}}
+}
+
+// login runs StartLogin + Callback for an identity.
+func (e *env) login(invite string, id auth.Identity) (auth.Pending, cli, error) {
+	c := newCLI()
+	u, err := e.svc.StartLogin(invite, c.params)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	state, _ := url.Parse(u)
+	code := uuid.NewString()
+	e.idp.byCode[code] = id
+	pd, err := e.svc.Callback(ctx, state.Query().Get("state"), code, "203.0.113.9")
+	return pd, c, err
+}
+
+func (e *env) info(raw string) auth.Info {
+	e.t.Helper()
+	in, err := e.tokens.Validate(ctx, raw)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return in
+}
+
+// finishCLI follows the redirect like the CLI would and returns the session.
+func (e *env) finishCLI(redirect string, c cli) (auth.Issued, error) {
+	u, err := url.Parse(redirect)
+	if err != nil || u.Host != "127.0.0.1:"+strconv.Itoa(c.params.Port) || u.Query().Get("state") != c.params.State {
+		e.t.Fatalf("bad redirect %q", redirect)
+	}
+	return e.svc.ExchangeCode(ctx, u.Query().Get("code"), c.verifier)
+}
+
+func (e *env) bootstrap(email string) string {
+	inv, err := e.ids.BootstrapAdmin(ctx, email)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return inv.Token
+}
+
+func (e *env) count(q string, args ...any) int {
+	var n int
+	if err := e.p.DB().QueryRow(e.p.Rebind(q), args...).Scan(&n); err != nil {
+		e.t.Fatal(err)
+	}
+	return n
+}
+
+func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		e := setup(t, p)
+		invite := e.bootstrap("boss@example.test")
+		g := auth.Identity{Subject: "sub-boss", Email: "Boss@Example.test", EmailVerified: true}
+
+		// wrong email, unverified email, unknown identity without invite: all the same error
+		if _, _, err := e.login(invite, auth.Identity{Subject: "x", Email: "other@example.test", EmailVerified: true}); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("invite is bound to its email")
+		}
+		if _, _, err := e.login(invite, auth.Identity{Subject: "sub-boss", Email: "boss@example.test", EmailVerified: false}); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("email_verified is required")
+		}
+		if _, _, err := e.login("", g); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("no auto-registration")
+		}
+
+		pd, c, err := e.login(invite, g)
+		if err != nil || pd.Mode != "enroll" {
+			t.Fatalf("accept invite: %+v %v", pd, err)
+		}
+		if _, _, err := e.login(invite, g); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("invite is single use")
+		}
+		in := e.info(pd.Token)
+		if in.HasScope(auth.ScopeRead) {
+			t.Fatal("an enrolling session cannot use the API")
+		}
+
+		secret, uri, err := e.svc.BeginTOTP(ctx, in)
+		if err != nil || !strings.HasPrefix(uri, "otpauth://totp/") {
+			t.Fatal(err)
+		}
+		if _, err := e.svc.ConfirmTOTP(ctx, in, "000000", "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("wrong code must not enroll")
+		}
+		code, _ := totp.GenerateCode(secret, time.Now())
+		res, err := e.svc.ConfirmTOTP(ctx, in, code, "203.0.113.9")
+		if err != nil || len(res.RecoveryCodes) != 10 {
+			t.Fatalf("confirm: %v", err)
+		}
+		if e.count(`SELECT COUNT(*) FROM principals WHERE name = 'boss@example.test' AND status = 'active'`) != 1 {
+			t.Fatal("principal must become active")
+		}
+		// the TOTP secret is encrypted at rest
+		var enc []byte
+		if err := p.DB().QueryRow(`SELECT encrypted_totp_secret FROM credentials WHERE kind = 'totp'`).Scan(&enc); err != nil || bytes.Contains(enc, []byte(secret)) {
+			t.Fatal("totp secret must not be stored in plaintext")
+		}
+		if _, err := e.tokens.Validate(ctx, pd.Token); !errors.Is(err, auth.ErrInvalid) {
+			t.Fatal("the enrollment session ends with the login")
+		}
+		sess, err := e.finishCLI(res.Redirect, c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		si := e.info(sess.Raw)
+		if !si.HasScope(auth.ScopeRead) || !si.HasScope(auth.ScopeWrite) || si.Role != "admin" {
+			t.Fatalf("session: %+v", si)
+		}
+		if _, err := e.finishCLI(res.Redirect, c); err == nil {
+			t.Fatal("the CLI code is single use")
+		}
+
+		// PKCE: a wrong verifier gets nothing
+		pd2, c2, err := e.login("", g)
+		if err != nil || pd2.Mode != "mfa" {
+			t.Fatalf("second login: %+v %v", pd2, err)
+		}
+		in2 := e.info(pd2.Token)
+		if _, err := e.svc.VerifyTOTP(ctx, in2, "123456", "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("wrong code")
+		}
+		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'login_failed'`) != 1 {
+			t.Fatal("failed login must be audited")
+		}
+		code, _ = totp.GenerateCode(secret, time.Now())
+		redirect, err := e.svc.VerifyTOTP(ctx, in2, code, "203.0.113.9")
+		if err != nil {
+			t.Fatal(err)
+		}
+		bad := c2
+		bad.verifier = strings.Repeat("w", 43)
+		if _, err := e.finishCLI(redirect, bad); err == nil {
+			t.Fatal("wrong PKCE verifier must fail")
+		}
+
+		// recovery codes: single use
+		pd3, c3, _ := e.login("", g)
+		in3 := e.info(pd3.Token)
+		redirect, err = e.svc.VerifyRecovery(ctx, in3, strings.ToLower(res.RecoveryCodes[0]), "203.0.113.9")
+		if err != nil {
+			t.Fatalf("recovery: %v", err)
+		}
+		if _, err := e.finishCLI(redirect, c3); err != nil {
+			t.Fatal(err)
+		}
+		pd4, _, _ := e.login("", g)
+		if _, err := e.svc.VerifyRecovery(ctx, e.info(pd4.Token), res.RecoveryCodes[0], "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("a recovery code works once")
+		}
+		var hash []byte
+		_ = p.DB().QueryRow(`SELECT code_hash FROM recovery_codes LIMIT 1`).Scan(&hash)
+		if bytes.Contains(hash, []byte(res.RecoveryCodes[0])) {
+			t.Fatal("recovery codes are stored hashed")
+		}
+
+		// logout invalidates the session
+		if err := e.svc.Logout(ctx, si, "203.0.113.9"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.tokens.Validate(ctx, sess.Raw); !errors.Is(err, auth.ErrInvalid) {
+			t.Fatal("logout")
+		}
+
+		// disabled identities cannot log in
+		admin2 := e.activeAdmin()
+		if err := e.ids.Disable(ctx, admin2, "boss@example.test"); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := e.login("", g); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("disabled")
+		}
+		if err := e.log.Verify(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func (e *env) activeAdmin() access.Actor {
+	id := uuid.New()
+	if _, err := e.p.DB().Exec(e.p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, 'admin', 'active')`), id, id.String(), "a2@example.test"); err != nil {
+		e.t.Fatal(err)
+	}
+	return access.Actor{ID: id}
+}
+
+// ---- software passkey authenticator ----
+
+type authenticator struct {
+	key    *ecdsa.PrivateKey
+	credID []byte
+	count  uint32
+}
+
+func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
+
+func clientData(typ, challenge string) []byte {
+	b, _ := json.Marshal(map[string]any{"type": typ, "challenge": challenge, "origin": origin})
+	return b
+}
+
+func (a *authenticator) register(t *testing.T, opts json.RawMessage, uv bool) []byte {
+	var o struct {
+		PublicKey struct {
+			Challenge string `json:"challenge"`
+		} `json:"publicKey"`
+	}
+	if err := json.Unmarshal(opts, &o); err != nil {
+		t.Fatal(err)
+	}
+	if a.key == nil {
+		a.key, _ = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		a.credID = make([]byte, 16)
+		_, _ = rand.Read(a.credID)
+	}
+	rp := sha256.Sum256([]byte(rpID))
+	flags := byte(0x41) // UP | AT
+	if uv {
+		flags |= 0x04
+	}
+	pub, _ := a.key.PublicKey.Bytes() // 0x04 || X || Y
+	x, y := pub[1:33], pub[33:65]
+	cose, _ := cbor.Marshal(map[int]any{1: 2, 3: -7, -1: 1, -2: x, -3: y})
+	auth := append(rp[:], flags, 0, 0, 0, 0)
+	auth = append(auth, make([]byte, 16)...)
+	auth = binary.BigEndian.AppendUint16(auth, uint16(len(a.credID)))
+	auth = append(auth, a.credID...)
+	auth = append(auth, cose...)
+	att, _ := cbor.Marshal(map[string]any{"fmt": "none", "attStmt": map[string]any{}, "authData": auth})
+	body, _ := json.Marshal(map[string]any{"id": b64(a.credID), "rawId": b64(a.credID), "type": "public-key",
+		"response": map[string]any{"clientDataJSON": b64(clientData("webauthn.create", o.PublicKey.Challenge)), "attestationObject": b64(att)}})
+	return body
+}
+
+func (a *authenticator) assert(t *testing.T, opts json.RawMessage, uv bool) []byte {
+	var o struct {
+		PublicKey struct {
+			Challenge string `json:"challenge"`
+		} `json:"publicKey"`
+	}
+	if err := json.Unmarshal(opts, &o); err != nil {
+		t.Fatal(err)
+	}
+	a.count++
+	rp := sha256.Sum256([]byte(rpID))
+	flags := byte(0x01)
+	if uv {
+		flags |= 0x04
+	}
+	ad := append(rp[:], flags)
+	ad = binary.BigEndian.AppendUint32(ad, a.count)
+	cd := clientData("webauthn.get", o.PublicKey.Challenge)
+	cdh := sha256.Sum256(cd)
+	digest := sha256.Sum256(append(append([]byte{}, ad...), cdh[:]...))
+	sig, err := ecdsa.SignASN1(rand.Reader, a.key, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]any{"id": b64(a.credID), "rawId": b64(a.credID), "type": "public-key",
+		"response": map[string]any{"clientDataJSON": b64(cd), "authenticatorData": b64(ad), "signature": b64(sig)}})
+	return body
+}
+
+func raw(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
+
+func TestPasskeyLoginAndStepUp(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		e := setup(t, p)
+		g := auth.Identity{Subject: "sub-1", Email: "pk@example.test", EmailVerified: true}
+		pd, c, err := e.login(e.bootstrap("pk@example.test"), g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		in := e.info(pd.Token)
+		dev := &authenticator{}
+
+		opts, err := e.svc.BeginPasskeyRegistration(ctx, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if opts.Response.AuthenticatorSelection.UserVerification != "required" {
+			t.Fatal("user verification must be required")
+		}
+		if _, err := e.svc.FinishPasskeyRegistration(ctx, in, dev.register(t, raw(opts), false), "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("a registration without user verification must fail")
+		}
+		opts, _ = e.svc.BeginPasskeyRegistration(ctx, in)
+		res, err := e.svc.FinishPasskeyRegistration(ctx, in, dev.register(t, raw(opts), true), "203.0.113.9")
+		if err != nil || len(res.RecoveryCodes) != 10 {
+			t.Fatalf("register: %v", err)
+		}
+		if _, err := e.finishCLI(res.Redirect, c); err != nil {
+			t.Fatal(err)
+		}
+
+		// second factor with the passkey
+		pd2, c2, _ := e.login("", g)
+		in2 := e.info(pd2.Token)
+		a, err := e.svc.BeginPasskeyLogin(ctx, in2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.svc.FinishPasskeyLogin(ctx, in2, dev.assert(t, raw(a), false), "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("an assertion without user verification must fail")
+		}
+		a, _ = e.svc.BeginPasskeyLogin(ctx, in2)
+		redirect, err := e.svc.FinishPasskeyLogin(ctx, in2, dev.assert(t, raw(a), true), "203.0.113.9")
+		if err != nil {
+			t.Fatal(err)
+		}
+		sess, err := e.finishCLI(redirect, c2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		si := e.info(sess.Raw)
+
+		// step-up: bound to principal, purpose and subject; single use; 60 s
+		id, err := e.svc.StartStepUp(si, "reveal", "STRIPE_KEY env:prod")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if e.svc.ConsumeStepUp(si, id, "reveal", "STRIPE_KEY env:prod") {
+			t.Fatal("no grant before the assertion")
+		}
+		a, err = e.svc.BeginStepUp(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), false)); err == nil {
+			t.Fatal("step-up needs user verification")
+		}
+		a, _ = e.svc.BeginStepUp(ctx, id)
+		if err := e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), true)); err != nil {
+			t.Fatal(err)
+		}
+		if !e.svc.StepUpDone(si, id) {
+			t.Fatal("poll must see the grant")
+		}
+		if e.svc.ConsumeStepUp(si, id, "reveal", "OTHER") {
+			t.Fatal("grant is bound to its request")
+		}
+		// start over for the happy path and expiry
+		id, _ = e.svc.StartStepUp(si, "reveal", "A")
+		a, _ = e.svc.BeginStepUp(ctx, id)
+		_ = e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), true))
+		if !e.svc.ConsumeStepUp(si, id, "reveal", "A") {
+			t.Fatal("valid grant")
+		}
+		if e.svc.ConsumeStepUp(si, id, "reveal", "A") {
+			t.Fatal("grants are single use")
+		}
+		id, _ = e.svc.StartStepUp(si, "run", "A")
+		a, _ = e.svc.BeginStepUp(ctx, id)
+		_ = e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), true))
+		e.clock = e.clock.Add(61 * time.Second)
+		if e.svc.ConsumeStepUp(si, id, "run", "A") {
+			t.Fatal("grants expire after 60 seconds")
+		}
+
+		// machines never get one
+		mid := uuid.New()
+		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, si.PrincipalID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.svc.StartStepUp(auth.Info{PrincipalID: mid, Machine: true, Scopes: []string{"read"}}, "reveal", "A"); err == nil {
+			t.Fatal("machines can never get a step-up")
+		}
+	})
+}

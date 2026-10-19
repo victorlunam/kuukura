@@ -21,7 +21,7 @@ func AAD(purpose, format byte, secretID uuid.UUID, number uint32, keyID string) 
 	b = append(b, purpose, format)
 	b = append(b, secretID[:]...)
 	b = binary.BigEndian.AppendUint32(b, number)
-	b = binary.BigEndian.AppendUint16(b, uint16(len(keyID)))
+	b = binary.BigEndian.AppendUint16(b, uint16(len(keyID))) // #nosec G115 -- key ids are short (provider-prefixed ARN or manual:vN)
 	return append(b, keyID...)
 }
 
