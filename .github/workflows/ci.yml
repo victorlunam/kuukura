@@ -1,0 +1,48 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+      - run: go run github.com/securego/gosec/v2/cmd/gosec@latest ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        storage: [sqlite, postgres]
+    env:
+      VAULT_STORAGE: ${{ matrix.storage }}
+      VAULT_TEST_POSTGRES_URL: postgres://kuukura:kuukura@localhost:5432/kuukura?sslmode=disable
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kuukura
+          POSTGRES_PASSWORD: kuukura
+          POSTGRES_DB: kuukura
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kuukura"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -race ./...
