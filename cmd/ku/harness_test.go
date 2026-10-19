@@ -1,0 +1,320 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/victorlunam/kuukura/access"
+	"github.com/victorlunam/kuukura/api"
+	"github.com/victorlunam/kuukura/audit"
+	"github.com/victorlunam/kuukura/auth"
+	"github.com/victorlunam/kuukura/auth/authtest"
+	"github.com/victorlunam/kuukura/identity"
+	"github.com/victorlunam/kuukura/keys"
+	"github.com/victorlunam/kuukura/secrets"
+	"github.com/victorlunam/kuukura/storage"
+)
+
+const (
+	testDomain = "vault.example.test"
+	fakeValue  = "sk_test_FAKE_EXAMPLE"
+)
+
+var bg = context.Background()
+
+type memStore struct {
+	mu sync.Mutex
+	m  map[string]string
+}
+
+func (s *memStore) Get(p string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if t, ok := s.m[p]; ok {
+		return t, nil
+	}
+	return "", errNoToken
+}
+func (s *memStore) Set(p, t string) error { s.mu.Lock(); s.m[p] = t; s.mu.Unlock(); return nil }
+func (s *memStore) Delete(p string) error { s.mu.Lock(); delete(s.m, p); s.mu.Unlock(); return nil }
+
+type fakeIDP struct {
+	mu     sync.Mutex
+	byCode map[string]auth.Identity
+}
+
+func (f *fakeIDP) Name() string { return "google" }
+func (f *fakeIDP) AuthURL(state, nonce, verifier string) string {
+	return "https://idp.test/?state=" + state
+}
+func (f *fakeIDP) Exchange(_ context.Context, code, _, _ string) (auth.Identity, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	id, ok := f.byCode[code]
+	if !ok {
+		return auth.Identity{}, errors.New("bad code")
+	}
+	return id, nil
+}
+
+// world is a real server (full API stack over TLS) plus fake browser, Keychain and home.
+type world struct {
+	t       *testing.T
+	p       storage.Provider
+	srv     *httptest.Server
+	auth    *auth.Service
+	tokens  *auth.Tokens
+	ids     *identity.Service
+	log     *audit.Log
+	idp     *fakeIDP
+	store   *memStore
+	home    string
+	stepUps int                                // Touch ID confirmations performed by the fake browser
+	devs    map[string]*authtest.Authenticator // by principal email
+	emails  map[string]string                  // session token -> email
+	now     time.Time
+	mu      sync.Mutex
+}
+
+func newWorld(t *testing.T, p storage.Provider) *world {
+	w := &world{t: t, p: p, idp: &fakeIDP{byCode: map[string]auth.Identity{}}, store: &memStore{m: map[string]string{}},
+		home: t.TempDir(), devs: map[string]*authtest.Authenticator{}, emails: map[string]string{}, now: time.Now()}
+	w.log = audit.New(p)
+	w.tokens = auth.NewTokens(p)
+	kf, _ := keys.GenerateMasterKey(1)
+	kp, _ := keys.ParseMasterKeys(kf)
+	var err error
+	w.auth, err = auth.NewService(p, w.log, w.tokens, w.idp, kp, auth.Config{RPID: testDomain, RPOrigin: "https://" + testDomain, Issuer: "kuukura"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.ids = identity.New(p, w.log, w.tokens)
+	srv := api.New(api.Deps{
+		Secrets: secrets.New(p, kp, w.log), Admin: access.NewAdmin(p, w.log), Identity: w.ids, Auth: w.auth, Tokens: w.tokens,
+		Audit: w.log, Storage: p, Domain: testDomain,
+		Now: func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); w.now = w.now.Add(10 * time.Second); return w.now }, // limits never bite
+	})
+	w.srv = httptest.NewTLSServer(srv.Handler())
+	t.Cleanup(w.srv.Close)
+	return w
+}
+
+func sha(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return base64.RawURLEncoding.EncodeToString(h[:])
+}
+
+// onboard creates an enrolled user with a passkey (invite -> Google -> passkey) and returns a session token.
+func (w *world) onboard(invite, email string) string {
+	w.t.Helper()
+	verifier := strings.Repeat("v", 43)
+	u, err := w.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: sha(verifier), State: "s"})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	pu, _ := url.Parse(u)
+	code := uuid.NewString()
+	w.idp.mu.Lock()
+	w.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
+	w.idp.mu.Unlock()
+	pd, err := w.auth.Callback(bg, pu.Query().Get("state"), code, "203.0.113.9")
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	in, _ := w.tokens.Validate(bg, pd.Token)
+	dev := &authtest.Authenticator{RPID: testDomain, Origin: "https://" + testDomain}
+	opts, err := w.auth.BeginPasskeyRegistration(bg, in)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	ob, _ := json.Marshal(opts)
+	res, err := w.auth.FinishPasskeyRegistration(bg, in, dev.Register(w.t, ob, true), "203.0.113.9")
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	ru, _ := url.Parse(res.Redirect)
+	iss, err := w.auth.ExchangeCode(bg, ru.Query().Get("code"), verifier)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	w.devs[email] = dev
+	w.emails[iss.Raw] = email
+	return iss.Raw
+}
+
+func (w *world) admin() string {
+	inv, err := w.ids.BootstrapAdmin(bg, "root@example.test")
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	return w.onboard(inv.Token, "root@example.test")
+}
+
+func (w *world) api(token, method, path string, body any) (int, map[string]any) {
+	w.t.Helper()
+	b, _ := json.Marshal(body)
+	req, _ := http.NewRequest(method, w.srv.URL+path, bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := w.srv.Client().Do(req)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var m map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&m)
+	return resp.StatusCode, m
+}
+
+func (w *world) member(admin, email string) string {
+	code, m := w.api(admin, "POST", "/workspace/invites", map[string]any{"email": email})
+	if code != 201 {
+		w.t.Fatalf("invite: %d %v", code, m)
+	}
+	link, _ := url.Parse(m["link"].(string))
+	return w.onboard(link.Query().Get("token"), email)
+}
+
+func (w *world) grant(admin, who, perm string, tags ...string) {
+	if code, m := w.api(admin, "POST", "/workspace/grants", map[string]any{"subject": who, "permission": perm, "tags": tags}); code != 201 {
+		w.t.Fatalf("grant: %d %v", code, m)
+	}
+}
+
+// browser plays the part of the user's browser for login and step-up pages.
+func (w *world) browser(raw string) error {
+	hc := &http.Client{Transport: w.srv.Client().Transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	u, _ := url.Parse(raw)
+	post := func(path, token string, body []byte) (int, []byte) {
+		req, _ := http.NewRequest("POST", w.srv.URL+path, bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := hc.Do(req)
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, b
+	}
+	switch {
+	case u.Path == "/stepup":
+		id := u.Query().Get("id")
+		_, opts := post("/stepup/"+id+"/begin", "", nil)
+		// the passkey belongs to whoever started the request; try every known device
+		for _, dev := range w.devs {
+			if code, _ := post("/stepup/"+id+"/finish", "", dev.Assert(w.t, opts, true)); code == 204 {
+				w.stepUps++
+				return nil
+			}
+			_, opts = post("/stepup/"+id+"/begin", "", nil)
+		}
+		return errors.New("no device could confirm")
+	case u.Path == "/auth/login":
+		q := u.Query()
+		resp, err := hc.Get(w.srv.URL + "/auth/login?" + u.RawQuery)
+		if err != nil || resp.StatusCode != 302 {
+			w.t.Fatalf("login start: %v %v", err, resp)
+		}
+		idp, _ := url.Parse(resp.Header.Get("Location"))
+		code := uuid.NewString()
+		w.idp.mu.Lock()
+		w.idp.byCode[code] = auth.Identity{Subject: "sub-root@example.test", Email: "root@example.test", EmailVerified: true}
+		w.idp.mu.Unlock()
+		cb, err := hc.Get(w.srv.URL + "/auth/callback?state=" + idp.Query().Get("state") + "&code=" + code)
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		page, _ := io.ReadAll(cb.Body)
+		cb.Body.Close()
+		tok := regexp.MustCompile(`data-t="([^"]+)"`).FindStringSubmatch(string(page))
+		if cb.StatusCode != 200 || tok == nil || !strings.Contains(string(page), `data-mode="mfa"`) {
+			w.t.Fatalf("callback page: %d", cb.StatusCode)
+		}
+		_, opts := post("/auth/mfa/passkey/begin", tok[1], nil)
+		dev := w.devs["root@example.test"]
+		code2, fin := post("/auth/mfa/passkey/finish", tok[1], dev.Assert(w.t, opts, true))
+		if code2 != 200 {
+			w.t.Fatalf("mfa finish: %d %s", code2, fin)
+		}
+		var r struct{ Redirect string }
+		_ = json.Unmarshal(fin, &r)
+		ru, _ := url.Parse(r.Redirect)
+		if ru.Host != "127.0.0.1:"+q.Get("cli_port") {
+			w.t.Fatalf("redirect goes to %s", ru.Host)
+		}
+		resp2, err := http.Get(r.Redirect)
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		resp2.Body.Close()
+		return nil
+	}
+	return errors.New("unexpected url " + raw)
+}
+
+type result struct {
+	code        int
+	out, errOut string
+}
+
+// ku runs the CLI against the world. The profile and token are set up by setup().
+func (w *world) ku(stdin string, tty bool, env map[string]string, args ...string) result {
+	w.t.Helper()
+	var out, errb bytes.Buffer
+	a := &app{
+		in: strings.NewReader(stdin), out: &out, err: &errb,
+		getenv: func(k string) string { return env[k] }, store: w.store,
+		http: &http.Client{Transport: w.srv.Client().Transport, Timeout: 20 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		openURL: w.browser, isTTY: tty, home: w.home, cwd: w.home, poll: 5 * time.Millisecond,
+	}
+	stdinReader = nil
+	a.readSecret = func(string) (string, error) { return strings.TrimSpace(stdin), nil }
+	if tty {
+		a.readSecret = func(string) (string, error) { return fakeValue, nil }
+	}
+	if cwd, ok := env["CWD"]; ok {
+		a.cwd = cwd
+	}
+	code := a.run(args)
+	return result{code, out.String(), errb.String()}
+}
+
+// login gives the CLI profile "default" pointing at the test server with the given session.
+func (w *world) loginAs(token string) {
+	w.t.Helper()
+	if _, err := os.Stat(filepath.Join(w.home, ".config", "kuukura", "config.toml")); err != nil {
+		if res := w.ku("", false, nil, "profile", "add", "default", "--url", w.srv.URL); res.code != 0 {
+			w.t.Fatal(res.errOut)
+		}
+	}
+	_ = w.store.Set("default", token)
+}
+
+func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
+
+var _ = filepath.Join
+
+func readFile(p string) (string, error) { b, err := os.ReadFile(p); return string(b), err }
