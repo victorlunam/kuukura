@@ -3,12 +3,8 @@ package auth_test
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -17,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
 
 	"github.com/victorlunam/kuukura/access"
 	"github.com/victorlunam/kuukura/audit"
 	"github.com/victorlunam/kuukura/auth"
+	"github.com/victorlunam/kuukura/auth/authtest"
 	"github.com/victorlunam/kuukura/identity"
 	"github.com/victorlunam/kuukura/keys"
 	"github.com/victorlunam/kuukura/storage"
@@ -275,83 +271,6 @@ func (e *env) activeAdmin() access.Actor {
 	return access.Actor{ID: id}
 }
 
-// ---- software passkey authenticator ----
-
-type authenticator struct {
-	key    *ecdsa.PrivateKey
-	credID []byte
-	count  uint32
-}
-
-func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
-
-func clientData(typ, challenge string) []byte {
-	b, _ := json.Marshal(map[string]any{"type": typ, "challenge": challenge, "origin": origin})
-	return b
-}
-
-func (a *authenticator) register(t *testing.T, opts json.RawMessage, uv bool) []byte {
-	var o struct {
-		PublicKey struct {
-			Challenge string `json:"challenge"`
-		} `json:"publicKey"`
-	}
-	if err := json.Unmarshal(opts, &o); err != nil {
-		t.Fatal(err)
-	}
-	if a.key == nil {
-		a.key, _ = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		a.credID = make([]byte, 16)
-		_, _ = rand.Read(a.credID)
-	}
-	rp := sha256.Sum256([]byte(rpID))
-	flags := byte(0x41) // UP | AT
-	if uv {
-		flags |= 0x04
-	}
-	pub, _ := a.key.PublicKey.Bytes() // 0x04 || X || Y
-	x, y := pub[1:33], pub[33:65]
-	cose, _ := cbor.Marshal(map[int]any{1: 2, 3: -7, -1: 1, -2: x, -3: y})
-	auth := append(rp[:], flags, 0, 0, 0, 0)
-	auth = append(auth, make([]byte, 16)...)
-	auth = binary.BigEndian.AppendUint16(auth, uint16(len(a.credID)))
-	auth = append(auth, a.credID...)
-	auth = append(auth, cose...)
-	att, _ := cbor.Marshal(map[string]any{"fmt": "none", "attStmt": map[string]any{}, "authData": auth})
-	body, _ := json.Marshal(map[string]any{"id": b64(a.credID), "rawId": b64(a.credID), "type": "public-key",
-		"response": map[string]any{"clientDataJSON": b64(clientData("webauthn.create", o.PublicKey.Challenge)), "attestationObject": b64(att)}})
-	return body
-}
-
-func (a *authenticator) assert(t *testing.T, opts json.RawMessage, uv bool) []byte {
-	var o struct {
-		PublicKey struct {
-			Challenge string `json:"challenge"`
-		} `json:"publicKey"`
-	}
-	if err := json.Unmarshal(opts, &o); err != nil {
-		t.Fatal(err)
-	}
-	a.count++
-	rp := sha256.Sum256([]byte(rpID))
-	flags := byte(0x01)
-	if uv {
-		flags |= 0x04
-	}
-	ad := append(rp[:], flags)
-	ad = binary.BigEndian.AppendUint32(ad, a.count)
-	cd := clientData("webauthn.get", o.PublicKey.Challenge)
-	cdh := sha256.Sum256(cd)
-	digest := sha256.Sum256(append(append([]byte{}, ad...), cdh[:]...))
-	sig, err := ecdsa.SignASN1(rand.Reader, a.key, digest[:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, _ := json.Marshal(map[string]any{"id": b64(a.credID), "rawId": b64(a.credID), "type": "public-key",
-		"response": map[string]any{"clientDataJSON": b64(cd), "authenticatorData": b64(ad), "signature": b64(sig)}})
-	return body
-}
-
 func raw(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 
 func TestPasskeyLoginAndStepUp(t *testing.T) {
@@ -363,7 +282,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 			t.Fatal(err)
 		}
 		in := e.info(pd.Token)
-		dev := &authenticator{}
+		dev := &authtest.Authenticator{RPID: rpID, Origin: origin}
 
 		opts, err := e.svc.BeginPasskeyRegistration(ctx, in)
 		if err != nil {
@@ -372,11 +291,11 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if opts.Response.AuthenticatorSelection.UserVerification != "required" {
 			t.Fatal("user verification must be required")
 		}
-		if _, err := e.svc.FinishPasskeyRegistration(ctx, in, dev.register(t, raw(opts), false), "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+		if _, err := e.svc.FinishPasskeyRegistration(ctx, in, dev.Register(t, raw(opts), false), "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("a registration without user verification must fail")
 		}
 		opts, _ = e.svc.BeginPasskeyRegistration(ctx, in)
-		res, err := e.svc.FinishPasskeyRegistration(ctx, in, dev.register(t, raw(opts), true), "203.0.113.9")
+		res, err := e.svc.FinishPasskeyRegistration(ctx, in, dev.Register(t, raw(opts), true), "203.0.113.9")
 		if err != nil || len(res.RecoveryCodes) != 10 {
 			t.Fatalf("register: %v", err)
 		}
@@ -391,11 +310,11 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := e.svc.FinishPasskeyLogin(ctx, in2, dev.assert(t, raw(a), false), "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+		if _, err := e.svc.FinishPasskeyLogin(ctx, in2, dev.Assert(t, raw(a), false), "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("an assertion without user verification must fail")
 		}
 		a, _ = e.svc.BeginPasskeyLogin(ctx, in2)
-		redirect, err := e.svc.FinishPasskeyLogin(ctx, in2, dev.assert(t, raw(a), true), "203.0.113.9")
+		redirect, err := e.svc.FinishPasskeyLogin(ctx, in2, dev.Assert(t, raw(a), true), "203.0.113.9")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -417,11 +336,11 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), false)); err == nil {
+		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), false)); err == nil {
 			t.Fatal("step-up needs user verification")
 		}
 		a, _ = e.svc.BeginStepUp(ctx, id)
-		if err := e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), true)); err != nil {
+		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true)); err != nil {
 			t.Fatal(err)
 		}
 		if !e.svc.StepUpDone(si, id) {
@@ -433,7 +352,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		// start over for the happy path and expiry
 		id, _ = e.svc.StartStepUp(si, "reveal", "A")
 		a, _ = e.svc.BeginStepUp(ctx, id)
-		_ = e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), true))
+		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true))
 		if !e.svc.ConsumeStepUp(si, id, "reveal", "A") {
 			t.Fatal("valid grant")
 		}
@@ -442,7 +361,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		}
 		id, _ = e.svc.StartStepUp(si, "run", "A")
 		a, _ = e.svc.BeginStepUp(ctx, id)
-		_ = e.svc.FinishStepUp(ctx, id, dev.assert(t, raw(a), true))
+		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true))
 		e.clock = e.clock.Add(61 * time.Second)
 		if e.svc.ConsumeStepUp(si, id, "run", "A") {
 			t.Fatal("grants expire after 60 seconds")

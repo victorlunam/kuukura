@@ -238,3 +238,8 @@ func (s *Service) Disable(ctx context.Context, a access.Actor, name string) erro
 			Metadata: map[string]any{"tokens_revoked": int(n)}})
 	})
 }
+
+// RequireAdmin fails unless the actor is an active admin; a failure is audited as a denial.
+func (s *Service) RequireAdmin(ctx context.Context, a access.Actor, action string) error {
+	return access.AdminTx(ctx, s.p, s.log, a, action, func(*sql.Tx) error { return nil })
+}

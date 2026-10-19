@@ -1,0 +1,138 @@
+# kuukura API
+
+All values in this document are FAKE examples. HTTPS is required (the server trusts `X-Forwarded-Proto` and
+`X-Forwarded-For` only from private network ranges, i.e. the reverse proxy). Authenticated calls send
+`Authorization: Bearer ku_...`. JSON bodies are strict: unknown fields are rejected. Values only travel in
+POST/PATCH bodies and responses, never in URLs. Responses that carry a value, and every other response, are
+`Cache-Control: no-store`.
+
+## Errors
+
+RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to plain copy) and optional `items`
+(the secrets or identities involved, never values):
+
+```json
+{ "type": "/problems/blocked", "title": "Secret is blocked", "status": 409,
+  "detail": "blocked until a new value is saved", "instance": "urn:uuid:5b0c...",
+  "code": "blocked", "items": ["STRIPE_KEY app:shop env:prod"] }
+```
+
+| status | code | meaning |
+|---|---|---|
+| 400 | `invalid-request` | malformed body, bad name or tag, empty value, too large |
+| 400 | `needs-one` | `--name` rename needs exactly one secret |
+| 400 | `https-required` | request was not HTTPS |
+| 401 | `unauthorized` | any authentication failure (always generic) |
+| 403 | `forbidden` | not permitted (deny by default; every denial is audited) |
+| 403 | `step-up-required` | a passkey confirmation is needed (see Step-up) |
+| 404 | `not-found` | nothing matches, or archived |
+| 409 | `needs-confirmation` | `POST /secrets/versions` without `create` and no exact match |
+| 409 | `ambiguous` | several secrets match; `items` lists them |
+| 409 | `blocked` | current version is compromised; `items` names them |
+| 409 | `clash` | name + tags would collide; `items` lists the clashes; nothing changed |
+| 409 | `kind-mismatch`, `conflict`, `last-admin` | |
+| 413 | `too-large` | body over 2 MB |
+| 429 | `quota-exceeded` | rate limit; has `Retry-After` and `RateLimit: limit=10, remaining=0, reset=6` |
+| 500 | `internal` | nothing else is exposed |
+
+Rate limits (in-process token bucket): unauthenticated, login and invite endpoints 10/min per IP;
+authenticated 300/min per token; `POST /secrets/reveal` 10/min per principal.
+
+## Selectors
+
+`{ "name": "STRIPE_KEY", "tags": ["app:shop", "env:prod"] }`. Name optional (uppercased, `^[A-Z0-9_]{1,128}$`),
+tags optional and ANDed (`key:value`, each part `^[a-z0-9._-]{1,64}$`, max 10, one value per key on a secret).
+
+## Login (CLI: browser + localhost PKCE)
+
+1. CLI generates a verifier, listens on `127.0.0.1:<port>`, opens
+   `GET /auth/login?cli_port=53682&cli_challenge=<base64url sha256(verifier)>&cli_state=<random>`.
+2. The server redirects to Google (code flow + PKCE, `email_verified` required). `GET /auth/callback` shows a
+   page for the second step (passkey, TOTP or recovery code; enrollment on first login).
+3. On success the browser goes to `http://127.0.0.1:<port>/callback?code=<one-time>&state=<cli_state>`.
+4. `POST /auth/token` `{ "code": "...", "verifier": "..." }` ->
+   `{ "token": "ku_...", "expires_at": "2026-10-19T22:00:00Z" }`. Sessions: 8 h absolute, 1 h idle.
+5. `POST /auth/logout` -> 204.
+
+Invite acceptance: `GET /invite?token=ku_...` -> page -> `GET /auth/login?invite=ku_...` (no CLI parameters) ->
+Google -> enrollment -> `/auth/done`. The invitee then runs `ku login`.
+
+Pages' JSON endpoints (bearer = the short mid-login token the page holds): `POST /auth/mfa/passkey/{begin,finish}`,
+`/auth/mfa/totp {code}`, `/auth/mfa/recovery {code}`, `/auth/enroll/passkey/{begin,finish}`,
+`/auth/enroll/totp/begin`, `/auth/enroll/totp/confirm {code}`. Finish/confirm return
+`{ "redirect": "...", "recovery_codes": ["ABCD-...", ...] }` (codes only on first enrollment, shown once).
+
+## Step-up (Touch ID)
+
+For reveal, `--out`, `--authorize off` and running `requires_authorize` secrets. Machines never get one.
+
+1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off", "subject": "STRIPE_KEY env:prod" }` ->
+   201 `{ "id": "...", "url": "https://vault.example.com/stepup?id=..." }`. `subject` is the selector as
+   `NAME tag tag` (name uppercased, tags sorted).
+2. The CLI opens `url`; the page runs a WebAuthn assertion (user verification required).
+3. The CLI polls `GET /auth/stepup/{id}` -> `{ "done": true }`.
+4. The CLI repeats the original call with header `X-Step-Up: <id>`. The grant is single use, valid 60 s after
+   the assertion, and bound to the principal, purpose and subject.
+
+## Secrets
+
+`GET /secrets?name=&tags=app:shop,env:prod` (read) ->
+```json
+{ "secrets": [ { "name": "STRIPE_KEY", "version": 4, "tags": ["app:shop","env:prod"], "kind": "text",
+                 "requires_authorize": false, "blocked": false } ] }
+```
+Never a value, not even masked.
+
+`POST /secrets/versions` (write) - create a secret or add a version when name + tags match exactly:
+```json
+{ "name": "STRIPE_KEY", "tags": ["app:shop","env:prod"], "kind": "text",
+  "value": "sk_test_FAKE_EXAMPLE", "create": true }
+```
+`kind` `text` (default, `value`, max 64 KB) or `file` (`value_base64` + `filename`, max 1 MB);
+`"generate": true` replaces the value with a server-generated one that is never returned; `description` optional.
+Without `create` and no exact match: 409 `needs-confirmation`. -> 201 (new) / 200
+`{ "name": "STRIPE_KEY", "version": 5, "created": false }`.
+
+`POST /secrets/reveal` (read + step-up `reveal`) - body is a selector selecting exactly one secret ->
+`{ "name": "...", "version": 4, "kind": "text", "value": "sk_test_FAKE_EXAMPLE" }` (files:
+`"filename"`, `"value_base64"`). Machines: 403.
+
+`POST /run` (read; step-up `run` only if a selected secret has `requires_authorize`) - selector ->
+`{ "secrets": [ { "name": "...", "version": 4, "kind": "text", "value": "..." } ] }`.
+Fails closed: any blocked secret (409 `blocked`), a named secret that is not permitted (403), or a name matching
+several secrets (409 `ambiguous`). One `read` audit row per secret. An empty selector is rejected.
+
+`PATCH /secrets` (write) - metadata only, never a version, all or nothing:
+```json
+{ "selector": { "name": "BASE_ULR" }, "rename": "BASE_URL",
+  "add_tags": ["env:qa"], "remove_tags": ["team:old"], "requires_authorize": true }
+```
+Adding `k:v` replaces an existing value for key `k`. `rename` needs exactly one selected secret.
+`requires_authorize: false` needs step-up `authorize_off`. `{ "selector": {...}, "archived": true }` archives
+(soft delete; name + tags become reusable). -> `{ "updated": ["STRIPE_KEY app:shop env:qa team:pay"] }`.
+
+`POST /secrets/revoke` (write) - selector; marks each current version compromised ->
+`{ "revoked": ["STRIPE_KEY app:shop env:prod"] }`. The secret is blocked until the next `POST /secrets/versions`.
+
+## Workspace (admin only)
+
+Being admin does not grant secret access.
+
+- `POST /workspace/invites` `{ "email": "dev@example.com" }` -> 201 `{ "link": "https://.../invite?token=ku_...", "expires_at": "..." }`
+  (24 h, single use, bound to the email); `{ "name": "ci-deploy", "machine": true }` -> 201
+  `{ "token": "ku_...", "expires_at": "..." }` (shown once; ~90 days).
+- `PATCH /workspace/groups/{g}` `{ "add": ["dev@example.com"], "remove": [] }` -> 204 (creates the group on first use).
+- `POST /workspace/grants` `{ "subject": "dev@example.com" | "group-name", "permission": "read" | "write", "tags": ["app:shop"] }` -> 201.
+  A grant covers secrets whose tags contain all grant tags. `write` implies `read`. A machine can do only what
+  both its own grants and its owner's grants allow.
+- `DELETE /workspace/grants` `{ "subject": "...", "tags": ["app:shop"] }` -> 204.
+- `PATCH /workspace/identities/{id}` `{ "status": "disabled" }` -> 204. `{id}` is the identity name (email or
+  machine name). Ends its sessions and tokens (and its machines'). The last admin cannot be disabled.
+- `GET /workspace/audit?name=&tags=&limit=100` ->
+  `{ "rows": [ { "id": "...", "at": "2026-10-19T14:00:00Z", "principal": "dev@example.com", "action": "read",
+  "secret": "STRIPE_KEY", "secret_id": "...", "version": 4, "result": "ok", "ip": "203.0.113.7",
+  "target_type": "...", "target_id": "...", "metadata": {} } ] }`.
+
+## Health
+
+`GET /healthz` -> `200 ok` or `503 unavailable`. No auth, no details.

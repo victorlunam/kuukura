@@ -38,13 +38,15 @@ type Entry struct {
 	Metadata   map[string]any
 }
 
-// Row is a stored entry.
+// Row is a stored entry. PrincipalName and SecretName are filled by List only.
 type Row struct {
 	Entry
-	ID       uuid.UUID
-	At       time.Time
-	PrevHash []byte
-	Hash     []byte
+	PrincipalName string
+	SecretName    string
+	ID            uuid.UUID
+	At            time.Time
+	PrevHash      []byte
+	Hash          []byte
 }
 
 type Log struct{ p storage.Provider }
@@ -171,13 +173,13 @@ func decodeJSON(raw []byte) (any, error) {
 const selectRow = `SELECT a.id, a.at, a.principal_id, a.action, a.secret_id, a.version, a.result, CAST(a.ip AS TEXT),
 	a.target_type, a.target_id, CAST(a.metadata AS TEXT), a.prev_hash, a.hash FROM audit_log a`
 
-func scanRow(rows *sql.Rows) (Row, error) {
+func scanRow(rows *sql.Rows, extra ...any) (Row, error) {
 	var r Row
 	var at storage.Time
 	var ip, tt, meta sql.NullString
 	var ver sql.NullInt64
 	var sid, tid uuid.NullUUID
-	if err := rows.Scan(&r.ID, &at, &r.Principal, &r.Action, &sid, &ver, &r.Result, &ip, &tt, &tid, &meta, &r.PrevHash, &r.Hash); err != nil {
+	if err := rows.Scan(append([]any{&r.ID, &at, &r.Principal, &r.Action, &sid, &ver, &r.Result, &ip, &tt, &tid, &meta, &r.PrevHash, &r.Hash}, extra...)...); err != nil {
 		return r, err
 	}
 	r.At = at.Time
@@ -248,16 +250,17 @@ type Filter struct {
 	Tags storage.Tags
 }
 
-// List returns rows newest first.
+// List returns rows newest first, with principal and secret names.
 func (l *Log) List(ctx context.Context, f Filter, limit int) ([]Row, error) {
-	q := selectRow
+	q := `SELECT a.id, a.at, a.principal_id, a.action, a.secret_id, a.version, a.result, CAST(a.ip AS TEXT),
+		a.target_type, a.target_id, CAST(a.metadata AS TEXT), a.prev_hash, a.hash, COALESCE(pr.name, ''), COALESCE(s.name, '')
+		FROM audit_log a LEFT JOIN principals pr ON pr.id = a.principal_id LEFT JOIN secrets s ON s.id = a.secret_id WHERE 1=1`
 	var args []any
-	if f.Name != "" || len(f.Tags) > 0 {
-		q += ` JOIN secrets s ON s.id = a.secret_id WHERE 1=1`
-		if f.Name != "" {
-			q += ` AND s.name = ?`
-			args = append(args, strings.ToUpper(f.Name))
-		}
+	if f.Name != "" {
+		q += ` AND s.name = ?`
+		args = append(args, strings.ToUpper(f.Name))
+	}
+	if len(f.Tags) > 0 {
 		cond, a := l.p.Contains("s.tags", f.Tags)
 		q += ` AND ` + cond
 		args = append(args, a...)
@@ -271,10 +274,12 @@ func (l *Log) List(ctx context.Context, f Filter, limit int) ([]Row, error) {
 	defer rows.Close()
 	var out []Row
 	for rows.Next() {
-		r, err := scanRow(rows)
+		var pn, sn string
+		r, err := scanRow(rows, &pn, &sn)
 		if err != nil {
 			return nil, err
 		}
+		r.PrincipalName, r.SecretName = pn, sn
 		out = append(out, r)
 	}
 	return out, rows.Err()

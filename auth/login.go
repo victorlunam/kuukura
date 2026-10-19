@@ -103,7 +103,9 @@ func random(n int) string {
 
 // StartLogin returns the provider URL. invite is optional (invite acceptance).
 func (s *Service) StartLogin(invite string, cli CLIParams) (string, error) {
-	if cli.Port < 1024 || cli.Port > 65535 || len(cli.Challenge) != 43 || cli.State == "" || len(cli.State) > 128 {
+	// An invite acceptance may come without a CLI (the invitee logs in later with `ku login`).
+	noCLI := invite != "" && cli == CLIParams{}
+	if !noCLI && (cli.Port < 1024 || cli.Port > 65535 || len(cli.Challenge) != 43 || cli.State == "" || len(cli.State) > 128) {
 		return "", ErrLogin
 	}
 	state, nonce, verifier := random(32), random(32), oauth2.GenerateVerifier()
@@ -224,6 +226,9 @@ func (s *Service) finish(ctx context.Context, tx *sql.Tx, in Info, ip string) (s
 	}
 	if err := s.log.Append(ctx, tx, audit.Entry{Principal: in.PrincipalID, Action: "login", IP: ip}); err != nil {
 		return "", err
+	}
+	if d.cli.Port == 0 {
+		return "/auth/done", nil
 	}
 	code := random(32)
 	s.codes.Put(code, cliCode{in.PrincipalID, d.cli})
