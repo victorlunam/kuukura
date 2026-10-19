@@ -30,7 +30,7 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 | V8 Authorization | Deny by default, least privilege | Grants (`read`/`write` on tag sets) only; admin role gives no secret access; machine = own grants AND owner's | `access/`, tests | Met |
 | | Step-up for sensitive actions | Passkey with user verification; single-use, 60 s, bound to principal/purpose/selector; machines never | `auth/login_test.go`, `TestTouchIDGates` | Met |
 | V9 Self-contained tokens | | Tokens are opaque, not JWTs | | N/A |
-| V10 OAuth and OIDC | Code flow + PKCE, state, nonce, `email_verified`, ID token verification | `auth/provider.go`, `auth/login.go`; CLI uses its own localhost PKCE | tests (fake provider) | Met (Google path not exercised in CI) |
+| V10 OAuth and OIDC | Code flow + PKCE, state, nonce, `email_verified`, ID token verification | `auth/provider.go`, `auth/login.go`; CLI uses its own localhost PKCE | tests (fake provider); real Google invite + passkey enrollment run by hand on localhost (2026-10-19) | Met (the Google path is not exercised in CI) |
 | | Redirect handling | The CLI callback binds `127.0.0.1`, checks `state`; the CLI never follows redirects with a token | `cmd/ku/cmd_profile.go`, `cmd/ku/main.go` | Met |
 | V11 Cryptography | Standard primitives only | AES-256-GCM, 96-bit random nonces, per-version random DEK, AAD with domain separation, age (scrypt) for the offline copy, SHA-256 | `keys/`, `keys/keys_test.go` | Met |
 | | Key management | Master key in memory only; rotation by rewrap; KMS option | `keys/`, `secrets/rotate.go`, runbook | Met |
@@ -59,4 +59,4 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 3. Periodic audit-chain verification (and where to alert).
 4. Restrict step-up/enrollment to platform authenticators (`authenticatorAttachment=platform`) if hardware keys should not count.
 5. Move the macOS token to the data protection keychain once the CLI is signed with the needed entitlement.
-6. Exercise the real Google flow once end to end on a staging domain.
+6. Repeat the real Google + Touch ID run on a staging domain over HTTPS (done once on localhost, see [local-testing.md](local-testing.md)).
