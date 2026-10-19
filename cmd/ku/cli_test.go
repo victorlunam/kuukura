@@ -106,7 +106,7 @@ func TestCanonicalSecretFlows(t *testing.T) {
 			t.Fatalf("single: %q", r.out)
 		}
 		r = mustOK(t, w.ku("y\n", true, nil, "secret", "update", "app:shop", "--authorize", "on"))
-		if !strings.Contains(r.errOut, "3 secrets will ask Touch ID. Continue? (y/N)") || r.out != "✓ Updated 3 secrets\n" {
+		if !strings.Contains(r.errOut, "  STRIPE_KEY    app:shop env:prod team:pay\n") || !strings.Contains(r.errOut, "3 secrets will ask Touch ID. Continue? (y/N)") || r.out != "✓ Updated 3 secrets\n" {
 			t.Fatalf("bulk:\n%q\n%q", r.out, r.errOut)
 		}
 		if r := w.ku("n\n", true, nil, "secret", "update", "app:shop", "--authorize", "off"); r.code != 1 || w.stepUps != 2 {

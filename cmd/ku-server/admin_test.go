@@ -111,3 +111,17 @@ func TestInitAndRotateKeyFile(t *testing.T) {
 		t.Fatalf("rotate must keep v1 and add v2: %v", err)
 	}
 }
+
+func TestDevHTTPOnlyOnLocalhost(t *testing.T) {
+	serverEnv(t)
+	t.Setenv("VAULT_DEV_HTTP", "true")
+	if _, err := loadConfig(false); err == nil {
+		t.Fatal("plain HTTP must be refused for a real domain")
+	}
+	t.Setenv("VAULT_DOMAIN", "localhost")
+	t.Setenv("VAULT_ADDR", ":9090")
+	c, err := loadConfig(false)
+	if err != nil || c.baseURL() != "http://localhost:9090" {
+		t.Fatalf("%v %v", c.baseURL(), err)
+	}
+}

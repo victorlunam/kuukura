@@ -101,7 +101,8 @@ func (a *app) currentLink(dir string) (link, bool, error) {
 
 func validateURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimRight(raw, "/"))
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	local := u != nil && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")
+	if err != nil || (u.Scheme != "https" && !(u.Scheme == "http" && local)) || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return "", errors.New("the server URL must look like https://vault.example.com")
 	}
 	return u.String(), nil

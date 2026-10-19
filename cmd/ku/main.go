@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// version is set at release time: -ldflags "-X main.version=2026.10.0".
+var version = "dev"
+
 // app holds everything a command touches, so tests can swap it.
 type app struct {
 	in         io.Reader
@@ -90,6 +93,9 @@ func (a *app) run(args []string) int {
 		return a.cmdSecret(rest)
 	case "workspace":
 		return a.cmdWorkspace(rest)
+	case "--version", "version":
+		fmt.Fprintln(a.out, version)
+		return 0
 	case "help", "-h", "--help":
 		fmt.Fprint(a.out, usage)
 		return 0

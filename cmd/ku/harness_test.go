@@ -108,7 +108,7 @@ func newWorld(t *testing.T, p storage.Provider) *world {
 	w.ids = identity.New(p, w.log, w.tokens)
 	srv := api.New(api.Deps{
 		Secrets: secrets.New(p, kp, w.log), Admin: access.NewAdmin(p, w.log), Identity: w.ids, Auth: w.auth, Tokens: w.tokens,
-		Audit: w.log, Storage: p, Domain: testDomain,
+		Audit: w.log, Storage: p, BaseURL: "https://" + testDomain,
 		Now: func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); w.now = w.now.Add(10 * time.Second); return w.now }, // limits never bite
 	})
 	w.srv = httptest.NewTLSServer(srv.Handler())

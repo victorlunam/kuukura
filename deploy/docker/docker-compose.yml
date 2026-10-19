@@ -1,0 +1,39 @@
+# Plain Docker Compose with automatic HTTPS (Caddy). Uses the published image; nothing is built from source.
+#
+#   1. Create the master key once (see docs/deploy.md), so that ./secrets/master_key exists.
+#   2. printf '%s' 'your-google-oauth-client-secret' > secrets/oidc_client_secret
+#   3. cp .env.example .env   and edit it
+#   4. docker compose up -d
+#   5. docker compose exec kuukura /ku-server admin invite --email you@example.com
+services:
+  kuukura:
+    image: ghcr.io/victorlunam/kuukura:${KUUKURA_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      VAULT_DOMAIN: ${VAULT_DOMAIN}
+      VAULT_STORAGE: sqlite
+      VAULT_SQLITE_PATH: /data/kuukura.db
+      VAULT_KEY_PROVIDER: manual
+      VAULT_MASTER_KEY_FILE: /run/secrets/master_key
+      VAULT_OIDC_CLIENT_ID: ${VAULT_OIDC_CLIENT_ID}
+      VAULT_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+    secrets: [master_key, oidc_client_secret]
+    volumes: [kuukura-data:/data]
+    expose: ["8080"]
+
+  # Terminates HTTPS (Let's Encrypt) and forwards X-Forwarded-Proto / X-Forwarded-For, which the server needs.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    command: caddy reverse-proxy --from ${VAULT_DOMAIN} --to kuukura:8080
+    volumes: [caddy-data:/data]
+    depends_on: [kuukura]
+
+secrets:
+  master_key: { file: ./secrets/master_key }
+  oidc_client_secret: { file: ./secrets/oidc_client_secret }
+
+volumes:
+  kuukura-data:
+  caddy-data:

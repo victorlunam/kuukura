@@ -181,7 +181,7 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if err != nil {
 		return errForbidden
 	}
-	return c.JSON(http.StatusCreated, map[string]string{"id": id, "url": "https://" + s.Domain + "/stepup?id=" + id})
+	return c.JSON(http.StatusCreated, map[string]string{"id": id, "url": s.BaseURL + "/stepup?id=" + id})
 }
 
 func (s *Server) stepUpStatus(c echo.Context) error {

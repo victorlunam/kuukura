@@ -319,6 +319,7 @@ func (a *app) secretUpdate(args []string) int {
 		return a.fail("--name works on exactly one secret. Add a tag to pick one.")
 	}
 	if n := len(rows); n > 1 {
+		fmt.Fprintln(a.err, previewLines(rows))
 		what := fmt.Sprintf("%d secrets will change.", n)
 		switch authorize {
 		case "on":
@@ -389,11 +390,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 		return a.fail("No matching secret.")
 	}
 	if len(rows) > 1 {
-		items := make([]string, len(rows))
-		for i, r := range rows {
-			items[i] = strings.TrimSpace(r.Name + " " + strings.Join(r.Tags, " "))
-		}
-		fmt.Fprintln(a.err, itemLines(items, "  "))
+		fmt.Fprintln(a.err, previewLines(rows))
 		past := map[string]string{"revoke": "revoked", "archive": "archived"}[verb]
 		ok, cerr := a.confirm(fmt.Sprintf("%d secrets will be %s. Continue?", len(rows), past), p.has("yes"))
 		if cerr != nil {
@@ -429,4 +426,13 @@ func (a *app) secretBulk(args []string, verb string) int {
 		fmt.Fprintf(a.out, "✓ Archived %d secrets\n", n)
 	}
 	return 0
+}
+
+// previewLines lists the selected secrets before a confirmation (same for update, revoke and archive).
+func previewLines(rows []secretRow) string {
+	items := make([]string, len(rows))
+	for i, r := range rows {
+		items[i] = strings.TrimSpace(r.Name + " " + strings.Join(r.Tags, " "))
+	}
+	return itemLines(items, "  ")
 }

@@ -78,7 +78,7 @@ func setup(t *testing.T, p storage.Provider) *env {
 	e.ids = identity.New(p, e.log, e.tokens)
 	e.srv = api.New(api.Deps{
 		Secrets: secrets.New(p, kp, e.log), Admin: access.NewAdmin(p, e.log), Identity: e.ids, Auth: e.auth, Tokens: e.tokens,
-		Audit: e.log, Storage: p, Domain: domain, Log: slog.New(slog.NewJSONHandler(e.logs, nil)),
+		Audit: e.log, Storage: p, BaseURL: "https://" + domain, Log: slog.New(slog.NewJSONHandler(e.logs, nil)),
 		Now: func() time.Time { return time.Now().Add(time.Duration(e.clock.Load()) * time.Second) },
 	})
 	return e

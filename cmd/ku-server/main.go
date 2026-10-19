@@ -5,6 +5,9 @@ import (
 	"os"
 )
 
+// version is set at release time: -ldflags "-X main.version=2026.10.0".
+var version = "dev"
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -17,6 +20,9 @@ func run(args []string) error {
 		return fmt.Errorf("usage: ku-server <serve|init|admin>")
 	}
 	switch args[0] {
+	case "version", "--version":
+		fmt.Println(version)
+		return nil
 	case "healthcheck":
 		return runHealthcheck()
 	case "serve":

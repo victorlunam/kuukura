@@ -36,7 +36,7 @@ func (s *Server) invite(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	link := "https://" + s.Domain + "/invite?token=" + url.QueryEscape(inv.Token)
+	link := s.BaseURL + "/invite?token=" + url.QueryEscape(inv.Token)
 	return c.JSON(http.StatusCreated, map[string]any{"link": link, "expires_at": inv.ExpiresAt})
 }
 

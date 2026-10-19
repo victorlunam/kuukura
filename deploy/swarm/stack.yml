@@ -1,0 +1,38 @@
+# Docker Swarm stack (Portainer "Stack" works too). Uses real Docker secrets. Run ONE replica: kuukura keeps
+# login state in memory and SQLite has a single writer.
+#
+#   printf '1:%s\n' "$(head -c 32 /dev/urandom | base64)" | docker secret create kuukura_master_key -
+#       (better: create it with `ku-server init` and keep the offline copy, see docs/deploy.md)
+#   printf '%s' 'google-oauth-client-secret' | docker secret create kuukura_oidc_secret -
+#   VAULT_DOMAIN=vault.example.com VAULT_OIDC_CLIENT_ID=... docker stack deploy -c stack.yml kuukura
+#
+# Put your own HTTPS reverse proxy (Traefik/Caddy/nginx) on the `proxy` network and point it at kuukura:8080.
+services:
+  kuukura:
+    image: ghcr.io/victorlunam/kuukura:${KUUKURA_VERSION:-latest}
+    environment:
+      VAULT_DOMAIN: ${VAULT_DOMAIN}
+      VAULT_STORAGE: sqlite
+      VAULT_SQLITE_PATH: /data/kuukura.db
+      VAULT_KEY_PROVIDER: manual
+      VAULT_MASTER_KEY_FILE: /run/secrets/kuukura_master_key
+      VAULT_OIDC_CLIENT_ID: ${VAULT_OIDC_CLIENT_ID}
+      VAULT_OIDC_CLIENT_SECRET_FILE: /run/secrets/kuukura_oidc_secret
+    secrets: [kuukura_master_key, kuukura_oidc_secret]
+    volumes: [kuukura-data:/data]
+    networks: [proxy]
+    deploy:
+      replicas: 1
+      update_config: { order: stop-first }
+      restart_policy: { condition: on-failure }
+
+secrets:
+  kuukura_master_key: { external: true }
+  kuukura_oidc_secret: { external: true }
+
+volumes:
+  kuukura-data:
+
+networks:
+  proxy:
+    external: true

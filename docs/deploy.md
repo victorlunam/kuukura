@@ -5,6 +5,31 @@ One instance per organization. The server is one static binary in a small image;
 (it trusts `X-Forwarded-Proto` and `X-Forwarded-For` only from private network addresses, i.e. your proxy on the
 Docker network). All values below are fake examples.
 
+## Deploy targets
+
+kuukura is deployed from the published image `ghcr.io/victorlunam/kuukura:<version>` (releases are tagged
+`YEAR.MONTH.N`, e.g. `2026.10.0`; pin one in production). Nothing is built on your server.
+
+| Target | File | TLS | Master key |
+|---|---|---|---|
+| Docker Compose + Caddy (any VPS) | [`deploy/docker/docker-compose.yml`](../deploy/docker/docker-compose.yml) | Caddy (Let's Encrypt) | Docker secret file |
+| Dokploy | [`deploy/dokploy/docker-compose.yml`](../deploy/dokploy/docker-compose.yml) | Dokploy's Traefik | `VAULT_MASTER_KEY` env var |
+| Docker Swarm / Portainer stack | [`deploy/swarm/stack.yml`](../deploy/swarm/stack.yml) | your proxy | Swarm secret |
+| Plain `docker run` | below | your proxy | Docker secret file / bind mount |
+
+```sh
+docker run -d --name kuukura --restart unless-stopped -p 127.0.0.1:8080:8080 \
+  -v kuukura-data:/data -v "$PWD/secrets/master_key:/run/secrets/master_key:ro" \
+  -e VAULT_DOMAIN=vault.example.com -e VAULT_MASTER_KEY_FILE=/run/secrets/master_key \
+  -e VAULT_OIDC_CLIENT_ID=... -e VAULT_OIDC_CLIENT_SECRET=... \
+  ghcr.io/victorlunam/kuukura:2026.10.0
+```
+
+Upgrading: change the version and redeploy (`docker compose pull && docker compose up -d`). Migrations run at start;
+back up the `/data` volume (or the database) first. `ku-server version` prints the running version.
+
+Local testing without a domain: [local-testing.md](local-testing.md).
+
 ## 1. Google login
 
 Create an OAuth client (type "Web application") in Google Cloud. Authorized redirect URI:
@@ -73,7 +98,7 @@ two roles:
 | `VAULT_OIDC_CLIENT_SECRET_FILE` / `VAULT_OIDC_CLIENT_SECRET` | Google OAuth client secret (file preferred). |
 
 Configuration is validated at startup; a bad or missing value stops the server with a plain message (values are never
-printed). See `docker-compose.yml` for a complete example. Dokploy: create an application from the image, set the
+printed). See the files under `deploy/` for complete examples. Dokploy: create a Compose service from `deploy/dokploy/docker-compose.yml`, set the
 variables above (use `VAULT_MASTER_KEY` for the key), mount a volume at `/data`, add the domain with TLS.
 
 Monitoring: `GET /healthz` (no auth, no details; the image has a `HEALTHCHECK` using `ku-server healthcheck`) and JSON

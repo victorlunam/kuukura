@@ -73,7 +73,7 @@ func adminInvite(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Invite link (single use, valid until %s):\nhttps://%s/invite?token=%s\n", inv.ExpiresAt.Local().Format("15:04"), c.Domain, inv.Token)
+	fmt.Printf("Invite link (single use, valid until %s):\n%s/invite?token=%s\n", inv.ExpiresAt.Local().Format("15:04"), c.baseURL(), inv.Token)
 	return nil
 }
 
@@ -115,7 +115,7 @@ func adminRotate(args []string) error {
 	if err != nil {
 		return fmt.Errorf("rewrap failed: %w", err)
 	}
-	a, err := auth.NewService(p, log, tokens, nil, kp, auth.Config{RPID: c.Domain, RPOrigin: "https://" + c.Domain, Issuer: "kuukura"})
+	a, err := auth.NewService(p, log, tokens, nil, kp, auth.Config{RPID: c.Domain, RPOrigin: c.baseURL(), Issuer: "kuukura"})
 	if err != nil {
 		return err
 	}

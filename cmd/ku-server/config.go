@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 )
@@ -12,6 +13,7 @@ import (
 type config struct {
 	Domain       string // VAULT_DOMAIN: instance domain, also the WebAuthn RP ID
 	Addr         string // VAULT_ADDR, default :8080
+	DevHTTP      bool   // VAULT_DEV_HTTP=true: plain HTTP, only with VAULT_DOMAIN=localhost (local testing)
 	Storage      string // VAULT_STORAGE: sqlite | postgres
 	SQLitePath   string // VAULT_SQLITE_PATH
 	DatabaseURL  string // VAULT_DATABASE_URL (the app login role)
@@ -54,6 +56,10 @@ func loadConfig(needServe bool) (config, error) {
 	need(c.Domain != "" && !strings.ContainsAny(c.Domain, "/: "), "VAULT_DOMAIN must be a bare domain name, e.g. vault.example.com")
 	if c.Addr == "" {
 		c.Addr = ":8080"
+	}
+	if env("VAULT_DEV_HTTP") == "true" {
+		need(c.Domain == "localhost", "VAULT_DEV_HTTP=true is only allowed with VAULT_DOMAIN=localhost")
+		c.DevHTTP = true
 	}
 	switch c.Storage {
 	case "sqlite":
@@ -98,4 +104,16 @@ func (c config) migrateDSN() string {
 		return c.MigrateURL
 	}
 	return c.dsn()
+}
+
+// baseURL is the public origin: https://<domain>, or http://localhost:<port> in local dev.
+func (c config) baseURL() string {
+	if c.DevHTTP {
+		_, port, err := net.SplitHostPort(c.Addr)
+		if err != nil || port == "" {
+			port = "8080"
+		}
+		return "http://localhost:" + port
+	}
+	return "https://" + c.Domain
 }

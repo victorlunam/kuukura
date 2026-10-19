@@ -22,16 +22,17 @@ import (
 
 // Deps are the facades the handlers call. Handlers never touch storage directly (except the health ping).
 type Deps struct {
-	Secrets  *secrets.Service
-	Admin    *access.Admin
-	Identity *identity.Service
-	Auth     *auth.Service
-	Tokens   *auth.Tokens
-	Audit    *audit.Log
-	Storage  storage.Provider
-	Domain   string
-	Log      *slog.Logger
-	Now      func() time.Time // rate limits; defaults to time.Now
+	Secrets   *secrets.Service
+	Admin     *access.Admin
+	Identity  *identity.Service
+	Auth      *auth.Service
+	Tokens    *auth.Tokens
+	Audit     *audit.Log
+	Storage   storage.Provider
+	BaseURL   string // e.g. https://vault.example.com (http://localhost:8080 in local dev)
+	AllowHTTP bool   // local development on localhost only
+	Log       *slog.Logger
+	Now       func() time.Time // rate limits; defaults to time.Now
 }
 
 type Server struct {
@@ -174,7 +175,7 @@ func (s *Server) accessLog(next echo.HandlerFunc) echo.HandlerFunc {
 
 func (s *Server) httpsOnly(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if c.Scheme() != "https" {
+		if c.Scheme() != "https" && !s.AllowHTTP {
 			return &apiError{http.StatusBadRequest, "https-required", "HTTPS required", "", nil, nil}
 		}
 		return next(c)
