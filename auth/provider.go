@@ -43,7 +43,10 @@ func NewGoogle(ctx context.Context, clientID, clientSecret, redirectURL string) 
 func (g *Google) Name() string { return "google" }
 
 func (g *Google) AuthURL(state, nonce, verifier string) string {
-	return g.cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce))
+	// prompt=select_account: always show the account chooser, so a browser that is signed in to several Google
+	// accounts never picks one silently (that would fail with an account that has no invite or identity).
+	return g.cfg.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier), oidc.Nonce(nonce),
+		oauth2.SetAuthURLParam("prompt", "select_account"))
 }
 
 func (g *Google) Exchange(ctx context.Context, code, verifier, nonce string) (Identity, error) {
