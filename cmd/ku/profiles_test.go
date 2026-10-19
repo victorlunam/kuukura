@@ -17,6 +17,33 @@ func testApp(t *testing.T, env map[string]string) (*app, *memStore, *strings.Bui
 	return a, st, &out
 }
 
+func TestConfigDirHonorsXDG(t *testing.T) {
+	env := map[string]string{}
+	a, _, _ := testApp(t, env)
+	if got, want := a.configDir(), filepath.Join(a.home, ".config", "kuukura"); got != want {
+		t.Fatalf("default: %s", got)
+	}
+	env["XDG_CONFIG_HOME"] = "/tmp/elsewhere"
+	if got := a.configDir(); got != "/tmp/elsewhere/kuukura" {
+		t.Fatalf("XDG_CONFIG_HOME: %s", got)
+	}
+	env["XDG_CONFIG_HOME"] = "relative/path" // not absolute: ignored, never guessed
+	if got, want := a.configDir(), filepath.Join(a.home, ".config", "kuukura"); got != want {
+		t.Fatalf("relative XDG_CONFIG_HOME must be ignored: %s", got)
+	}
+	// a profile written with XDG set lands there, not under HOME
+	env["XDG_CONFIG_HOME"] = t.TempDir()
+	if a.cmdProfile([]string{"add", "work", "--url", "https://work.example.test"}) != 0 {
+		t.Fatal("add")
+	}
+	if _, err := readFile(filepath.Join(env["XDG_CONFIG_HOME"], "kuukura", "config.toml")); err != nil {
+		t.Fatal("config must be written under XDG_CONFIG_HOME")
+	}
+	if _, err := readFile(filepath.Join(a.home, ".config", "kuukura", "config.toml")); err == nil {
+		t.Fatal("nothing may be written under HOME when XDG_CONFIG_HOME is set")
+	}
+}
+
 func TestProfileResolutionOrder(t *testing.T) {
 	env := map[string]string{}
 	a, _, _ := testApp(t, env)

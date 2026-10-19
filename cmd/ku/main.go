@@ -54,7 +54,14 @@ func openBrowser(url string) error {
 	return exec.Command(name, url).Start() // #nosec G204 -- fixed binary, URL is one argument
 }
 
-func (a *app) configDir() string { return filepath.Join(a.home, ".config", "kuukura") }
+// configDir is ~/.config/kuukura, or $XDG_CONFIG_HOME/kuukura when that is set. Use XDG_CONFIG_HOME to keep a
+// separate configuration (for tests); do not change HOME, because the macOS Keychain lives under it.
+func (a *app) configDir() string {
+	if x := a.getenv("XDG_CONFIG_HOME"); x != "" && filepath.IsAbs(x) {
+		return filepath.Join(x, "kuukura")
+	}
+	return filepath.Join(a.home, ".config", "kuukura")
+}
 
 // say prints a status line to stderr so stdout stays clean for values and pipes.
 func (a *app) say(format string, args ...any) { fmt.Fprintf(a.err, format+"\n", args...) }
