@@ -31,11 +31,11 @@
 
   {{else if eq .Mode "mfa"}}
   <h1>Confirm it's you</h1>
-  <p class="lead">One more step to finish signing in.</p>
+  <p class="lead">{{if .HasPasskey}}Use your passkey, or another method below.{{else if .HasTOTP}}Enter the code from your authenticator app to finish signing in.{{else}}Enter one of your recovery codes to finish signing in.{{end}}</p>
   <div id="mfa">
-    <button class="btn primary" id="pk" type="button"><svg aria-hidden="true"><use href="#i-fingerprint"/></svg>Use your passkey</button>
-    <div class="or">or</div>
-    <div class="tabs" role="tablist">
+    {{if .HasPasskey}}<button class="btn primary" id="pk" type="button"><svg aria-hidden="true"><use href="#i-fingerprint"/></svg>Use your passkey</button>
+    <div class="or">or</div>{{end}}
+    {{if .HasTOTP}}<div class="tabs" role="tablist">
       <button type="button" role="tab" id="tab-totp" aria-selected="true">Authenticator code</button>
       <button type="button" role="tab" id="tab-rec" aria-selected="false">Recovery code</button>
     </div>
@@ -43,9 +43,9 @@
       <label for="totp">6-digit code from your authenticator app</label>
       <input class="code" id="totp" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-describedby="m">
       <button class="btn ghost" type="submit">Verify</button>
-    </form>
-    <form id="f-rec" autocomplete="off" hidden>
-      <label for="rec">One of your recovery codes</label>
+    </form>{{end}}
+    <form id="f-rec" autocomplete="off"{{if .HasTOTP}} hidden{{end}}>
+      <label for="rec">{{if .HasTOTP}}One of your recovery codes{{else}}Recovery code{{end}}</label>
       <input id="rec" type="text" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" aria-describedby="m">
       <button class="btn ghost" type="submit">Use recovery code</button>
     </form>

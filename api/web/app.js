@@ -60,32 +60,40 @@
   if (mode === 'mfa') {
     const base = '/auth/mfa';
     const go = (j) => { location.href = j.redirect; };
+    // The page only contains the methods this account really has, so every element is optional here.
     const pk = $('#pk');
-    pk.addEventListener('click', action(pk, async () => {
-      const o = await post(base + '/passkey/begin', undefined, TOKEN);
-      const a = await navigator.credentials.get({ publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(o.publicKey) });
-      go(await post(base + '/passkey/finish', a.toJSON(), TOKEN));
-    }));
-    const tabs = { totp: [$('#tab-totp'), $('#f-totp'), $('#totp')], rec: [$('#tab-rec'), $('#f-rec'), $('#rec')] };
-    const show = (k) => Object.entries(tabs).forEach(([n, [t, f, i]]) => {
-      t.setAttribute('aria-selected', String(n === k));
-      f.hidden = n !== k;
-      if (n === k) i.focus();
-    });
-    tabs.totp[0].addEventListener('click', () => show('totp'));
-    tabs.rec[0].addEventListener('click', () => show('rec'));
+    if (pk) {
+      pk.addEventListener('click', action(pk, async () => {
+        const o = await post(base + '/passkey/begin', undefined, TOKEN);
+        const a = await navigator.credentials.get({ publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(o.publicKey) });
+        go(await post(base + '/passkey/finish', a.toJSON(), TOKEN));
+      }));
+    }
     const submit = (form, input, path) => {
       const btn = form.querySelector('button[type=submit]');
       const run = action(btn, async () => go(await post(base + path, { code: input.value }, TOKEN)));
       form.addEventListener('submit', run);
       return run;
     };
-    const runTotp = submit($('#f-totp'), $('#totp'), '/totp');
+    const totpForm = $('#f-totp');
+    if (totpForm) {
+      const runTotp = submit(totpForm, $('#totp'), '/totp');
+      $('#totp').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        if (e.target.value.length === 6) runTotp();
+      });
+      const tabs = { totp: [$('#tab-totp'), totpForm, $('#totp')], rec: [$('#tab-rec'), $('#f-rec'), $('#rec')] };
+      const show = (k) => Object.entries(tabs).forEach(([n, [t, f, i]]) => {
+        t.setAttribute('aria-selected', String(n === k));
+        f.hidden = n !== k;
+        if (n === k) i.focus();
+      });
+      tabs.totp[0].addEventListener('click', () => show('totp'));
+      tabs.rec[0].addEventListener('click', () => show('rec'));
+      if (!pk) $('#totp').focus(); // the code is the main way in: ready to type
+    }
     submit($('#f-rec'), $('#rec'), '/recovery');
-    $('#totp').addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
-      if (e.target.value.length === 6) runTotp();
-    });
+    if (!pk && !totpForm) $('#rec').focus();
   }
 
   // ---- enrollment ----

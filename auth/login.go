@@ -139,6 +139,8 @@ type Pending struct {
 	PrincipalID uuid.UUID
 	Mode        string
 	Profile     string // CLI profile name to display, if the CLI sent one
+	// What this account can use for the second step (mode "mfa"), so the page offers only real options.
+	HasPasskey, HasTOTP bool
 }
 
 // Callback handles the provider redirect. Only an invited email or an existing identity gets through.
@@ -207,7 +209,25 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		if err != nil {
 			return err
 		}
-		out = Pending{iss.Raw, pid, mode, f.cli.Profile}
+		out = Pending{Token: iss.Raw, PrincipalID: pid, Mode: mode, Profile: f.cli.Profile}
+		if mode == "mfa" {
+			rows, err := tx.QueryContext(ctx, s.p.Rebind(`SELECT DISTINCT kind FROM credentials WHERE principal_id = ?`), pid)
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var kind string
+				if err := rows.Scan(&kind); err != nil {
+					_ = rows.Close()
+					return err
+				}
+				out.HasPasskey = out.HasPasskey || kind == "passkey"
+				out.HasTOTP = out.HasTOTP || kind == "totp"
+			}
+			if err := rows.Close(); err != nil {
+				return err
+			}
+		}
 		s.pending.Put(iss.ID.String(), pendingData{cli: f.cli})
 		return nil
 	})

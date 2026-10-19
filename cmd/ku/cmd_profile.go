@@ -172,7 +172,7 @@ func (a *app) cmdLogin(args []string) int {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
 		w.Header().Set("Cache-Control", "no-store")
-		fmt.Fprint(w, signedInPage)
+		fmt.Fprint(w, signedInPage(pr.name))
 		select {
 		case got <- result{r.URL.Query().Get("code")}:
 		default:

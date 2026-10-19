@@ -203,6 +203,9 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 		if err != nil || pd2.Mode != "mfa" {
 			t.Fatalf("second login: %+v %v", pd2, err)
 		}
+		if !pd2.HasTOTP || pd2.HasPasskey {
+			t.Fatalf("an authenticator-app account must not be offered a passkey: %+v", pd2)
+		}
 		in2 := e.info(pd2.Token)
 		if _, err := e.svc.VerifyTOTP(ctx, in2, "123456", "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("wrong code")
@@ -310,6 +313,9 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 
 		// second factor with the passkey
 		pd2, c2, _ := e.login("", g)
+		if !pd2.HasPasskey || pd2.HasTOTP {
+			t.Fatalf("a passkey account must not be offered an authenticator code: %+v", pd2)
+		}
 		in2 := e.info(pd2.Token)
 		a, err := e.svc.BeginPasskeyLogin(ctx, in2)
 		if err != nil {

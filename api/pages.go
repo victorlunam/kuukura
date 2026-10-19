@@ -53,6 +53,7 @@ type pageData struct {
 	Label, Origin                 string
 	Step                          int
 	Hint                          bool // show the `ku login` command on a result page
+	HasPasskey, HasTOTP           bool // second-step methods this account has (mfa page)
 	Art, ArtDone                  template.HTML
 	CSS                           template.CSS
 	JS                            template.JS
@@ -144,7 +145,8 @@ func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
 	if p.Mode == "enroll" {
 		return s.page(c, http.StatusOK, pageData{Title: "Secure your account", Mode: "enroll", Token: p.Token, Art: art("passkey"), Step: 2, Label: p.Profile})
 	}
-	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "mfa", Token: p.Token, Art: art("shield"), Label: p.Profile})
+	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "mfa", Token: p.Token, Art: art("shield"), Label: p.Profile,
+		HasPasskey: p.HasPasskey, HasTOTP: p.HasTOTP})
 }
 
 func (s *Server) stepUpPage(c echo.Context) error {
