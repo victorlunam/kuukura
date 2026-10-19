@@ -1,14 +1,28 @@
-<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="An empty vault with its door open">
-  <ellipse class="f-soft" cx="124" cy="136" rx="78" ry="8"/>
-  <rect class="f-card s-ink" x="70" y="26" width="112" height="100" rx="16" stroke-width="3"/>
-  <rect class="f-soft" x="82" y="38" width="88" height="76" rx="9"/>
-  <rect class="s-mut" x="98" y="62" width="56" height="34" rx="6" stroke-width="2" stroke-dasharray="4 5"/>
-  <path class="f-card s-ink" d="M70 34 L40 46 V114 L70 118 Z" stroke-width="3" stroke-linejoin="round"/>
-  <ellipse class="s-ink" cx="55" cy="80" rx="5" ry="11" stroke-width="3"/>
-  <circle class="f-amber" cx="55" cy="80" r="2.4"/>
-  <rect class="f-ink" x="66" y="46" width="8" height="12" rx="2"/>
-  <rect class="f-ink" x="66" y="94" width="8" height="12" rx="2"/>
-  <path class="f-amber" d="M200 30l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
-  <circle class="f-acc" cx="214" cy="68" r="3"/>
-  <circle class="f-acc" cx="26" cy="30" r="2.6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="An empty vault with its door open">
+  <style>
+    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
+    .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
+  </style>
+  <ellipse class="f-soft" cx="126" cy="147" rx="80" ry="7"/>
+  <path class="f-amber" d="M204 28l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="218" cy="80" r="3"/>
+  <circle class="f-acc" cx="34" cy="34" r="2.5"/>
+  <!-- feet -->
+  <rect class="f-ink" x="102" y="135" width="16" height="7" rx="2.5"/>
+  <rect class="f-ink" x="164" y="135" width="16" height="7" rx="2.5"/>
+  <!-- body -->
+  <rect class="f-card s-ink" x="86" y="30" width="108" height="106" rx="16" stroke-width="2.5"/>
+  <!-- empty inside -->
+  <rect class="f-hollow" x="98" y="42" width="84" height="82" rx="9"/>
+  <path class="s-mut" d="M98 94h84" stroke-opacity=".3" stroke-width="2" fill="none"/>
+  <rect class="s-mut" x="116" y="64" width="48" height="30" rx="6" fill="none" stroke-width="2" stroke-dasharray="4 5"/>
+  <!-- door, swung open on the left hinge -->
+  <path class="f-card s-ink" d="M86 38 52 50v68l34 12z" stroke-width="2.5" stroke-linejoin="round"/>
+  <path class="f-soft" d="M81 53 60 60.5v47L81 115z"/>
+  <ellipse class="f-card s-ink" cx="70" cy="84" rx="5.5" ry="14" stroke-width="2.5"/>
+  <circle class="f-amber" cx="70" cy="84" r="2.6"/>
+  <rect class="f-ink" x="81" y="44" width="9" height="12" rx="2.5"/>
+  <rect class="f-ink" x="81" y="112" width="9" height="12" rx="2.5"/>
 </svg>

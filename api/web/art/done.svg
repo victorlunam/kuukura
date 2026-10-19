@@ -1,13 +1,20 @@
-<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A closed vault with a check mark">
-  <ellipse class="f-soft" cx="120" cy="138" rx="78" ry="8"/>
-  <rect class="f-card s-ink" x="64" y="24" width="112" height="104" rx="18" stroke-width="3"/>
-  <circle class="f-soft s-ink" cx="120" cy="76" r="33" stroke-width="3"/>
-  <circle class="s-mut" cx="120" cy="76" r="21" stroke-width="2" stroke-dasharray="3 5"/>
-  <circle class="f-amber" cx="120" cy="56" r="4"/>
-  <rect class="f-ink" x="84" y="126" width="14" height="6" rx="2"/>
-  <rect class="f-ink" x="142" y="126" width="14" height="6" rx="2"/>
-  <circle class="f-acc" cx="170" cy="36" r="17"/>
-  <path d="M162 36l6 6 11-13" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path class="f-amber" d="M44 40l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
-  <circle class="f-acc" cx="206" cy="86" r="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A closed vault with a check mark">
+  <style>
+    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
+    .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
+  </style>
+  <ellipse class="f-soft" cx="120" cy="147" rx="76" ry="7"/>
+  <path class="f-amber" d="M38 40l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="212" cy="96" r="3"/>
+  <circle class="f-acc" cx="30" cy="104" r="2.5"/>
+  <rect class="f-ink" x="82" y="135" width="16" height="7" rx="2.5"/>
+  <rect class="f-ink" x="142" y="135" width="16" height="7" rx="2.5"/>
+  <rect class="f-card s-ink" x="60" y="30" width="120" height="106" rx="18" stroke-width="2.5"/>
+  <circle class="f-soft s-ink" cx="120" cy="83" r="38" stroke-width="2.5"/>
+  <path class="s-ink" d="M120 83V62M120 83l18.2 10.5M120 83l-18.2 10.5" fill="none" stroke-width="3.4" stroke-linecap="round"/>
+  <circle class="f-amber s-ink" cx="120" cy="83" r="5" stroke-width="2.5"/>
+  <circle class="f-acc s-card" cx="176" cy="40" r="18" stroke-width="4"/>
+  <path d="m167.5 40.5 6 6 11-12.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

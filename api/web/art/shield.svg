@@ -1,10 +1,20 @@
-<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A shield with a keyhole">
-  <ellipse class="f-soft" cx="120" cy="138" rx="58" ry="7"/>
-  <circle class="f-soft" cx="120" cy="72" r="60"/>
-  <path class="f-card s-ink" d="M120 20l42 15v34c0 28-17 48-42 58-25-10-42-30-42-58V35z" stroke-width="3" stroke-linejoin="round"/>
-  <circle class="f-ink" cx="120" cy="64" r="9"/>
-  <path class="s-ink" d="M120 70v22" stroke-width="6" stroke-linecap="round"/>
-  <path class="f-amber" d="M190 34l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
-  <circle class="f-acc" cx="52" cy="46" r="3"/>
-  <circle class="f-acc" cx="196" cy="100" r="2.4"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A shield with a keyhole">
+  <style>
+    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
+    .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
+  </style>
+  <circle class="f-soft" cx="120" cy="80" r="62"/>
+  <ellipse class="f-hollow" cx="120" cy="147" rx="36" ry="6" opacity=".7"/>
+  <path class="f-amber" d="M190 34l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="50" cy="50" r="3"/>
+  <circle class="f-acc" cx="198" cy="112" r="2.5"/>
+  <!-- shield -->
+  <path class="f-card s-ink" d="M120 20 166 37v38c0 29-19 49-46 61-27-12-46-32-46-61V37z" stroke-width="2.5" stroke-linejoin="round"/>
+  <path class="f-soft" d="M120 20 74 37v38c0 29 19 49 46 61z" opacity=".7"/>
+  <path class="s-ink" d="M120 20 166 37v38c0 29-19 49-46 61-27-12-46-32-46-61V37z" fill="none" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- keyhole -->
+  <circle class="f-ink" cx="120" cy="72" r="10"/>
+  <path class="f-ink" d="M115 78h10l3 24a2 2 0 0 1-2 2.3h-12a2 2 0 0 1-2-2.3z"/>
 </svg>

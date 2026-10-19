@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -32,14 +33,18 @@ func webFile(name string) string {
 
 // The static pieces are trusted, embedded files (not user input), so they are marked safe once at startup.
 var (
-	pageCSS    = template.CSS(webFile("style.css"))   // #nosec G203 -- embedded file
-	pageJS     = template.JS(webFile("app.js"))       // #nosec G203 -- embedded file
-	pageSprite = template.HTML(webFile("sprite.svg")) // #nosec G203 -- embedded file
+	pageCSS    = template.CSS(webFile("style.css"))        // #nosec G203 -- embedded file
+	pageJS     = template.JS(webFile("app.js"))            // #nosec G203 -- embedded file
+	pageSprite = template.HTML(webFile("sprite.svg"))      // #nosec G203 -- embedded file
 	pageMark   = template.HTML(webFile("assets/mark.svg")) // #nosec G203 -- embedded file
 )
 
+// styleBlock matches the <style> each art file carries so it also renders on its own; inside a page the
+// colors come from the page's CSS variables instead (a <style> in the page would need the CSP nonce).
+var styleBlock = regexp.MustCompile(`(?s)\s*<style>.*?</style>`)
+
 func art(name string) template.HTML {
-	return template.HTML(webFile("art/" + name + ".svg")) // #nosec G203 -- embedded file
+	return template.HTML(styleBlock.ReplaceAllString(webFile("art/"+name+".svg"), "")) // #nosec G203 -- embedded file
 }
 
 type pageData struct {

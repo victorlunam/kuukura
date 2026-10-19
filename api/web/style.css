@@ -6,6 +6,7 @@
   --muted: #5a6578;
   --line: #e2e7ee;
   --soft: #e6f4f1;
+  --hollow: #d3e6e1;
   --soft-2: #f1f4f8;
   --acc: #0f9d8a;
   --acc-ink: #0a6f61;
@@ -28,6 +29,7 @@
     --muted: #94a0b3;
     --line: #1e293b;
     --soft: #12302f;
+    --hollow: #0a1f1f;
     --soft-2: #162033;
     --acc: #2dd4bf;
     --acc-ink: #5eead4;
@@ -96,9 +98,11 @@ h1 { font-size: 1.6rem; line-height: 1.2; letter-spacing: -.025em; margin: 10px 
 .s-ink { stroke: var(--ink); }
 .s-mut { stroke: var(--muted); }
 .s-acc { stroke: var(--acc); }
+.s-card { stroke: var(--card); }
 .f-ink { fill: var(--ink); }
 .f-card { fill: var(--card); }
 .f-soft { fill: var(--soft); }
+.f-hollow { fill: var(--hollow); }
 .f-acc { fill: var(--acc); }
 .f-amber { fill: var(--amber); }
 

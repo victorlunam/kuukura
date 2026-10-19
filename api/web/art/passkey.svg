@@ -1,18 +1,29 @@
-<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A fingerprint on a phone, adding a passkey">
-  <circle class="f-soft" cx="120" cy="75" r="62"/>
-  <rect class="f-card s-ink" x="86" y="20" width="68" height="110" rx="16" stroke-width="3"/>
-  <rect class="f-ink" x="108" y="27" width="24" height="4" rx="2"/>
-  <g class="s-acc" stroke-width="3.2" stroke-linecap="round" fill="none">
-    <path d="M100 96v-10a20 20 0 0 1 40 0v6"/>
-    <path d="M108 100v-14a12 12 0 0 1 24 0v8"/>
-    <path d="M116 102v-16a4 4 0 0 1 8 0v12"/>
-    <path d="M120 100v10"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A phone with a fingerprint, adding a passkey">
+  <style>
+    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
+    .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
+  </style>
+  <circle class="f-soft" cx="120" cy="80" r="62"/>
+  <ellipse class="f-hollow" cx="120" cy="147" rx="40" ry="6" opacity=".7"/>
+  <path class="f-amber" d="M52 38l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="196" cy="44" r="3"/>
+  <!-- phone -->
+  <rect class="f-card s-ink" x="88" y="22" width="64" height="116" rx="16" stroke-width="2.5"/>
+  <rect class="f-ink" x="109" y="29" width="22" height="4.5" rx="2.25"/>
+  <rect class="f-soft" x="97" y="42" width="46" height="86" rx="8"/>
+  <!-- fingerprint -->
+  <g class="s-acc" fill="none" stroke-width="3" stroke-linecap="round">
+    <path d="M104 101v-9a16 16 0 0 1 32 0v4"/>
+    <path d="M111 106v-14a9 9 0 0 1 18 0v8"/>
+    <path d="M118 108v-16a2 2 0 0 1 4 0v12"/>
+    <path d="M97.5 90a22.5 22.5 0 0 1 45 0"/>
   </g>
-  <circle class="f-amber" cx="168" cy="108" r="15"/>
-  <g stroke="#0B1220" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <circle cx="163" cy="105" r="4.2"/>
-    <path d="M166.2 108 L175 116.5 M171.5 113 l2.8-2.8"/>
+  <!-- key badge -->
+  <circle class="f-amber s-card" cx="158" cy="116" r="17" stroke-width="4"/>
+  <g transform="translate(158 116) rotate(45)" fill="none" stroke="#0b1220" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="-5.5" cy="0" r="4"/>
+    <path d="M-1.5 0H9M5 0v3.6M9 0v3"/>
   </g>
-  <path class="f-amber" d="M60 38l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
-  <circle class="f-acc" cx="188" cy="48" r="3"/>
 </svg>
