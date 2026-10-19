@@ -72,3 +72,42 @@ func TestAdminInviteAndRotate(t *testing.T) {
 		t.Fatal("email is required")
 	}
 }
+
+func TestInitAndRotateKeyFile(t *testing.T) {
+	dir := t.TempDir()
+	keyFile, export1, export2 := filepath.Join(dir, "master_key"), filepath.Join(dir, "v1.age"), filepath.Join(dir, "v2.age")
+	promptPass = func() (string, error) { return "correct horse battery", nil }
+	t.Cleanup(func() { promptPass = promptPassphrase })
+
+	if err := runInit([]string{"--key-file", keyFile, "--export", export1}); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := os.Stat(keyFile)
+	if st.Mode().Perm() != 0o600 {
+		t.Fatalf("key file mode %v", st.Mode())
+	}
+	body, _ := os.ReadFile(keyFile)
+	m, err := keys.ParseMasterKeys(body)
+	if err != nil || m.Version() != 1 {
+		t.Fatalf("v1: %v", err)
+	}
+	if err := runInit([]string{"--key-file", keyFile, "--export", filepath.Join(dir, "again.age")}); err == nil {
+		t.Fatal("init must never overwrite an existing key")
+	}
+	// the offline copy decrypts to the same key file
+	f, _ := os.Open(export1)
+	got, err := keys.ImportMasterKey(f, "correct horse battery")
+	_ = f.Close()
+	if err != nil || string(got) != string(body) {
+		t.Fatal("offline copy must hold the key file")
+	}
+
+	if err := runInit([]string{"--key-file", keyFile, "--export", export2, "--rotate"}); err != nil {
+		t.Fatal(err)
+	}
+	body2, _ := os.ReadFile(keyFile)
+	m2, err := keys.ParseMasterKeys(body2)
+	if err != nil || m2.Version() != 2 || !strings.HasPrefix(string(body2), string(body)) {
+		t.Fatalf("rotate must keep v1 and add v2: %v", err)
+	}
+}

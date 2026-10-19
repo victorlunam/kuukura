@@ -36,6 +36,9 @@ func runServe(args []string) error {
 		return err
 	}
 	defer p.Close()
+	if err := p.CheckAuditProtected(ctx, p.DB()); err != nil {
+		return err
+	}
 	kp, err := keyProvider(ctx, c)
 	if err != nil {
 		return errors.New("cannot load the master key")

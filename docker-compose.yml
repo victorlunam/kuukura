@@ -1,0 +1,35 @@
+# Self-host example. Copy, edit the values marked CHANGE, then:
+#   mkdir -p secrets && docker run --rm -it -v "$PWD/secrets:/s" ghcr.io/victorlunam/kuukura init --key-file /s/master_key --export /s/master_key.age
+#   (store master_key.age and its passphrase offline, then remove master_key.age from this folder)
+#   printf '%s' 'your-google-oauth-client-secret' > secrets/oidc_client_secret
+#   docker compose up -d
+#   docker compose exec kuukura /ku-server admin invite --email you@example.com
+services:
+  kuukura:
+    image: ghcr.io/victorlunam/kuukura:latest   # or: build: .
+    restart: unless-stopped
+    environment:
+      VAULT_DOMAIN: vault.example.com            # CHANGE: your domain; also the passkey RP ID
+      VAULT_STORAGE: sqlite                      # sqlite | postgres
+      VAULT_SQLITE_PATH: /data/kuukura.db
+      VAULT_KEY_PROVIDER: manual                 # manual | aws-kms
+      VAULT_MASTER_KEY_FILE: /run/secrets/master_key
+      VAULT_OIDC_CLIENT_ID: 000000000000-example.apps.googleusercontent.com   # CHANGE
+      VAULT_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+    secrets: [master_key, oidc_client_secret]
+    volumes: [kuukura-data:/data]
+    expose: ["8080"]
+    # TLS: put a reverse proxy in front (Traefik/Dokploy/Caddy) that terminates HTTPS and sends
+    # X-Forwarded-Proto and X-Forwarded-For. The server refuses plain HTTP requests.
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.kuukura.rule: Host(`vault.example.com`)      # CHANGE
+      traefik.http.routers.kuukura.tls.certresolver: letsencrypt
+      traefik.http.services.kuukura.loadbalancer.server.port: "8080"
+
+secrets:
+  master_key: { file: ./secrets/master_key }
+  oidc_client_secret: { file: ./secrets/oidc_client_secret }
+
+volumes:
+  kuukura-data:

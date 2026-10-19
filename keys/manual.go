@@ -87,3 +87,6 @@ func (m *Manual) Unwrap(_ context.Context, keyID string, wrapped, aad []byte) ([
 	}
 	return dek, nil
 }
+
+// Version is the active key version.
+func (m *Manual) Version() int { return m.active }

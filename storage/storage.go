@@ -27,6 +27,9 @@ type Provider interface {
 	Contains(col string, sel Tags) (cond string, args []any)
 	// TimeArg encodes a time as a query argument for a timestamp column.
 	TimeArg(t time.Time) any
+	// CheckAuditProtected fails if the connected role could update or delete audit rows
+	// (Postgres: the app must not own the tables; sqlite is protected by triggers).
+	CheckAuditProtected(ctx context.Context, q Querier) error
 	// LockAudit serializes audit appends for the rest of the transaction.
 	LockAudit(ctx context.Context, tx *sql.Tx) error
 	Close() error

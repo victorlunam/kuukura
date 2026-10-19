@@ -48,3 +48,13 @@ jobs:
           go-version: stable
           check-latest: true
       - run: go test -race ./...
+      - name: Fuzz (short)
+        run: |
+          go test ./keys -run '^$' -fuzz FuzzParseAAD -fuzztime 20s
+          go test ./keys -run '^$' -fuzz FuzzOpen -fuzztime 20s
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t kuukura:ci .

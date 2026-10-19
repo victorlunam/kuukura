@@ -17,6 +17,8 @@ func run(args []string) error {
 		return fmt.Errorf("usage: ku-server <serve|init|admin>")
 	}
 	switch args[0] {
+	case "healthcheck":
+		return runHealthcheck()
 	case "serve":
 		return runServe(args[1:])
 	case "init":

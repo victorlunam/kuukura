@@ -277,3 +277,30 @@ func TestGrantTagContainment(t *testing.T) {
 		}
 	})
 }
+
+func TestCheckAuditProtected(t *testing.T) {
+	forEachBackend(t, func(t *testing.T, kind, dsn string) {
+		p := open(t, kind, dsn)
+		conn, err := p.DB().Conn(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		if kind == "sqlite" {
+			if err := p.CheckAuditProtected(context.Background(), conn); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+		// the owner/superuser used to run migrations must be refused as the app role
+		if err := p.CheckAuditProtected(context.Background(), conn); err == nil {
+			t.Fatal("an owner connection must be refused")
+		}
+		if _, err := conn.ExecContext(context.Background(), `SET ROLE kuukura_app`); err != nil {
+			t.Fatal(err)
+		}
+		if err := p.CheckAuditProtected(context.Background(), conn); err != nil {
+			t.Fatalf("the app role is fine: %v", err)
+		}
+	})
+}

@@ -54,3 +54,5 @@ func (p *sqliteProvider) TimeArg(t time.Time) any {
 
 // LockAudit is a no-op: sqlite has a single connection, so transactions are serial.
 func (p *sqliteProvider) LockAudit(context.Context, *sql.Tx) error { return nil }
+
+func (p *sqliteProvider) CheckAuditProtected(context.Context, Querier) error { return nil }

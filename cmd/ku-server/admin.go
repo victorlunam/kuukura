@@ -18,10 +18,14 @@ import (
 )
 
 func openStorage(ctx context.Context, c config) (storage.Provider, error) {
-	if err := storage.Migrate(c.Storage, c.dsn()); err != nil {
+	if err := storage.Migrate(c.Storage, c.migrateDSN()); err != nil {
 		return nil, fmt.Errorf("migrations failed")
 	}
-	return storage.Open(ctx, c.Storage, c.dsn())
+	p, err := storage.Open(ctx, c.Storage, c.dsn())
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to the database")
+	}
+	return p, nil
 }
 
 func keyProvider(ctx context.Context, c config) (keys.KeyProvider, error) {

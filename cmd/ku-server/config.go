@@ -14,7 +14,8 @@ type config struct {
 	Addr         string // VAULT_ADDR, default :8080
 	Storage      string // VAULT_STORAGE: sqlite | postgres
 	SQLitePath   string // VAULT_SQLITE_PATH
-	DatabaseURL  string // VAULT_DATABASE_URL
+	DatabaseURL  string // VAULT_DATABASE_URL (the app login role)
+	MigrateURL   string // VAULT_MIGRATE_DATABASE_URL (table owner, used only for migrations; defaults to VAULT_DATABASE_URL)
 	KeyProvider  string // VAULT_KEY_PROVIDER: manual (default) | aws-kms
 	MasterKey    []byte // from VAULT_MASTER_KEY_FILE (preferred) or VAULT_MASTER_KEY
 	KMSKeyARN    string // VAULT_KMS_KEY_ARN
@@ -40,7 +41,7 @@ func fileOrEnv(fileKey, envKey string) (string, error) {
 func loadConfig(needServe bool) (config, error) {
 	c := config{
 		Domain: env("VAULT_DOMAIN"), Addr: env("VAULT_ADDR"), Storage: env("VAULT_STORAGE"),
-		SQLitePath: env("VAULT_SQLITE_PATH"), DatabaseURL: env("VAULT_DATABASE_URL"),
+		SQLitePath: env("VAULT_SQLITE_PATH"), DatabaseURL: env("VAULT_DATABASE_URL"), MigrateURL: env("VAULT_MIGRATE_DATABASE_URL"),
 		KeyProvider: env("VAULT_KEY_PROVIDER"), KMSKeyARN: env("VAULT_KMS_KEY_ARN"),
 		OIDCClientID: env("VAULT_OIDC_CLIENT_ID"),
 	}
@@ -90,4 +91,11 @@ func (c config) dsn() string {
 		return c.SQLitePath
 	}
 	return c.DatabaseURL
+}
+
+func (c config) migrateDSN() string {
+	if c.Storage == "postgres" && c.MigrateURL != "" {
+		return c.MigrateURL
+	}
+	return c.dsn()
 }
