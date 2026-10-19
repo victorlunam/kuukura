@@ -458,3 +458,37 @@ func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 		}
 	})
 }
+
+// Turning confirmation off needs a confirmation, but only for someone who may change the secret at all: a person
+// with a read-only grant is refused outright and must never be sent through a confirmation first.
+func TestAuthorizeOffChecksPermissionBeforeConfirmation(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		e := setup(t, p)
+		owner := e.human("member")
+		e.grant(owner, "write", "app:shop")
+		e.set(owner, "STRIPE_KEY", fakeValue, "app:shop")
+		reader := e.human("member")
+		e.grant(reader, "read", "app:shop")
+		off := false
+
+		if _, err := e.svc.Update(ctx, reader, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != CodeDenied {
+			t.Fatalf("a read-only person must be refused, not asked to confirm: %v", err)
+		}
+		if e.auditCount(reader, "update", "denied") != 1 {
+			t.Fatal("the refusal is audited")
+		}
+		stranger := e.human("member") // no grant at all: the secret does not exist for them
+		if _, err := e.svc.Update(ctx, stranger, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != CodeNotFound {
+			t.Fatalf("no grant: %v", err)
+		}
+		// the owner still needs the confirmation, and a machine can never give one
+		if _, err := e.svc.Update(ctx, owner, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != CodeStepUp {
+			t.Fatalf("the owner is asked to confirm: %v", err)
+		}
+		m := e.machine(owner)
+		e.grant(m, "write", "app:shop")
+		if _, err := e.svc.Update(ctx, m, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, true); code(err) != CodeDenied {
+			t.Fatalf("a machine can never turn confirmation off: %v", err)
+		}
+	})
+}

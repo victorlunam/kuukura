@@ -47,20 +47,22 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 	if rename == "" && len(add) == 0 && len(rem) == 0 && ch.Authorize == nil {
 		return nil, fail(CodeInvalid, "nothing to change")
 	}
-	if ch.Authorize != nil && !*ch.Authorize {
-		if a.Machine {
-			return nil, fail(CodeDenied, "not permitted")
-		}
-		if !stepUp {
-			return nil, fail(CodeStepUp, "confirmation required")
-		}
-	}
-
 	var names []string
 	err = s.run(ctx, func(tx *sql.Tx, denied *[]audit.Entry) error {
 		rows, err := s.writable(ctx, tx, a, sel, "update", denied)
 		if err != nil {
 			return err
+		}
+		// Turning the confirmation off needs a confirmation of its own. It is asked only after the permission
+		// check: someone who may not change the secret is refused outright and never sent through a confirmation.
+		if ch.Authorize != nil && !*ch.Authorize {
+			if a.Machine {
+				*denied = append(*denied, deniedEntry(a, "update", rows[0].ID))
+				return fail(CodeDenied, "not permitted")
+			}
+			if !stepUp {
+				return fail(CodeStepUp, "confirmation required")
+			}
 		}
 		if rename != "" && len(rows) != 1 {
 			return fail(CodeNeedsOne, "--name works on exactly one secret")
