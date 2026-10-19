@@ -54,6 +54,11 @@ You are asked for a passphrase (12+ characters, twice). This writes:
 Move `master_key.age` to a USB stick or print it, store the passphrase separately, and delete the `.age` file
 from the server. Neither the key nor the passphrase is logged or shown again. `init` never overwrites an existing key.
 
+**File permissions (Linux hosts):** the container runs as user `65532`, so a key file that is `0600` and owned by you is not
+readable inside it. Make the secret files belong to that user and keep them private:
+`sudo chown 65532:65532 secrets/master_key secrets/oidc_client_secret && sudo chmod 0400 secrets/master_key secrets/oidc_client_secret`.
+(Docker Desktop and OrbStack map ownership for you; Swarm secrets are mounted readable by the service already.)
+
 Without the master key (and without the offline copy) the data cannot be read. Test the offline copy once:
 `age -d secrets/master_key.age` (asks the passphrase, prints the key file body).
 

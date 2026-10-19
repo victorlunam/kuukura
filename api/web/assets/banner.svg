@@ -14,22 +14,22 @@
 
   <!-- the empty vault, same drawing as the invite page (dark palette), scaled -->
   <g transform="translate(560 100) scale(2.55)" stroke-linejoin="round">
-    <ellipse cx="126" cy="147" rx="80" ry="7" fill="#12302F"/>
-    <path d="M204 28l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z" fill="#FBBF24"/>
-    <circle cx="218" cy="80" r="3" fill="#2DD4BF"/>
-    <circle cx="34" cy="34" r="2.5" fill="#2DD4BF"/>
-    <rect x="102" y="135" width="16" height="7" rx="2.5" fill="#EEF2F7"/>
-    <rect x="164" y="135" width="16" height="7" rx="2.5" fill="#EEF2F7"/>
-    <rect x="86" y="30" width="108" height="106" rx="16" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
-    <rect x="98" y="42" width="84" height="82" rx="9" fill="#0A1F1F"/>
-    <path d="M98 94h84" stroke="#94A0B3" stroke-opacity=".3" stroke-width="2"/>
-    <rect x="116" y="64" width="48" height="30" rx="6" fill="none" stroke="#94A0B3" stroke-width="2" stroke-dasharray="4 5"/>
-    <path d="M86 38 52 50v68l34 12z" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
-    <path d="M81 53 60 60.5v47L81 115z" fill="#12302F"/>
-    <ellipse cx="70" cy="84" rx="5.5" ry="14" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
-    <circle cx="70" cy="84" r="2.6" fill="#FBBF24"/>
-    <rect x="81" y="44" width="9" height="12" rx="2.5" fill="#EEF2F7"/>
-    <rect x="81" y="112" width="9" height="12" rx="2.5" fill="#EEF2F7"/>
+    <ellipse cx="128" cy="147" rx="80" ry="7" fill="#12302F"/>
+    <path d="M206 30l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z" fill="#FBBF24"/>
+    <circle cx="220" cy="84" r="3" fill="#2DD4BF"/>
+    <circle cx="30" cy="40" r="2.5" fill="#2DD4BF"/>
+    <rect x="104" y="135" width="16" height="7" rx="2.5" fill="#EEF2F7"/>
+    <rect x="148" y="135" width="16" height="7" rx="2.5" fill="#EEF2F7"/>
+    <rect x="82" y="30" width="104" height="106" rx="22" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
+    <circle cx="134" cy="83" r="36" fill="#0A1F1F" stroke="#EEF2F7" stroke-width="2.5"/>
+    <circle cx="134" cy="83" r="26" fill="#EEF2F7" fill-opacity=".08"/>
+    <circle cx="134" cy="83" r="16" fill="#EEF2F7" fill-opacity=".1"/>
+    <circle cx="134" cy="83" r="7" fill="#EEF2F7" fill-opacity=".14"/>
+    <rect x="60" y="52" width="26" height="9" rx="3" fill="#EEF2F7"/>
+    <rect x="60" y="105" width="26" height="9" rx="3" fill="#EEF2F7"/>
+    <ellipse cx="60" cy="83" rx="12" ry="40" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
+    <ellipse cx="60" cy="83" rx="6" ry="27" fill="#12302F"/>
+    <circle cx="60" cy="83" r="3" fill="#FBBF24"/>
   </g>
 
   <!-- lockup -->

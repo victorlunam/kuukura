@@ -1,28 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="An empty vault with its door open">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="An empty vault, its round door swung open">
   <style>
     :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
     @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
-  <ellipse class="f-soft" cx="126" cy="147" rx="80" ry="7"/>
-  <path class="f-amber" d="M204 28l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
-  <circle class="f-acc" cx="218" cy="80" r="3"/>
-  <circle class="f-acc" cx="34" cy="34" r="2.5"/>
+  <ellipse class="f-soft" cx="128" cy="147" rx="80" ry="7"/>
+  <path class="f-amber" d="M206 30l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="220" cy="84" r="3"/>
+  <circle class="f-acc" cx="30" cy="40" r="2.5"/>
   <!-- feet -->
-  <rect class="f-ink" x="102" y="135" width="16" height="7" rx="2.5"/>
-  <rect class="f-ink" x="164" y="135" width="16" height="7" rx="2.5"/>
+  <rect class="f-ink" x="104" y="135" width="16" height="7" rx="2.5"/>
+  <rect class="f-ink" x="148" y="135" width="16" height="7" rx="2.5"/>
   <!-- body -->
-  <rect class="f-card s-ink" x="86" y="30" width="108" height="106" rx="16" stroke-width="2.5"/>
-  <!-- empty inside -->
-  <rect class="f-hollow" x="98" y="42" width="84" height="82" rx="9"/>
-  <path class="s-mut" d="M98 94h84" stroke-opacity=".3" stroke-width="2" fill="none"/>
-  <rect class="s-mut" x="116" y="64" width="48" height="30" rx="6" fill="none" stroke-width="2" stroke-dasharray="4 5"/>
-  <!-- door, swung open on the left hinge -->
-  <path class="f-card s-ink" d="M86 38 52 50v68l34 12z" stroke-width="2.5" stroke-linejoin="round"/>
-  <path class="f-soft" d="M81 53 60 60.5v47L81 115z"/>
-  <ellipse class="f-card s-ink" cx="70" cy="84" rx="5.5" ry="14" stroke-width="2.5"/>
-  <circle class="f-amber" cx="70" cy="84" r="2.6"/>
-  <rect class="f-ink" x="81" y="44" width="9" height="12" rx="2.5"/>
-  <rect class="f-ink" x="81" y="112" width="9" height="12" rx="2.5"/>
+  <rect class="f-card s-ink" x="82" y="30" width="104" height="106" rx="22" stroke-width="2.5"/>
+  <!-- the round doorway: rings getting darker toward the middle read as an empty, deep interior -->
+  <circle class="f-hollow s-ink" cx="134" cy="83" r="36" stroke-width="2.5"/>
+  <circle class="f-ink" cx="134" cy="83" r="26" fill-opacity=".08"/>
+  <circle class="f-ink" cx="134" cy="83" r="16" fill-opacity=".1"/>
+  <circle class="f-ink" cx="134" cy="83" r="7" fill-opacity=".14"/>
+  <!-- the door, swung open to the left and seen almost edge-on -->
+  <rect class="f-ink" x="60" y="52" width="26" height="9" rx="3"/>
+  <rect class="f-ink" x="60" y="105" width="26" height="9" rx="3"/>
+  <ellipse class="f-card s-ink" cx="60" cy="83" rx="12" ry="40" stroke-width="2.5"/>
+  <ellipse class="f-soft" cx="60" cy="83" rx="6" ry="27"/>
+  <circle class="f-amber" cx="60" cy="83" r="3"/>
 </svg>
