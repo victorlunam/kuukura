@@ -64,3 +64,13 @@ func sqliteTags(t Tags) string {
 	}
 	return "," + strings.Join(t, ",") + ","
 }
+
+// Subset reports whether every tag of sel is in tags (grant selector containment).
+func Subset(sel, tags Tags) bool {
+	for _, t := range sel {
+		if !slices.Contains(tags, t) {
+			return false
+		}
+	}
+	return true
+}

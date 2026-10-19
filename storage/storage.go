@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/amacneil/dbmate/v2/pkg/dbmate"
 	_ "github.com/amacneil/dbmate/v2/pkg/driver/postgres"
@@ -24,7 +25,51 @@ type Provider interface {
 	// Contains returns a SQL condition (and its args) true when every tag of
 	// sel is contained in the tags column col.
 	Contains(col string, sel Tags) (cond string, args []any)
+	// TimeArg encodes a time as a query argument for a timestamp column.
+	TimeArg(t time.Time) any
+	// LockAudit serializes audit appends for the rest of the transaction.
+	LockAudit(ctx context.Context, tx *sql.Tx) error
 	Close() error
+}
+
+// Querier is satisfied by *sql.DB and *sql.Tx. With sqlite (single connection)
+// code inside a transaction must use the tx, never the DB.
+type Querier interface {
+	ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, q string, args ...any) *sql.Row
+}
+
+// InTx runs fn in a transaction, committing on nil and rolling back on error.
+func InTx(ctx context.Context, p Provider, fn func(tx *sql.Tx) error) error {
+	tx, err := p.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+// Time scans a timestamp column from either dialect.
+type Time struct{ time.Time }
+
+func (t *Time) Scan(src any) error {
+	switch v := src.(type) {
+	case time.Time:
+		t.Time = v.UTC()
+	case string:
+		pt, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return err
+		}
+		t.Time = pt.UTC()
+	default:
+		return fmt.Errorf("storage: cannot scan %T into Time", src)
+	}
+	return nil
 }
 
 // Open connects to the backend. kind is "sqlite" (dsn = file path) or

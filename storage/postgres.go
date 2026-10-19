@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -29,4 +30,11 @@ func (p *postgresProvider) Close() error           { return p.db.Close() }
 // Contains uses array containment, served by the GIN index.
 func (p *postgresProvider) Contains(col string, sel Tags) (string, []any) {
 	return col + " @> ?::text[]", []any{p.TagsArg(sel)}
+}
+
+func (p *postgresProvider) TimeArg(t time.Time) any { return t.UTC() }
+
+func (p *postgresProvider) LockAudit(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(7266011)`)
+	return err
 }

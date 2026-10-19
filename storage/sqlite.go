@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/url"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -45,3 +46,8 @@ func (p *sqliteProvider) Contains(col string, sel Tags) (string, []any) {
 	}
 	return "(" + strings.Join(conds, " AND ") + ")", args
 }
+
+func (p *sqliteProvider) TimeArg(t time.Time) any { return t.UTC().Format(time.RFC3339Nano) }
+
+// LockAudit is a no-op: sqlite has a single connection, so transactions are serial.
+func (p *sqliteProvider) LockAudit(context.Context, *sql.Tx) error { return nil }
