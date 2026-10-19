@@ -47,7 +47,10 @@ func (p *sqliteProvider) Contains(col string, sel Tags) (string, []any) {
 	return "(" + strings.Join(conds, " AND ") + ")", args
 }
 
-func (p *sqliteProvider) TimeArg(t time.Time) any { return t.UTC().Format(time.RFC3339Nano) }
+// TimeArg is fixed width so text order is time order.
+func (p *sqliteProvider) TimeArg(t time.Time) any {
+	return t.UTC().Format("2006-01-02T15:04:05.000000Z")
+}
 
 // LockAudit is a no-op: sqlite has a single connection, so transactions are serial.
 func (p *sqliteProvider) LockAudit(context.Context, *sql.Tx) error { return nil }

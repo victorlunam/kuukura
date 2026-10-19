@@ -25,30 +25,23 @@ const (
 	MaxFile = 1 << 20
 )
 
-// Error codes; the API maps them to problem+json codes.
 const (
-	CodeNotFound     = "not_found"
-	CodeDenied       = "denied"
-	CodeAmbiguous    = "ambiguous"
-	CodeBlocked      = "blocked"
-	CodeClash        = "clash"
-	CodeStepUp       = "step_up_required"
-	CodeWouldCreate  = "would_create"
-	CodeInvalid      = "invalid"
-	CodeNeedsOne     = "needs_one"
-	CodeKindMismatch = "kind_mismatch"
+	CodeNotFound     = access.CodeNotFound
+	CodeDenied       = access.CodeDenied
+	CodeAmbiguous    = access.CodeAmbiguous
+	CodeBlocked      = access.CodeBlocked
+	CodeClash        = access.CodeClash
+	CodeStepUp       = access.CodeStepUp
+	CodeWouldCreate  = access.CodeWouldCreate
+	CodeInvalid      = access.CodeInvalid
+	CodeNeedsOne     = access.CodeNeedsOne
+	CodeKindMismatch = access.CodeKindMismatch
 )
 
-// Error is a domain error. Items lists the secrets involved ("NAME tag tag"); never values.
-type Error struct {
-	Code  string
-	Msg   string
-	Items []string
-}
+// Error is the shared domain error (see access.Error).
+type Error = access.Error
 
-func (e *Error) Error() string { return e.Msg }
-
-func fail(code, msg string, items ...string) *Error { return &Error{code, msg, items} }
+func fail(code, msg string, items ...string) *Error { return access.Fail(code, msg, items...) }
 
 var nameRE = regexp.MustCompile(`^[A-Z0-9_]{1,128}$`)
 
