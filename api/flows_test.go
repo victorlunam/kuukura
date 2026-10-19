@@ -157,8 +157,14 @@ func TestWorkspaceAdminAndMachines(t *testing.T) {
 		}
 		e.do("POST", "/workspace/grants", admin, map[string]any{"subject": "ci-deploy", "permission": "read", "tags": []string{"team:pay"}})
 		// the machine's owner (admin) has no grants, so the machine reads nothing: it never exceeds its creator
-		e.problem(e.do("POST", "/run", key, map[string]any{"name": "PAY"}), 403, "forbidden")
-		e.problem(e.do("POST", "/secrets/reveal", key, map[string]any{"name": "PAY"}), 403, "forbidden")
+		e.problem(e.do("POST", "/run", key, map[string]any{"name": "PAY"}), 404, "not-found")
+		e.problem(e.do("POST", "/secrets/reveal", key, map[string]any{"name": "PAY"}), 404, "not-found")
+		// an existing secret the machine may not read is indistinguishable from one that does not exist
+		missing := e.do("POST", "/run", key, map[string]any{"name": "NO_SUCH_SECRET"})
+		hidden := e.do("POST", "/run", key, map[string]any{"name": "PAY"})
+		if missing.Code != hidden.Code || missing.json()["detail"] != hidden.json()["detail"] || hidden.json()["items"] != nil {
+			t.Fatalf("unreadable must look like missing: %s vs %s", missing.Body, hidden.Body)
+		}
 		e.problem(e.do("POST", "/auth/stepup", key, map[string]string{"purpose": "reveal", "subject": "PAY"}), 403, "forbidden")
 
 		// audit is admin-only and holds rows without values

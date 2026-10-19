@@ -186,8 +186,12 @@ func TestDenyByDefaultAndAudited(t *testing.T) {
 		if l, err := e.svc.List(ctx, nobody, Selector{}); err != nil || len(l) != 0 {
 			t.Fatalf("list must hide secrets: %v %v", l, err)
 		}
-		if _, err := e.svc.Run(ctx, nobody, Selector{Name: "DB_URL", Tags: []string{"app:shop"}}, false); code(err) != CodeDenied {
-			t.Fatalf("run of a named unreadable secret: %v", err)
+		// an unreadable secret looks exactly like one that does not exist: same code, same text, nothing about its tags
+		_, err := e.svc.Run(ctx, nobody, Selector{Name: "DB_URL", Tags: []string{"app:shop"}}, false)
+		_, errMissing := e.svc.Run(ctx, nobody, Selector{Name: "NO_SUCH", Tags: []string{"app:shop"}}, false)
+		var de, dm *Error
+		if !errors.As(err, &de) || !errors.As(errMissing, &dm) || de.Code != CodeNotFound || de.Msg != dm.Msg || len(de.Items) != 0 {
+			t.Fatalf("an existing unreadable name must look like a missing one: %v / %v", err, errMissing)
 		}
 		if e.auditCount(nobody, "read", "denied") != 1 {
 			t.Fatal("read denial must be audited")
@@ -338,8 +342,8 @@ func TestAuthorizeAndMachines(t *testing.T) {
 		other := e.human("member")
 		e.grant(other, "write", "app:billing")
 		e.set(other, "BILL", "v", "app:billing")
-		if _, err := e.svc.Run(ctx, m2, Selector{Name: "BILL"}, false); code(err) != CodeDenied {
-			t.Fatalf("machine beyond its owner: %v", err)
+		if _, err := e.svc.Run(ctx, m2, Selector{Name: "BILL"}, false); code(err) != CodeNotFound {
+			t.Fatalf("machine beyond its owner sees nothing: %v", err)
 		}
 	})
 }

@@ -51,7 +51,7 @@ func TestFailClosedAndMasking(t *testing.T) {
 		_ = w.store.Set("default", other)
 		marker := filepath.Join(t.TempDir(), "ran")
 		r := w.ku("", false, nil, "run", "STRIPE_KEY", "app:shop", "--", "touch", marker)
-		if r.code != 1 || fileExists(marker) || !strings.Contains(r.errOut, "✗ You don't have access to") {
+		if r.code != 1 || fileExists(marker) || !strings.Contains(r.errOut, "✗ No matching secret.") || strings.Contains(r.errOut, "app:shop") && strings.Contains(r.errOut, "STRIPE_KEY  ") {
 			t.Fatalf("not permitted:\n%q", r.errOut)
 		}
 		noValue(t, r, fakeValue)

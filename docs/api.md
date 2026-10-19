@@ -107,8 +107,10 @@ Without `create` and no exact match: 409 `needs-confirmation`. -> 201 (new) / 20
 
 `POST /run` (read; step-up `run` only if a selected secret has `requires_authorize`) - selector ->
 `{ "secrets": [ { "name": "...", "version": 4, "kind": "text", "value": "..." } ] }`.
-Fails closed: any blocked secret (409 `blocked`), a named secret that is not permitted (403), or a name matching
-several secrets (409 `ambiguous`). One `read` audit row per secret. An empty selector is rejected.
+Fails closed: any blocked secret (409 `blocked`), or a name matching
+several secrets (409 `ambiguous`). A secret the caller may not read is treated as if it did not exist (404
+`not-found`, no tags or other details), so a person with a narrow grant cannot learn which other secrets exist; the
+attempt is still audited as `denied`. One `read` audit row per secret. An empty selector is rejected.
 
 `PATCH /secrets` (write) - metadata only, never a version, all or nothing:
 ```json

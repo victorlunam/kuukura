@@ -390,9 +390,11 @@ func (s *Service) fetch(ctx context.Context, a access.Actor, in Selector, action
 			}
 		}
 		if len(rows) == 0 {
+			// A secret the caller may not read looks exactly like one that does not exist: same error, nothing about
+			// its tags. (List, update, revoke and archive already work this way.) The admin still sees the attempt,
+			// because the denial is audited.
 			if sel.name != "" && len(all) > 0 {
 				*denied = append(*denied, deniedEntry(a, action, all[0].ID))
-				return fail(CodeDenied, "not permitted", all[0].label())
 			}
 			return fail(CodeNotFound, "no matching secret")
 		}
