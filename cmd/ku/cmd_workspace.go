@@ -138,13 +138,32 @@ func (a *app) workspaceAudit(p parsed) int {
 		fmt.Fprintln(a.out, "Nothing recorded yet.")
 		return 0
 	}
-	fmt.Fprintf(a.out, "%-21s%-30s%-18s%-20s%s\n", "WHEN (UTC)", "WHO", "ACTION", "SECRET", "RESULT")
+	// Column widths follow the content, so a long email never runs into the next column.
+	table := [][]string{{"WHEN (UTC)", "WHO", "ACTION", "SECRET", "RESULT"}}
 	for _, x := range r.Rows {
 		sec := x.Secret
 		if x.Version != nil {
 			sec = fmt.Sprintf("%s v%d", sec, *x.Version)
 		}
-		fmt.Fprintf(a.out, "%-21s%-30s%-18s%-20s%s\n", strings.Replace(strings.TrimSuffix(x.At, "Z"), "T", " ", 1), x.Principal, x.Action, sec, x.Result)
+		table = append(table, []string{strings.Replace(strings.TrimSuffix(x.At, "Z"), "T", " ", 1), x.Principal, x.Action, sec, x.Result})
+	}
+	widths := make([]int, 5)
+	for _, row := range table {
+		for i, cell := range row {
+			widths[i] = max(widths[i], len([]rune(cell)))
+		}
+	}
+	for _, row := range table {
+		var b strings.Builder
+		for i, cell := range row {
+			if i == len(row)-1 {
+				b.WriteString(cell)
+				break
+			}
+			b.WriteString(cell)
+			b.WriteString(strings.Repeat(" ", widths[i]-len([]rune(cell))+2))
+		}
+		fmt.Fprintln(a.out, b.String())
 	}
 	return 0
 }

@@ -147,6 +147,8 @@ func TestWorkspaceCommands(t *testing.T) {
 			t.Fatalf("the invite link suggests the inviter's profile name: %q", r.out)
 		}
 		w.member(admin, "dev@example.test")
+		long := "a-very-long-person-name.with.dots@a-long-subdomain.example.test" // longer than any fixed column
+		w.member(admin, long)
 		mustOK(t, w.ku("", false, nil, "workspace", "group", "pay", "+dev@example.test"))
 		mustOK(t, w.ku("", false, nil, "workspace", "grant", "pay", "write", "team:pay"))
 		mustOK(t, w.ku("", false, nil, "workspace", "ungrant", "pay", "team:pay"))
@@ -154,6 +156,20 @@ func TestWorkspaceCommands(t *testing.T) {
 		r = mustOK(t, w.ku("", false, nil, "workspace", "audit"))
 		if !strings.Contains(r.out, "WHEN (UTC)") || !strings.Contains(r.out, "group_add") || !strings.Contains(r.out, "grant") {
 			t.Fatalf("audit: %q", r.out)
+		}
+		// columns follow the content: a long email must be followed by at least two spaces, never glued to the action
+		lines := strings.Split(strings.TrimSpace(r.out), "\n")
+		sawLong := false
+		for _, l := range lines {
+			if i := strings.Index(l, long); i >= 0 {
+				sawLong = true
+				if !strings.HasPrefix(l[i+len(long):], "  ") {
+					t.Fatalf("columns run together: %q", l)
+				}
+			}
+		}
+		if !sawLong {
+			t.Fatalf("the long-named person has audit rows: %q", r.out)
 		}
 		if r := w.ku("", false, nil, "workspace", "remove", "root@example.test"); r.code != 1 || !strings.Contains(r.errOut, "last admin") {
 			t.Fatalf("last admin: %q", r.errOut)
