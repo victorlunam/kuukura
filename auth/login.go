@@ -191,7 +191,7 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 			err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT p.id, p.status FROM identities i JOIN principals p ON p.id = i.principal_id
 				WHERE i.provider = ? AND i.subject = ?`), s.provider.Name(), id.Subject).Scan(&pid, &status)
 			if errors.Is(err, sql.ErrNoRows) {
-				return denyAs("no_identity_for_this_google_account", email) // invite-only: that account was never invited
+				return denyAs("no_identity_for_this_account", email) // invite-only: that account was never invited
 			}
 			if err != nil {
 				return err
@@ -211,20 +211,8 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		}
 		out = Pending{Token: iss.Raw, PrincipalID: pid, Mode: mode, Profile: f.cli.Profile}
 		if mode == "mfa" {
-			rows, err := tx.QueryContext(ctx, s.p.Rebind(`SELECT DISTINCT kind FROM credentials WHERE principal_id = ?`), pid)
-			if err != nil {
-				return err
-			}
-			for rows.Next() {
-				var kind string
-				if err := rows.Scan(&kind); err != nil {
-					_ = rows.Close()
-					return err
-				}
-				out.HasPasskey = out.HasPasskey || kind == "passkey"
-				out.HasTOTP = out.HasTOTP || kind == "totp"
-			}
-			if err := rows.Close(); err != nil {
+			var err error
+			if out.HasPasskey, out.HasTOTP, err = s.factorsOf(ctx, tx, pid); err != nil {
 				return err
 			}
 		}
@@ -282,7 +270,7 @@ func (s *Service) bindIdentity(ctx context.Context, tx *sql.Tx, pid uuid.UUID, s
 	case err == nil && owner == pid:
 		return nil
 	case err == nil:
-		return deny("google_account_belongs_to_someone_else", "")
+		return deny("account_belongs_to_someone_else", "")
 	case !errors.Is(err, sql.ErrNoRows):
 		return err
 	}

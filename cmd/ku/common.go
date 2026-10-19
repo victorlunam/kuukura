@@ -53,18 +53,24 @@ func (a *app) confirm(question string, yes bool) (bool, error) {
 	return l == "y" || l == "yes", nil
 }
 
-// stepUp runs the Touch ID confirmation: the server issues a one-time request, the browser page performs the
-// passkey assertion (user verification required), and the CLI waits. Returns the grant id for X-Step-Up.
+// stepUp runs a confirmation with the account's own second step: the server issues a one-time request, the
+// browser page asks for a passkey (Touch ID) or an authenticator code, and the CLI waits.
+// Returns the grant id for X-Step-Up.
 func (a *app) stepUp(c *client, purpose, subject string) (string, error) {
 	var r struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
+		ID      string   `json:"id"`
+		URL     string   `json:"url"`
+		Methods []string `json:"methods"`
 	}
 	if err := c.call("POST", "/auth/stepup", map[string]string{"purpose": purpose, "subject": subject, "profile": c.profile}, &r); err != nil {
 		return "", err
 	}
 	fmt.Fprintf(a.err, "If the browser does not open, copy this link:\n  %s\n", r.URL)
-	fmt.Fprint(a.err, "Confirm with Touch ID...")
+	if len(r.Methods) == 1 && r.Methods[0] == "passkey" {
+		fmt.Fprint(a.err, "Confirm with Touch ID...") // a passkey is the only way, so name it
+	} else {
+		fmt.Fprint(a.err, "Confirm in your browser...")
+	}
 	_ = a.openURL(r.URL)
 	deadline := time.Now().Add(2 * time.Minute)
 	for time.Now().Before(deadline) {

@@ -141,8 +141,9 @@ CI: create a machine token with `ku workspace invite ci-deploy --machine` (shown
 needs, and store it as `KU_TOKEN` next to `KU_URL`. A machine can do only what both its own grants and its owner's
 grants allow, and can never reveal a value.
 
-Touch ID confirmations (reveal, `--out`, `--authorize off`, secrets marked `requires_authorize`) open a browser page on
-your instance and use your passkey with user verification.
+Confirmations (reveal, `--out`, `--authorize off`, secrets marked `requires_authorize`) open a browser page on your
+instance and use the second step your account has: your passkey (Touch ID, with user verification) or a code from your
+authenticator app.
 
 ## Operations
 

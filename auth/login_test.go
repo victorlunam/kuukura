@@ -244,9 +244,34 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 			t.Fatal("recovery codes are stored hashed")
 		}
 
-		// an account with only an authenticator app can sign in but cannot confirm anything (that needs a passkey)
-		if _, err := e.svc.StartStepUp(ctx, si, "reveal", "A"); !errors.Is(err, auth.ErrNoPasskey) {
-			t.Fatalf("step-up without a passkey: %v", err)
+		// an account with only an authenticator app confirms with a code, and a code works only once
+		sid, err := e.svc.StartStepUp(ctx, si, "reveal", "A")
+		if err != nil {
+			t.Fatalf("an authenticator-app account can confirm: %v", err)
+		}
+		if pk, tp, err := e.svc.StepUpMethods(ctx, sid); err != nil || pk || !tp {
+			t.Fatalf("methods must be the account's own: passkey=%v totp=%v %v", pk, tp, err)
+		}
+		if err := e.svc.FinishStepUpTOTP(ctx, sid, code); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("the code that was just used to sign in must not confirm (replay)")
+		}
+		if err := e.svc.FinishStepUpTOTP(ctx, sid, "000000"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("a wrong code must not confirm")
+		}
+		if e.svc.StepUpDone(si, sid) {
+			t.Fatal("nothing was confirmed yet")
+		}
+		e.clock = e.clock.Add(31 * time.Second) // the next 30-second step
+		fresh, _ := totp.GenerateCode(secret, e.clock)
+		if err := e.svc.FinishStepUpTOTP(ctx, sid, fresh); err != nil {
+			t.Fatalf("a fresh code confirms: %v", err)
+		}
+		if !e.svc.StepUpDone(si, sid) || !e.svc.ConsumeStepUp(si, sid, "reveal", "A") || e.svc.ConsumeStepUp(si, sid, "reveal", "A") {
+			t.Fatal("the grant is single use and bound to the request")
+		}
+		sid2, _ := e.svc.StartStepUp(ctx, si, "run", "A")
+		if err := e.svc.FinishStepUpTOTP(ctx, sid2, fresh); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("a code works once, across confirmations too")
 		}
 
 		// logout invalidates the session

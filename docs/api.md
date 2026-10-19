@@ -25,7 +25,7 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 401 | `unauthorized` | any authentication failure (always generic) |
 | 403 | `forbidden` | not permitted (deny by default; every denial is audited) |
 | 403 | `step-up-required` | a passkey confirmation is needed (see Step-up) |
-| 403 | `passkey-required` | `POST /auth/stepup` on an account that has no passkey (only an authenticator app) |
+| 403 | `second-factor-required` | `POST /auth/stepup` on an account with no passkey and no authenticator app |
 | 404 | `not-found` | nothing matches, or archived |
 | 409 | `needs-confirmation` | `POST /secrets/versions` without `create` and no exact match |
 | 409 | `ambiguous` | several secrets match; `items` lists them |
@@ -64,15 +64,20 @@ Pages' JSON endpoints (bearer = the short mid-login token the page holds): `POST
 `/auth/enroll/totp/begin`, `/auth/enroll/totp/confirm {code}`. Finish/confirm return
 `{ "redirect": "...", "recovery_codes": ["ABCD-...", ...] }` (codes only on first enrollment, shown once).
 
-## Step-up (Touch ID)
+## Step-up (confirmation with the account's own second step)
 
 For reveal, `--out`, `--authorize off` and running `requires_authorize` secrets. Machines never get one.
+The confirmation uses whatever the account has set up: a **passkey** (Touch ID, with user verification required) or an
+**authenticator app code**. An authenticator code works once (its 30-second step is spent), across sign-in and
+confirmations alike, so a code that was just used to sign in has to be replaced by the next one.
 
 1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off", "subject": "STRIPE_KEY env:prod", "profile": "work" }`
    (`profile` optional, display-only, same rules as `cli_profile`) ->
-   201 `{ "id": "...", "url": "https://vault.example.com/stepup?id=..." }`. `subject` is the selector as
+   201 `{ "id": "...", "url": "https://vault.example.com/stepup?id=...", "methods": ["passkey", "totp"] }`.
+   `methods` lists what the account can use (the CLI words its prompt from it). `subject` is the selector as
    `NAME tag tag` (name uppercased, tags sorted).
-2. The CLI opens `url`; the page runs a WebAuthn assertion (user verification required).
+2. The CLI opens `url`; the page offers only the account's methods: a WebAuthn assertion
+   (`POST /stepup/{id}/begin`, `/finish`) or an authenticator code (`POST /stepup/{id}/totp` `{ "code": "123456" }` -> 204).
 3. The CLI polls `GET /auth/stepup/{id}` -> `{ "done": true }`.
 4. The CLI repeats the original call with header `X-Step-Up: <id>`. The grant is single use, valid 60 s after
    the assertion, and bound to the principal, purpose and subject.

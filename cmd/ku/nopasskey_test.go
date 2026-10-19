@@ -1,34 +1,60 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/victorlunam/kuukura/storage"
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-// An account that only has an authenticator app can sign in, but a Touch ID confirmation needs a passkey. The CLI
-// must say so right away instead of opening a page that cannot succeed and waiting two minutes.
-func TestRevealWithoutPasskeyFailsFast(t *testing.T) {
+// A confirmation uses the second step the account has. An account with only an authenticator app confirms
+// with a code in the browser (no passkey needed), and the CLI words its prompt accordingly.
+func TestAuthenticatorAppAccountConfirmsWithItsCode(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
-		w, _ := userWorld(t, p)
+		w := newWorld(t, p)
+		admin := w.admin()
+		code, m := w.api(admin, "POST", "/workspace/invites", map[string]any{"email": "totp@example.test"})
+		if code != 201 {
+			t.Fatalf("invite: %d %v", code, m)
+		}
+		link := m["link"].(string)
+		tok := link[strings.Index(link, "token=")+len("token="):]
+		tok, _, _ = strings.Cut(tok, "&")
+		session := w.onboardTOTP(tok, "totp@example.test")
+		w.grant(admin, "totp@example.test", "write", "app:shop")
+		w.loginAs(session)
+
 		mustOK(t, w.ku("v\n", false, nil, "secret", "set", "DEMO_KEY", "app:shop", "--yes"))
-		if _, err := p.DB().Exec(`DELETE FROM credentials WHERE kind = 'passkey'`); err != nil {
-			t.Fatal(err)
+
+		r := mustOK(t, w.ku("", false, nil, "secret", "get", "DEMO_KEY", "--reveal"))
+		if r.out != "v" || w.stepUps != 1 {
+			t.Fatalf("reveal with an authenticator code: %q steps=%d err=%q", r.out, w.stepUps, r.errOut)
+		}
+		if !strings.Contains(r.errOut, "Confirm in your browser... ✓") || strings.Contains(r.errOut, "Touch ID") {
+			t.Fatalf("the prompt must not promise Touch ID to an account that has none: %q", r.errOut)
 		}
 
-		start := time.Now()
-		r := w.ku("", false, nil, "secret", "get", "DEMO_KEY", "--reveal")
-		if r.code != 1 || !strings.Contains(r.errOut, "Touch ID needs a passkey") || !strings.Contains(r.errOut, "authenticator app") {
-			t.Fatalf("expected a clear passkey message: %q", r.errOut)
+		out := filepath.Join(t.TempDir(), "k.txt")
+		mustOK(t, w.ku("", false, nil, "secret", "get", "DEMO_KEY", "--out", out))
+		if w.stepUps != 2 {
+			t.Fatalf("--out confirms too: %d", w.stepUps)
 		}
-		if w.stepUps != 0 || time.Since(start) > 5*time.Second || strings.Contains(r.errOut, "copy this link") {
-			t.Fatal("it must fail before opening any confirmation page")
+
+		// requires_authorize and --authorize off use the same confirmation
+		mustOK(t, w.ku("", false, nil, "secret", "update", "DEMO_KEY", "--authorize", "on"))
+		mustOK(t, w.ku("", false, nil, "run", "app:shop", "--", "true"))
+		mustOK(t, w.ku("", false, nil, "secret", "update", "DEMO_KEY", "--authorize", "off"))
+		if w.stepUps != 4 {
+			t.Fatalf("run and --authorize off confirm: %d", w.stepUps)
 		}
-		// plain commands keep working without a passkey
+
+		// ordinary commands never confirm
 		mustOK(t, w.ku("", false, nil, "secret", "list"))
 		mustOK(t, w.ku("", false, nil, "run", "app:shop", "--", "true"))
+		if w.stepUps != 4 {
+			t.Fatalf("plain commands must not ask: %d", w.stepUps)
+		}
 	})
 }

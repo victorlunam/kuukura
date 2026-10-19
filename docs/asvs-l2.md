@@ -22,7 +22,7 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 | V6 Authentication | Strong, phishing-resistant second factor | WebAuthn passkey with user verification required; TOTP fallback; 10 single-use recovery codes stored hashed | `auth/`, `auth/login_test.go` | Met |
 | | Credential recovery | Break-glass admin invite (server terminal only, 15 min, single use); recovery codes | `identity/`, `cmd/ku-server/admin.go` | Met |
 | | Brute-force resistance | Per-IP limit on all login endpoints; mid-login tokens expire in 5 min; no per-account lockout | | Partial (consider per-account failure counter) |
-| | TOTP replay | A valid code can be reused inside its window | | Open |
+| | TOTP replay | A code's 30 s step is spent on use, at sign-in and for confirmations (`last_used_at` guard, atomic) | `auth/factors.go`, `TestInviteTOTPEnrollmentAndLogin` | Met |
 | | Recovery code storage | SHA-256 of an 80-bit random code | `auth/factors.go` | Met |
 | V7 Session management | Token generation/storage | 256-bit random `ku_` tokens, only SHA-256 stored, constant-time compare | `auth/tokens.go`, `TestTokenLifecycle` | Met |
 | | Timeouts, logout, revocation | 8 h absolute, 1 h idle (server-enforced), logout and disable revoke; machine keys ~90 d | `auth/tokens_test.go`, `TestWorkspaceAdminAndMachines` | Met |
@@ -54,7 +54,7 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 
 ## Open items to decide before real secrets
 
-1. TOTP code replay inside the 30 s window.
+1. (closed) TOTP code replay: a code now works once.
 2. Per-account lockout / failed-login counter (currently per-IP rate limits only).
 3. Periodic audit-chain verification (and where to alert).
 4. Restrict step-up/enrollment to platform authenticators (`authenticatorAttachment=platform`) if hardware keys should not count.

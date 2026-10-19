@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
@@ -45,19 +46,27 @@ func (s *Service) openTOTP(ctx context.Context, principal uuid.UUID, b []byte) (
 	return string(pt), err
 }
 
-func validTOTP(secret, code string) bool {
-	ok, err := totp.ValidateCustom(code, secret, time.Now().UTC(), totp.ValidateOpts{Period: 30, Skew: 1, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
-	return err == nil && ok
+var totpOpts = totp.ValidateOpts{Period: 30, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1}
+
+// totpStep returns the 30-second step a code belongs to if it is valid within +-1 step of now (RFC 6238).
+func totpStep(secret, code string, now time.Time) (int64, bool) {
+	code = strings.TrimSpace(code)
+	for _, off := range []time.Duration{0, -30 * time.Second, 30 * time.Second} {
+		t := now.UTC().Add(off)
+		want, err := totp.GenerateCodeCustom(secret, t, totpOpts)
+		if err == nil && subtle.ConstantTimeCompare([]byte(want), []byte(code)) == 1 {
+			return t.Unix() / 30, true
+		}
+	}
+	return 0, false
 }
 
-// VerifyTOTP checks a 6-digit code (RFC 6238, +-1 step) and completes the login.
-func (s *Service) VerifyTOTP(ctx context.Context, in Info, code, ip string) (string, error) {
-	if _, err := s.requireScope(in, ScopeMFA); err != nil {
-		return "", err
-	}
-	rows, err := s.p.DB().QueryContext(ctx, s.p.Rebind(`SELECT id, encrypted_totp_secret FROM credentials WHERE principal_id = ? AND kind = 'totp'`), in.PrincipalID)
+// consumeTOTP checks a code against the principal's authenticator apps and spends it: a code (really its 30 s
+// step) works once, across login and confirmations alike, so a code seen over a shoulder or in a log is useless.
+func (s *Service) consumeTOTP(ctx context.Context, principal uuid.UUID, code string) (bool, error) {
+	rows, err := s.p.DB().QueryContext(ctx, s.p.Rebind(`SELECT id, encrypted_totp_secret FROM credentials WHERE principal_id = ? AND kind = 'totp'`), principal)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 	type cred struct {
 		id  uuid.UUID
@@ -68,27 +77,72 @@ func (s *Service) VerifyTOTP(ctx context.Context, in Info, code, ip string) (str
 		var c cred
 		if err := rows.Scan(&c.id, &c.enc); err != nil {
 			_ = rows.Close()
-			return "", err
+			return false, err
 		}
 		creds = append(creds, c)
 	}
-	_ = rows.Close()
-	for _, c := range creds {
-		secret, err := s.openTOTP(ctx, in.PrincipalID, c.enc)
-		if err == nil && validTOTP(secret, strings.TrimSpace(code)) {
-			var redirect string
-			err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
-				if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET last_used_at = ? WHERE id = ?`), s.p.TimeArg(s.now()), c.id); err != nil {
-					return err
-				}
-				var err error
-				redirect, err = s.finish(ctx, tx, in, ip)
-				return err
-			})
-			return redirect, err
-		}
+	if err := rows.Close(); err != nil {
+		return false, err
 	}
-	return "", s.failed(ctx, in, ip)
+	for _, c := range creds {
+		secret, err := s.openTOTP(ctx, principal, c.enc)
+		if err != nil {
+			continue
+		}
+		step, ok := totpStep(secret, code, s.now())
+		if !ok {
+			continue
+		}
+		at := s.p.TimeArg(time.Unix(step*30, 0).UTC())
+		res, err := s.p.DB().ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET last_used_at = ? WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)`), at, c.id, at)
+		if err != nil {
+			return false, err
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			return true, nil
+		}
+		// a valid code, but that step was already used
+	}
+	return false, nil
+}
+
+// factorsOf reports which second steps an account has set up.
+func (s *Service) factorsOf(ctx context.Context, q storage.Querier, principal uuid.UUID) (passkey, totp bool, err error) {
+	rows, err := q.QueryContext(ctx, s.p.Rebind(`SELECT DISTINCT kind FROM credentials WHERE principal_id = ?`), principal)
+	if err != nil {
+		return false, false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var kind string
+		if err := rows.Scan(&kind); err != nil {
+			return false, false, err
+		}
+		passkey = passkey || kind == "passkey"
+		totp = totp || kind == "totp"
+	}
+	return passkey, totp, rows.Err()
+}
+
+// VerifyTOTP checks a 6-digit code and completes the login.
+func (s *Service) VerifyTOTP(ctx context.Context, in Info, code, ip string) (string, error) {
+	if _, err := s.requireScope(in, ScopeMFA); err != nil {
+		return "", err
+	}
+	ok, err := s.consumeTOTP(ctx, in.PrincipalID, code)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", s.failed(ctx, in, ip)
+	}
+	var redirect string
+	err = storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
+		var err error
+		redirect, err = s.finish(ctx, tx, in, ip)
+		return err
+	})
+	return redirect, err
 }
 
 // ---- recovery codes ----
@@ -361,7 +415,10 @@ func (s *Service) BeginTOTP(ctx context.Context, in Info) (secret, uri string, e
 // ConfirmTOTP verifies the first code, stores the encrypted secret, activates and completes the login.
 func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (EnrollResult, error) {
 	d, err := s.requireScope(in, ScopeEnroll)
-	if err != nil || d.totpSecret == "" || !validTOTP(d.totpSecret, strings.TrimSpace(code)) {
+	if err != nil || d.totpSecret == "" {
+		return EnrollResult{}, ErrLogin
+	}
+	if _, ok := totpStep(d.totpSecret, code, s.now()); !ok {
 		return EnrollResult{}, ErrLogin
 	}
 	enc, err := s.sealTOTP(ctx, in.PrincipalID, d.totpSecret)
@@ -384,27 +441,52 @@ type stepUp struct {
 	grantedAt        time.Time
 }
 
-// ErrNoPasskey: the account has no passkey, so it cannot confirm anything.
-var ErrNoPasskey = errors.New("auth: no passkey")
+// ErrNoFactor: the account has no second step set up, so it cannot confirm anything.
+var ErrNoFactor = errors.New("auth: no second factor")
 
 // StartStepUp opens a step-up request for the caller. Machines can never get one.
 // The returned id is a capability for the browser page and the grant for the API call.
+// The confirmation uses whatever second step the account has: a passkey, or an authenticator code.
 func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject string) (string, error) {
 	if in.Machine || !in.HasScope(ScopeWrite) && !in.HasScope(ScopeRead) {
 		return "", ErrLogin
 	}
-	// A confirmation is a passkey assertion. An account with only an authenticator app can sign in but cannot
-	// confirm, so say so now instead of leaving the caller waiting for a page that cannot succeed.
-	var n int
-	if err := s.p.DB().QueryRowContext(ctx, s.p.Rebind(`SELECT COUNT(*) FROM credentials WHERE principal_id = ? AND kind = 'passkey'`), in.PrincipalID).Scan(&n); err != nil {
+	passkey, totp, err := s.factorsOf(ctx, s.p.DB(), in.PrincipalID)
+	if err != nil {
 		return "", err
 	}
-	if n == 0 {
-		return "", ErrNoPasskey
+	if !passkey && !totp {
+		return "", ErrNoFactor
 	}
 	id := random(32)
 	s.stepUps.Put(id, stepUp{principal: in.PrincipalID, purpose: purpose, subject: subject})
 	return id, nil
+}
+
+// StepUpMethods tells the confirmation page (and the CLI) which methods the request's account can use.
+func (s *Service) StepUpMethods(ctx context.Context, id string) (passkey, totp bool, err error) {
+	r, ok := s.stepUps.Peek(id)
+	if !ok {
+		return false, false, ErrLogin
+	}
+	return s.factorsOf(ctx, s.p.DB(), r.principal)
+}
+
+// FinishStepUpTOTP confirms a request with an authenticator code. The code is spent, like at sign-in.
+func (s *Service) FinishStepUpTOTP(ctx context.Context, id, code string) error {
+	r, ok := s.stepUps.Peek(id)
+	if !ok {
+		return ErrLogin
+	}
+	ok, err := s.consumeTOTP(ctx, r.principal, code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrLogin
+	}
+	s.stepUps.Update(id, func(r *stepUp) { r.grantedAt = s.now(); r.session = nil })
+	return nil
 }
 
 // BeginStepUp returns the passkey assertion options for the request's principal.

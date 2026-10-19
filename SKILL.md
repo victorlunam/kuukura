@@ -19,7 +19,7 @@ Secrets live in a vault. You run commands *with* them; you never read them.
 
 ## Never
 
-- Never run `ku secret get --reveal` or `ku secret get --out`. They need the user's Touch ID and are for humans.
+- Never run `ku secret get --reveal` or `ku secret get --out`. They need the user's own confirmation (passkey or authenticator code) and are for humans.
 - Never print, echo, log, write to a file, or paste a secret value anywhere: not in output, commit messages, issues, or chat. That includes `env`, `printenv`, `echo $NAME`, debug logging of the environment, and `cat` on injected files.
 - Never put a value in a command line, a URL, a config file, or a test fixture. Use `ku run`.
 - Never run `ku secret set`, `update`, `revoke`, `archive` or any `ku workspace` command unless the user explicitly asks.

@@ -89,6 +89,7 @@ func (s *Server) routes() {
 	e.GET("/stepup", s.stepUpPage, s.httpsOnly, pub)
 	e.POST("/stepup/:id/begin", s.stepUpBegin, s.httpsOnly, pub)
 	e.POST("/stepup/:id/finish", s.stepUpFinish, s.httpsOnly, pub)
+	e.POST("/stepup/:id/totp", s.stepUpTOTP, s.httpsOnly, pub)
 
 	// mid-login sessions (mfa / enroll scopes): same IP limit
 	mid := e.Group("/auth", s.httpsOnly, pub, s.authenticate)

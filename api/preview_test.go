@@ -23,9 +23,14 @@ func TestRenderPreview(t *testing.T) {
 		},
 		"mfa":    func(c echo.Context) error { return s.factorPage(c, auth.Pending{Token: "ku_x", Mode: "mfa"}) },
 		"enroll": func(c echo.Context) error { return s.factorPage(c, auth.Pending{Token: "ku_x", Mode: "enroll"}) },
-		"stepup": s.stepUpPage,
-		"done":   s.donePage,
-		"fail":   s.failPage,
+		"stepup": func(c echo.Context) error {
+			return s.page(c, 200, pageData{Title: "Confirm it's you", Mode: "stepup", ID: "abc", Art: art("confirm"), ArtDone: art("done"), HasPasskey: true, HasTOTP: true})
+		},
+		"stepup-totp": func(c echo.Context) error {
+			return s.page(c, 200, pageData{Title: "Confirm it's you", Mode: "stepup", ID: "abc", Art: art("confirm"), ArtDone: art("done"), HasTOTP: true})
+		},
+		"done": s.donePage,
+		"fail": s.failPage,
 	}
 	for name, fn := range pages {
 		rec := httptest.NewRecorder()

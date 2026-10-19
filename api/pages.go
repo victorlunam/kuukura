@@ -89,24 +89,24 @@ func (s *Server) failPage(c echo.Context) error {
 	})
 }
 
-// signInPage is the first card of `ku login`: the same look as the invite, with the Google button.
+// signInPage is the first card of `ku login`: the same look as the invite, with the sign-in button.
 func (s *Server) signInPage(c echo.Context, profile, link string) error {
 	return s.page(c, http.StatusOK, pageData{Title: "Sign in", Mode: "signin", Art: art("vault-empty"), Link: link, Label: profile})
 }
 
-// loginFailedPage explains the two failures that are about the Google account the person just chose (it is shown
+// loginFailedPage explains the two failures that are about the account the person just chose (it is shown
 // only back to them, so it reveals nothing about anyone else); every other reason stays generic.
 func (s *Server) loginFailedPage(c echo.Context, reason, email string) error {
 	switch reason {
-	case "no_identity_for_this_google_account":
+	case "no_identity_for_this_account":
 		return s.page(c, http.StatusUnauthorized, pageData{
 			Title: "No account found", Mode: "fail", Art: art("alert"), Hint: true, Email: email,
-			Detail: "This Google account is not registered in this vault. It is invite-only: sign in with the account you were invited with, or ask your admin to invite this one.",
+			Detail: "This account is not registered in this vault. It is invite-only: sign in with the account you were invited with, or ask your admin to invite this one.",
 		})
 	case "invite_email_mismatch":
 		return s.page(c, http.StatusUnauthorized, pageData{
-			Title: "Wrong Google account for this invite", Mode: "fail", Art: art("alert"), Email: email,
-			Detail: "This invite belongs to a different Google account. Open the invite link again and choose the account it was sent to. The invite is still valid.",
+			Title: "Wrong account for this invite", Mode: "fail", Art: art("alert"), Email: email,
+			Detail: "This invite belongs to a different account. Open the invite link again and choose the account it was sent to. The invite is still valid.",
 		})
 	}
 	return s.failPage(c)
@@ -150,7 +150,16 @@ func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
 }
 
 func (s *Server) stepUpPage(c echo.Context) error {
-	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "stepup", ID: c.QueryParam("id"), Art: art("confirm"), Label: auth.CleanLabel(c.QueryParam("profile"))})
+	id := c.QueryParam("id")
+	passkey, totp, err := s.Auth.StepUpMethods(c.Request().Context(), id)
+	if err != nil || !passkey && !totp { // unknown, expired or already used request
+		return s.page(c, http.StatusNotFound, pageData{
+			Title: "This confirmation is no longer valid", Mode: "fail", Art: art("alert"),
+			Detail: "It may have expired or already been used. Run the command in your terminal again to get a new one.",
+		})
+	}
+	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "stepup", ID: id, Art: art("confirm"),
+		Label: auth.CleanLabel(c.QueryParam("profile")), HasPasskey: passkey, HasTOTP: totp})
 }
 
 func (s *Server) invitePage(c echo.Context) error {

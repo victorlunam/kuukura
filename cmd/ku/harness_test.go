@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
 
 	"github.com/victorlunam/kuukura/access"
 	"github.com/victorlunam/kuukura/api"
@@ -91,6 +92,9 @@ type world struct {
 	emails  map[string]string                  // session token -> email
 	now     time.Time
 	mu      sync.Mutex
+
+	totpSecrets map[string]string // authenticator-app secrets by principal email (users enrolled with TOTP only)
+	skew        time.Duration
 }
 
 func newWorld(t *testing.T, p storage.Provider) *world {
@@ -98,6 +102,10 @@ func newWorld(t *testing.T, p storage.Provider) *world {
 		home: t.TempDir(), devs: map[string]*authtest.Authenticator{}, emails: map[string]string{}, now: time.Now()}
 	w.log = audit.New(p)
 	w.tokens = auth.NewTokens(p)
+	// the service's clock: real time plus a skew the fake browser advances by one TOTP step per confirmation, because
+	// an authenticator code works once (a real person waits for the next code)
+	w.tokens.Now = func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); return time.Now().Add(w.skew) }
+	w.totpSecrets = map[string]string{}
 	kf, _ := keys.GenerateMasterKey(1)
 	kp, _ := keys.ParseMasterKeys(kf)
 	var err error
@@ -119,6 +127,42 @@ func newWorld(t *testing.T, p storage.Provider) *world {
 func sha(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return base64.RawURLEncoding.EncodeToString(h[:])
+}
+
+// onboardTOTP is onboard for a user whose only second step is an authenticator app.
+func (w *world) onboardTOTP(invite, email string) string {
+	w.t.Helper()
+	verifier := strings.Repeat("v", 43)
+	u, err := w.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: sha(verifier), State: "s"})
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	pu, _ := url.Parse(u)
+	code := uuid.NewString()
+	w.idp.mu.Lock()
+	w.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
+	w.idp.mu.Unlock()
+	pd, err := w.auth.Callback(bg, pu.Query().Get("state"), code, "203.0.113.9")
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	in, _ := w.tokens.Validate(bg, pd.Token)
+	secret, _, err := w.auth.BeginTOTP(bg, in)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	first, _ := totp.GenerateCode(secret, w.tokens.Now())
+	res, err := w.auth.ConfirmTOTP(bg, in, first, "203.0.113.9")
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	ru, _ := url.Parse(res.Redirect)
+	iss, err := w.auth.ExchangeCode(bg, ru.Query().Get("code"), verifier)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	w.totpSecrets[email] = secret
+	return iss.Raw
 }
 
 // onboard creates an enrolled user with a passkey (invite -> Google -> passkey) and returns a session token.
@@ -229,6 +273,17 @@ func (w *world) browser(raw string) error {
 				return nil
 			}
 			_, opts = post("/stepup/"+id+"/begin", "", nil)
+		}
+		// or an authenticator app: each confirmation needs a code from a new 30-second step
+		for _, secret := range w.totpSecrets {
+			w.mu.Lock()
+			w.skew += 31 * time.Second
+			w.mu.Unlock()
+			code, _ := totp.GenerateCode(secret, w.tokens.Now())
+			if status, _ := post("/stepup/"+id+"/totp", "", []byte(`{"code":"`+code+`"}`)); status == 204 {
+				w.stepUps++
+				return nil
+			}
 		}
 		return errors.New("no device could confirm")
 	case u.Path == "/auth/login":

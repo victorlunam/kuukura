@@ -197,9 +197,9 @@ func (s *Server) stepUpStart(c echo.Context) error {
 		return badRequest("Unknown purpose.")
 	}
 	id, err := s.Auth.StartStepUp(c.Request().Context(), info(c), r.Purpose, r.Subject)
-	if errors.Is(err, auth.ErrNoPasskey) {
-		return &apiError{http.StatusForbidden, "passkey-required", "A passkey is required",
-			"Confirmations use a passkey, and this account only has an authenticator app.", nil, nil}
+	if errors.Is(err, auth.ErrNoFactor) {
+		return &apiError{http.StatusForbidden, "second-factor-required", "No way to confirm",
+			"This account has no passkey or authenticator app set up.", nil, nil}
 	}
 	if err != nil {
 		return errForbidden
@@ -208,7 +208,18 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if p := auth.CleanLabel(r.Profile); p != "" {
 		link += "&profile=" + p
 	}
-	return c.JSON(http.StatusCreated, map[string]string{"id": id, "url": link})
+	passkey, totp, err := s.Auth.StepUpMethods(c.Request().Context(), id)
+	if err != nil {
+		return err
+	}
+	var methods []string // the CLI words its prompt from this ("Touch ID" vs "your browser")
+	if passkey {
+		methods = append(methods, "passkey")
+	}
+	if totp {
+		methods = append(methods, "totp")
+	}
+	return c.JSON(http.StatusCreated, map[string]any{"id": id, "url": link, "methods": methods})
 }
 
 func (s *Server) stepUpStatus(c echo.Context) error {
@@ -221,6 +232,18 @@ func (s *Server) stepUpBegin(c echo.Context) error {
 		return errUnauthorized
 	}
 	return c.JSON(http.StatusOK, o)
+}
+
+// stepUpTOTP confirms a request with an authenticator code (for accounts whose second step is an app).
+func (s *Server) stepUpTOTP(c echo.Context) error {
+	var r codeReq
+	if err := decode(c, &r); err != nil {
+		return err
+	}
+	if err := s.Auth.FinishStepUpTOTP(c.Request().Context(), c.Param("id"), r.Code); err != nil {
+		return errUnauthorized
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (s *Server) stepUpFinish(c echo.Context) error {

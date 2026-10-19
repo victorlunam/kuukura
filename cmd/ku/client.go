@@ -97,8 +97,8 @@ func plain(err error) string {
 		if p.Detail != "" {
 			return strings.ToUpper(p.Detail[:1]) + p.Detail[1:] + "."
 		}
-	case "passkey-required":
-		return "Touch ID needs a passkey, and your account only has an authenticator app. Ask your admin for a new invite to add a passkey."
+	case "second-factor-required":
+		return "Your account has no passkey or authenticator app to confirm with. Ask your admin for a new invite."
 	case "https-required":
 		return "The server must be reached over https."
 	}

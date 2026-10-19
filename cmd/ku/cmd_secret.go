@@ -323,9 +323,9 @@ func (a *app) secretUpdate(args []string) int {
 		what := fmt.Sprintf("%d secrets will change.", n)
 		switch authorize {
 		case "on":
-			what = fmt.Sprintf("%d secrets will ask Touch ID.", n)
+			what = fmt.Sprintf("%d secrets will ask for a confirmation.", n)
 		case "off":
-			what = fmt.Sprintf("%d secrets will stop asking Touch ID.", n)
+			what = fmt.Sprintf("%d secrets will stop asking for a confirmation.", n)
 		}
 		ok, cerr := a.confirm(what+" Continue?", p.has("yes"))
 		if cerr != nil {

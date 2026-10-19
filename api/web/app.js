@@ -158,17 +158,35 @@
     $('#go').addEventListener('click', () => { location.href = redirect; });
   }
 
-  // ---- step-up (Touch ID for a terminal command) ----
+  // ---- confirmation for a terminal command: the account's own second step (passkey or authenticator code) ----
   if (mode === 'stepup') {
-    const pk = $('#pk');
-    pk.addEventListener('click', action(pk, async () => {
-      const o = await post('/stepup/' + B.id + '/begin');
-      const a = await navigator.credentials.get({ publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(o.publicKey) });
-      await post('/stepup/' + B.id + '/finish', a.toJSON());
+    const confirmed = () => {
       $('#ask').hidden = true;
       $('#okay').hidden = false;
-      const ill = $('#ill');
-      ill.innerHTML = document.getElementById('art-done').innerHTML;
-    }));
+      $('#ill').innerHTML = document.getElementById('art-done').innerHTML;
+    };
+    const pk = $('#pk');
+    if (pk) {
+      pk.addEventListener('click', action(pk, async () => {
+        const o = await post('/stepup/' + B.id + '/begin');
+        const a = await navigator.credentials.get({ publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(o.publicKey) });
+        await post('/stepup/' + B.id + '/finish', a.toJSON());
+        confirmed();
+      }));
+    }
+    const form = $('#f-totp');
+    if (form) {
+      const btn = form.querySelector('button[type=submit]');
+      const run = action(btn, async () => {
+        await post('/stepup/' + B.id + '/totp', { code: $('#totp').value });
+        confirmed();
+      });
+      form.addEventListener('submit', run);
+      $('#totp').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        if (e.target.value.length === 6) run();
+      });
+      if (!pk) $('#totp').focus();
+    }
   }
 })();

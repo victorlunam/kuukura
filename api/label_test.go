@@ -25,12 +25,12 @@ func TestLoginFailedPages(t *testing.T) {
 		}
 		return rec.Body.String()
 	}
-	b := render("no_identity_for_this_google_account", "stranger@example.test")
+	b := render("no_identity_for_this_account", "stranger@example.test")
 	if !strings.Contains(b, "No account found") || !strings.Contains(b, "not registered in this vault") || !strings.Contains(b, "You chose <b>stranger@example.test</b>") {
 		t.Fatal("the not-invited account is named")
 	}
 	b = render("invite_email_mismatch", "other@example.test")
-	if !strings.Contains(b, "Wrong Google account for this invite") || !strings.Contains(b, "still valid") {
+	if !strings.Contains(b, "Wrong account for this invite") || !strings.Contains(b, "still valid") {
 		t.Fatal("wrong account for an invite")
 	}
 	for _, reason := range []string{"unknown_state", "invite_invalid", "disabled", "provider_exchange_failed", "internal", ""} {
@@ -39,7 +39,7 @@ func TestLoginFailedPages(t *testing.T) {
 			t.Fatalf("reason %q must stay generic and never echo an email", reason)
 		}
 	}
-	if b := render("no_identity_for_this_google_account", "<script>x</script>@e.test"); strings.Contains(b, "<script>x") {
+	if b := render("no_identity_for_this_account", "<script>x</script>@e.test"); strings.Contains(b, "<script>x") {
 		t.Fatal("the email must be HTML-escaped")
 	}
 }
@@ -73,15 +73,14 @@ func TestHeaderLabel(t *testing.T) {
 	if b := render("neodev", factor, "/"); !has(b, "scratch") {
 		t.Fatal("the CLI profile name wins")
 	}
-	step := func(s *Server, c echo.Context) error { return s.stepUpPage(c) }
-	if b := render("neodev", step, "/stepup?id=abc&profile=scratch"); !has(b, "scratch") {
-		t.Fatal("step-up page shows the profile name")
+	// the confirmation page's label (it needs the auth service) is covered in stepup_page_test.go
+	if got := auth.CleanLabel("scratch"); got != "scratch" {
+		t.Fatal("plain profile names are kept")
 	}
-	// anything that is not a plain profile name is ignored, never echoed into the page
-	for _, bad := range []string{"%3Cscript%3Ealert(1)%3C/script%3E", "a%20b", "UPPER", strings.Repeat("a", 40)} {
-		b := render("neodev", step, "/stepup?id=abc&profile="+bad)
-		if !has(b, "neodev") || strings.Contains(b, "<script>alert") || strings.Contains(b, "UPPER") {
-			t.Fatalf("unsafe label %q must fall back to the instance name", bad)
+	// anything that is not a plain profile name is ignored, never echoed into a page
+	for _, bad := range []string{"<script>alert(1)</script>", "a b", "UPPER", strings.Repeat("a", 40), ""} {
+		if got := auth.CleanLabel(bad); got != "" {
+			t.Fatalf("unsafe label %q must be dropped, got %q", bad, got)
 		}
 	}
 }
