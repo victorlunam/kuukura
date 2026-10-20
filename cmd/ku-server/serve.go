@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -41,11 +42,11 @@ func runServe(args []string) error {
 	}
 	kp, err := keyProvider(ctx, c)
 	if err != nil {
-		return errors.New("cannot load the master key")
+		return fmt.Errorf("cannot load the master key: %w", err)
 	}
 	google, err := auth.NewGoogle(ctx, c.OIDCClientID, c.OIDCSecret, c.baseURL()+"/auth/callback")
 	if err != nil {
-		return errors.New("cannot reach the login provider")
+		return fmt.Errorf("cannot reach the login provider: %w", err)
 	}
 	alog, tokens := audit.New(p), auth.NewTokens(p)
 	authSvc, err := auth.NewService(p, alog, tokens, google, kp, auth.Config{RPID: c.Domain, RPOrigin: c.baseURL(), Issuer: "kuukura"})
