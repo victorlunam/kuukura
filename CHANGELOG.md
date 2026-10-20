@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.6] - 2026-10-20
+
 ### Added
 
 - A page at `/` that shows how to connect the CLI; a readable page when a browser reaches the server over plain HTTP.
@@ -145,7 +147,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.5...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.6...HEAD
+[2026.10.6]: https://github.com/victorlunam/kuukura/compare/v2026.10.5...v2026.10.6
 [2026.10.5]: https://github.com/victorlunam/kuukura/compare/v2026.10.4...v2026.10.5
 [2026.10.4]: https://github.com/victorlunam/kuukura/compare/v2026.10.3...v2026.10.4
 [2026.10.3]: https://github.com/victorlunam/kuukura/compare/v2026.10.2...v2026.10.3
