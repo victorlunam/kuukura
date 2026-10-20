@@ -24,7 +24,7 @@ SVG, system fonts and no external resources, so the strict CSP (`default-src 'no
 One accent. The base is teal-ink; amber is the only highlight. Teal is the supporting hue for state (progress, success,
 the fingerprint) and never decorates. These are the values of
 [`packages/brand/tokens.css`](../packages/brand/tokens.css), which the server's
-[`style.css`](../apps/ku-server/api/web/style.css) repeats (a test keeps them equal); each art file and the CLI's "signed in" page repeat them.
+`style.css` repeats (a test keeps them equal); each art file and the CLI's "signed in" page repeat them.
 
 | Token (css var) | Light | Dark | Use |
 |---|---|---|---|

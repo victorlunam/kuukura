@@ -6,6 +6,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Changed
+
+- Repository layout: apps/ (ku, ku-server, web), internal/ (shared Go code), packages/ (brand, shared across languages); conventions in CONTRIBUTING.md and AGENTS.md.
+
 ## [2026.10.2] - 2026-10-20
 
 ### Security

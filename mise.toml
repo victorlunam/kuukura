@@ -1,2 +1,17 @@
 [tools]
 go = "1.26.9"
+
+# dbmate has no config file and defaults to ./db/migrations, so a plain `dbmate new` would write to the wrong place
+# and only one dialect. This writes the sqlite + postgres pair with dbmate's timestamp (UTC, YYYYMMDDHHMMSS).
+[tasks."db:new"]
+description = "Create a migration pair: mise run db:new <name>"
+usage = 'arg "<name>" help="snake_case name, e.g. add_labels"'
+run = '''
+set -eu
+ts=$(date -u +%Y%m%d%H%M%S)
+for dialect in sqlite postgres; do
+  f="internal/storage/migrations/$dialect/${ts}_${usage_name}.sql"
+  printf -- '-- migrate:up\n\n-- migrate:down\n' > "$f"
+  echo "$f"
+done
+'''

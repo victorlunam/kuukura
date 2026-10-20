@@ -12,16 +12,60 @@ change saves everyone time.
 
 ## Repository layout
 
-| Path | What |
-|---|---|
-| `cmd/ku`, `cmd/ku-server` | the two binaries: the CLI and the server (also the operator tool) |
-| `internal/` | Go domain packages: `access`, `audit`, `auth`, `identity`, `keys`, `secrets`, `storage`, `db` (migrations) and `api` (HTTP + the server's pages and brand assets in `api/web`) |
-| `site/` | the website and docs site (Astro); the docs themselves live in `docs/` |
-| `docs/` | documentation, the single source for the website's docs |
-| `deploy/`, `render.yaml` | Docker Compose, Dokploy, Coolify, Swarm and Render templates |
-| `scripts/` | install scripts, Homebrew formula template, macOS signing |
+```
+apps/
+  ku/               the CLI client
+  ku-server/        the server and the operator CLI
+    api/            HTTP layer: handlers, problem+json, rate limit, the server's pages (page.html, style.css, app.js)
+  web/              the website (Astro)
+internal/           Go code shared by the Go apps
+  access/ audit/ auth/ identity/ keys/ secrets/   domain packages
+  storage/          the only code with SQL, and the migrations (migrations/{sqlite,postgres})
+  cli/              the few conventions both CLIs share (exit codes, usage error, Sentence)
+packages/           shared across languages, or JS packages
+  brand/            the brand: logos, art, sprite, tokens.css (Go embeds it, the website imports it)
+deploy/ docs/ scripts/ .github/
+```
 
-Both binaries go through the same domain services; neither contains SQL.
+- `apps/` holds the programs; each is built and shipped on its own.
+- `internal/` is Go code that more than one Go app needs. Go itself stops other modules from importing it.
+- `packages/` is what is shared across languages (Go and TypeScript), such as the brand, a future API contract or
+  TypeScript libraries.
+- `deploy/` and `scripts/` stay at the root: public raw URLs point into them.
+
+### Dependency rules
+
+`arch_test.go` enforces these on every `go test ./...`:
+
+1. An app never imports another app (`apps/ku-server/api` is part of `apps/ku-server`).
+2. `internal/` and `packages/` never import `apps/`.
+3. `apps/ku` imports no domain package, only `internal/cli`: it talks to the server over HTTP.
+4. Domain layering goes downward only, no cycles: `storage` and `keys` are leaves; `audit` uses `storage`; `access`
+   uses `audit`, `storage`; `auth` uses `audit`, `keys`, `storage`; `secrets` uses `access`, `audit`, `keys`,
+   `storage`; `identity` uses `access`, `audit`, `auth`, `storage`.
+5. `internal/cli` and `packages/brand` import only the standard library.
+6. `database/sql` is imported only by `internal/storage` and the domain packages above, never by an app. (Known
+   exception: `ku-server key rotate` still holds a `*sql.Tx`; moving it into a domain package removes it.)
+
+### Rules
+
+- Code starts inside the app that needs it and moves to `internal/` or `packages/` when a second app needs it.
+- No `utils`, `common` or `helpers` packages; name a package after what it does for the product.
+- SQL lives only in `internal/storage`-style domain packages, never in apps.
+- Migrations always come as a pair, one for sqlite and one for postgres, in `internal/storage/migrations` (`mise run db:new <name>`).
+- Brand files live only in `packages/brand`.
+- Minimalism: start small. Propose bigger features (for example a search with many filters) in an issue first.
+
+### Adding a capability
+
+1. A new `internal/<capability>` package, placed in the layering above (add it to `arch_test.go`).
+2. A migration pair in `internal/storage/migrations/{sqlite,postgres}`: `mise run db:new <name>` writes both files
+   with dbmate's timestamp and the `-- migrate:up` / `-- migrate:down` skeleton (do not run a plain `dbmate new`: its
+   default folder is `db/migrations`).
+3. The handler in `apps/ku-server/api`.
+4. The command in `apps/ku`.
+5. A docs page under `docs/`.
+6. A line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
 
 ## Setup
 
