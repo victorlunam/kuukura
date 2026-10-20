@@ -33,6 +33,7 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 409 | `blocked` | current version is compromised; `items` names them |
 | 409 | `clash` | name + tags would collide; `items` lists the clashes; nothing changed |
 | 409 | `kind-mismatch`, `conflict`, `last-admin` | |
+| 409 | `last-factor` | removing the account's only passkey or authenticator app |
 | 413 | `too-large` | body over 2 MB |
 | 429 | `quota-exceeded` | rate limit; has `Retry-After` and `RateLimit: limit=10, remaining=0, reset=6` |
 | 500 | `internal` | nothing else is exposed |
@@ -72,7 +73,7 @@ The confirmation uses whatever the account has set up: a **passkey** (Touch ID, 
 **authenticator app code**. An authenticator code works once (its 30-second step is spent), across sign-in and
 confirmations alike, so a code that was just used to sign in has to be replaced by the next one.
 
-1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off", "subject": "STRIPE_KEY env:prod", "profile": "work" }`
+1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off" | "factor_add" | "factor_remove", "subject": "STRIPE_KEY env:prod", "profile": "work" }`
    (`profile` optional, display-only, same rules as `cli_profile`) ->
    201 `{ "id": "...", "url": "https://vault.example.com/stepup?id=...", "methods": ["passkey", "totp"] }`.
    `methods` lists what the account can use (the CLI words its prompt from it). `subject` is the selector as
@@ -82,6 +83,20 @@ confirmations alike, so a code that was just used to sign in has to be replaced 
 3. The CLI polls `GET /auth/stepup/{id}` -> `{ "done": true }`.
 4. The CLI repeats the original call with header `X-Step-Up: <id>`. The grant is single use, valid 60 s after
    the assertion, and bound to the principal, purpose and subject.
+
+## Account: second steps
+
+Humans only (machines get 403). Adding or removing needs a confirmation (Step-up above) with purpose
+`factor_add` (subject `passkey` or `totp`) or `factor_remove` (subject: the credential id), sent as `X-Step-Up`.
+
+- `GET /account/factors` -> `{ "factors": [ { "id": "...", "kind": "passkey" | "totp", "added": "2026-10-19" } ] }`.
+- `POST /account/factors` `{ "kind": "passkey" | "totp", "profile": "work" }` -> 201 `{ "url": "https://.../account/add?id=..." }`.
+  The link works once and lasts 10 minutes. The page registers the new factor with a short enroll session that only
+  accepts that kind; it is not a login and issues no recovery codes. Then the browser goes to `/account/added`.
+- `DELETE /account/factors/{id}` -> 204. The last remaining factor is refused with 409 `last-factor`; an id that is
+  not the caller's is 404 `not-found`.
+
+Both changes are audited as `update` on the principal with metadata `{ "factor": "passkey", "change": "added" }`.
 
 ## Secrets
 

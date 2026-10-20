@@ -14,6 +14,7 @@ const (
 	CodeKindMismatch = "kind_mismatch"
 	CodeLastAdmin    = "last_admin"
 	CodeConflict     = "conflict"
+	CodeLastFactor   = "last_factor"
 )
 
 // Error is a domain error. Items lists the things involved ("NAME tag tag"); never values.

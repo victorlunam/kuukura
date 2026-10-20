@@ -93,7 +93,7 @@ func plain(err error) string {
 		return "No matching secret."
 	case "step-up-required":
 		return "This needs a Touch ID confirmation."
-	case "invalid-request", "needs-one", "conflict", "last-admin", "kind-mismatch":
+	case "invalid-request", "needs-one", "conflict", "last-admin", "last-factor", "kind-mismatch":
 		if p.Detail != "" {
 			return strings.ToUpper(p.Detail[:1]) + p.Detail[1:] + "."
 		}

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -287,6 +288,42 @@ func (w *world) browser(raw string) error {
 			}
 		}
 		return errors.New("no device could confirm")
+	case u.Path == "/account/add":
+		// the link from `ku account factor add`: the page holds a short session, the browser registers the new factor
+		page, err := hc.Get(w.srv.URL + "/account/add?" + u.RawQuery)
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		pb, _ := io.ReadAll(page.Body)
+		page.Body.Close()
+		tok := regexp.MustCompile(`data-t="([^"]+)"`).FindStringSubmatch(string(pb))
+		if page.StatusCode != 200 || tok == nil || !strings.Contains(string(pb), `data-mode="add"`) {
+			return errors.New("this link is not valid")
+		}
+		name := fmt.Sprintf("added-%d", len(w.devs)+len(w.totpSecrets))
+		if strings.Contains(string(pb), `id="pk"`) {
+			_, opts := post("/auth/enroll/passkey/begin", tok[1], nil)
+			dev := &authtest.Authenticator{RPID: testDomain, Origin: "https://" + testDomain}
+			if code, b := post("/auth/enroll/passkey/finish", tok[1], dev.Register(w.t, opts, true)); code != 200 || !strings.Contains(string(b), "/account/added") || strings.Contains(string(b), "recovery_codes") {
+				w.t.Fatalf("add passkey: %d %s", code, b)
+			}
+			w.devs[name] = dev
+			return nil
+		}
+		code, b := post("/auth/enroll/totp/begin", tok[1], nil)
+		var begin struct{ Secret string }
+		if err := json.Unmarshal(b, &begin); code != 200 || err != nil {
+			w.t.Fatalf("add totp begin: %d %s", code, b)
+		}
+		w.mu.Lock()
+		w.skew += 31 * time.Second
+		w.mu.Unlock()
+		c, _ := totp.GenerateCode(begin.Secret, w.tokens.Now())
+		if code, b := post("/auth/enroll/totp/confirm", tok[1], []byte(`{"code":"`+c+`"}`)); code != 200 || strings.Contains(string(b), "recovery_codes") {
+			w.t.Fatalf("add totp: %d %s", code, b)
+		}
+		w.totpSecrets[name] = begin.Secret
+		return nil
 	case u.Path == "/auth/login":
 		q := u.Query()
 		// the printed link opens the sign-in card; the person then presses "Continue with Google" (go=1)

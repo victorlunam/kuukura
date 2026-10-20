@@ -50,6 +50,7 @@ func art(name string) template.HTML {
 type pageData struct {
 	Title, Mode, Token, ID, Nonce string
 	Link, Email, Detail, Suggest  string
+	Add                           string // mode "add": passkey or totp
 	Label, Origin                 string
 	Step                          int
 	Hint                          bool // show the `ku login` command on a result page

@@ -99,6 +99,7 @@ const usage = `Usage: ku <command>
   run [name] [tags] -- <cmd>     run a command with secrets
   secret list|set|get|update|revoke|archive
   workspace invite|group|grant|ungrant|remove|audit
+  account factor list|add|remove  your second steps: add a passkey or an authenticator app, remove one
 `
 
 func (a *app) run(args []string) int {
@@ -120,6 +121,8 @@ func (a *app) run(args []string) int {
 		return a.cmdSecret(rest)
 	case "workspace":
 		return a.cmdWorkspace(rest)
+	case "account":
+		return a.cmdAccount(rest)
 	case "--version", "version":
 		fmt.Fprintln(a.out, version)
 		return 0

@@ -193,7 +193,12 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if err := decode(c, &r); err != nil {
 		return err
 	}
-	if r.Purpose != purposeReveal && r.Purpose != purposeRun && r.Purpose != purposeAuthorizeOff || r.Subject == "" {
+	switch r.Purpose {
+	case purposeReveal, purposeRun, purposeAuthorizeOff, purposeFactorAdd, purposeFactorRemove:
+	default:
+		return badRequest("Unknown purpose.")
+	}
+	if r.Subject == "" {
 		return badRequest("Unknown purpose.")
 	}
 	id, err := s.Auth.StartStepUp(c.Request().Context(), info(c), r.Purpose, r.Subject)

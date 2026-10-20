@@ -18,6 +18,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
+	"github.com/victorlunam/kuukura/audit"
 	"github.com/victorlunam/kuukura/storage"
 )
 
@@ -246,8 +247,9 @@ var uvRequired = protocol.AuthenticatorSelection{UserVerification: protocol.Veri
 
 // BeginPasskeyRegistration starts enrolling a passkey (enroll session).
 func (s *Service) BeginPasskeyRegistration(ctx context.Context, in Info) (*protocol.CredentialCreation, error) {
-	if _, err := s.requireScope(in, ScopeEnroll); err != nil {
-		return nil, err
+	d, err := s.requireScope(in, ScopeEnroll)
+	if err != nil || d.add != "" && d.add != "passkey" { // an "add a TOTP" session cannot register a passkey
+		return nil, ErrLogin
 	}
 	u, _, err := s.loadUser(ctx, in.PrincipalID)
 	if err != nil {
@@ -270,7 +272,7 @@ type EnrollResult struct {
 // FinishPasskeyRegistration verifies the attestation, activates the principal and completes the login.
 func (s *Service) FinishPasskeyRegistration(ctx context.Context, in Info, body []byte, ip string) (EnrollResult, error) {
 	d, err := s.requireScope(in, ScopeEnroll)
-	if err != nil || d.session == nil {
+	if err != nil || d.session == nil || d.add != "" && d.add != "passkey" {
 		return EnrollResult{}, ErrLogin
 	}
 	u, _, err := s.loadUser(ctx, in.PrincipalID)
@@ -289,15 +291,32 @@ func (s *Service) FinishPasskeyRegistration(ctx context.Context, in Info, body [
 	if err != nil {
 		return EnrollResult{}, err
 	}
-	return s.activate(ctx, in, ip, func(tx *sql.Tx) error {
+	return s.activate(ctx, in, ip, d.add, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, public_key, sign_count) VALUES (?, ?, 'passkey', ?, ?)`),
 			uuid.New(), in.PrincipalID, blob, int(cred.Authenticator.SignCount))
 		return err
 	})
 }
 
-// activate stores a new factor, activates an invited principal, issues recovery codes once, finishes login.
-func (s *Service) activate(ctx context.Context, in Info, ip string, addFactor func(*sql.Tx) error) (EnrollResult, error) {
+// activate stores a new factor. During first enrollment it also activates the invited principal, issues recovery
+// codes once and finishes the login. When add is set the account is already active: it only stores the factor,
+// ends the short enroll session and audits the change (no login, no new recovery codes).
+func (s *Service) activate(ctx context.Context, in Info, ip, add string, addFactor func(*sql.Tx) error) (EnrollResult, error) {
+	if add != "" {
+		err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
+			if err := addFactor(tx); err != nil {
+				return err
+			}
+			if err := s.tokens.Revoke(ctx, tx, in.TokenID); err != nil {
+				return err
+			}
+			pid := in.PrincipalID
+			return s.log.Append(ctx, tx, audit.Entry{Principal: pid, Action: "update", IP: ip, TargetType: "principal", TargetID: &pid,
+				Metadata: map[string]any{"factor": add, "change": "added"}})
+		})
+		s.pending.Take(in.TokenID.String())
+		return EnrollResult{Redirect: "/account/added"}, err
+	}
 	var res EnrollResult
 	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
 		if err := addFactor(tx); err != nil {
@@ -397,8 +416,9 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, in Info, body []byte, 
 
 // BeginTOTP generates a secret for the enroll session; it is stored only after a valid code confirms it.
 func (s *Service) BeginTOTP(ctx context.Context, in Info) (secret, uri string, err error) {
-	if _, err := s.requireScope(in, ScopeEnroll); err != nil {
-		return "", "", err
+	d, err := s.requireScope(in, ScopeEnroll)
+	if err != nil || d.add != "" && d.add != "totp" { // an "add a passkey" session cannot register an app
+		return "", "", ErrLogin
 	}
 	u, _, err := s.loadUser(ctx, in.PrincipalID)
 	if err != nil {
@@ -415,7 +435,7 @@ func (s *Service) BeginTOTP(ctx context.Context, in Info) (secret, uri string, e
 // ConfirmTOTP verifies the first code, stores the encrypted secret, activates and completes the login.
 func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (EnrollResult, error) {
 	d, err := s.requireScope(in, ScopeEnroll)
-	if err != nil || d.totpSecret == "" {
+	if err != nil || d.totpSecret == "" || d.add != "" && d.add != "totp" {
 		return EnrollResult{}, ErrLogin
 	}
 	if _, ok := totpStep(d.totpSecret, code, s.now()); !ok {
@@ -425,7 +445,7 @@ func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (En
 	if err != nil {
 		return EnrollResult{}, err
 	}
-	return s.activate(ctx, in, ip, func(tx *sql.Tx) error {
+	return s.activate(ctx, in, ip, d.add, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, encrypted_totp_secret) VALUES (?, ?, 'totp', ?)`),
 			uuid.New(), in.PrincipalID, enc)
 		return err
@@ -590,4 +610,109 @@ func (s *Service) RewrapTOTP(ctx context.Context) (int, error) {
 		return nil
 	})
 	return n, err
+}
+
+// ---- managing the second factors of an active account ----
+
+// ErrLastFactor: removing it would leave the account with no second step.
+var ErrLastFactor = errors.New("auth: last second factor")
+
+// ErrNoSuchFactor: the id is not a factor of this account (the same answer for someone else's).
+var ErrNoSuchFactor = errors.New("auth: no such factor")
+
+const addFactorTTL = 10 * time.Minute
+
+// Factor is one second step of the caller's account. Added is the date (YYYY-MM-DD).
+type Factor struct {
+	ID    uuid.UUID
+	Kind  string
+	Added string
+}
+
+// ListFactors returns the caller's second factors, oldest first.
+func (s *Service) ListFactors(ctx context.Context, in Info) ([]Factor, error) {
+	rows, err := s.p.DB().QueryContext(ctx, s.p.Rebind(`SELECT id, kind, CAST(created_at AS TEXT) FROM credentials WHERE principal_id = ? ORDER BY created_at, id`), in.PrincipalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Factor
+	for rows.Next() {
+		var f Factor
+		var at string
+		if err := rows.Scan(&f.ID, &f.Kind, &at); err != nil {
+			return nil, err
+		}
+		f.Added = at[:min(10, len(at))]
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+type addReq struct {
+	principal uuid.UUID
+	kind      string
+}
+
+// StartAddFactor returns the one-time capability behind the page link that adds a passkey or an authenticator
+// app to the caller's account. The API checks the confirmation before calling it. Machines have no factors.
+func (s *Service) StartAddFactor(in Info, kind string) (string, error) {
+	if in.Machine || kind != "passkey" && kind != "totp" {
+		return "", ErrLogin
+	}
+	id := random(32)
+	s.adds.Put(id, addReq{in.PrincipalID, kind})
+	return id, nil
+}
+
+// OpenAddFactor spends the link and issues a short enroll session for that one kind of factor. The account
+// is already active, so the session ends after the factor is stored: no login, no new recovery codes.
+func (s *Service) OpenAddFactor(ctx context.Context, id string) (Pending, error) {
+	r, ok := s.adds.Take(id)
+	if !ok {
+		return Pending{}, ErrLogin
+	}
+	var out Pending
+	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
+		var status string
+		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT status FROM principals WHERE id = ?`), r.principal).Scan(&status); err != nil || status != "active" {
+			return ErrLogin
+		}
+		iss, err := s.tokens.Issue(ctx, tx, r.principal, KindSession, []string{ScopeEnroll}, pendingEnrollTTL)
+		if err != nil {
+			return err
+		}
+		out = Pending{Token: iss.Raw, PrincipalID: r.principal, Mode: "add", Add: r.kind}
+		s.pending.Put(iss.ID.String(), pendingData{add: r.kind})
+		return nil
+	})
+	return out, err
+}
+
+// RemoveFactor deletes one of the caller's factors; the last one stays.
+func (s *Service) RemoveFactor(ctx context.Context, in Info, id uuid.UUID, ip string) error {
+	if in.Machine {
+		return ErrLogin
+	}
+	return storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
+		var kind string
+		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT kind FROM credentials WHERE id = ? AND principal_id = ?`), id, in.PrincipalID).Scan(&kind); errors.Is(err, sql.ErrNoRows) {
+			return ErrNoSuchFactor
+		} else if err != nil {
+			return err
+		}
+		var n int
+		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT COUNT(*) FROM credentials WHERE principal_id = ?`), in.PrincipalID).Scan(&n); err != nil {
+			return err
+		}
+		if n <= 1 {
+			return ErrLastFactor
+		}
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`DELETE FROM credentials WHERE id = ? AND principal_id = ?`), id, in.PrincipalID); err != nil {
+			return err
+		}
+		pid := in.PrincipalID
+		return s.log.Append(ctx, tx, audit.Entry{Principal: pid, Action: "update", IP: ip, TargetType: "principal", TargetID: &pid,
+			Metadata: map[string]any{"factor": kind, "change": "removed"}})
+	})
 }

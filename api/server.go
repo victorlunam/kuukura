@@ -86,6 +86,8 @@ func (s *Server) routes() {
 	e.GET("/auth/callback", s.callback, s.httpsOnly, pub)
 	e.GET("/auth/done", s.donePage, s.httpsOnly)
 	e.POST("/auth/token", s.token, s.httpsOnly, pub)
+	e.GET("/account/add", s.addFactorPage, s.httpsOnly, pub)
+	e.GET("/account/added", s.addedPage, s.httpsOnly)
 	e.GET("/stepup", s.stepUpPage, s.httpsOnly, pub)
 	e.POST("/stepup/:id/begin", s.stepUpBegin, s.httpsOnly, pub)
 	e.POST("/stepup/:id/finish", s.stepUpFinish, s.httpsOnly, pub)
@@ -110,6 +112,10 @@ func (s *Server) routes() {
 	api.POST("/auth/logout", s.logout, read)
 	api.POST("/auth/stepup", s.stepUpStart, read)
 	api.GET("/auth/stepup/:id", s.stepUpStatus, read)
+
+	api.GET("/account/factors", s.listFactors, read)
+	api.POST("/account/factors", s.addFactor, write)
+	api.DELETE("/account/factors/:id", s.removeFactor, write)
 
 	api.GET("/secrets", s.listSecrets, read)
 	api.POST("/secrets/versions", s.setSecret, write)

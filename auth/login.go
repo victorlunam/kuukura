@@ -55,6 +55,7 @@ type Service struct {
 	pending *ttlStore[pendingData]
 	codes   *ttlStore[cliCode]
 	stepUps *ttlStore[stepUp]
+	adds    *ttlStore[addReq]
 }
 
 func NewService(p storage.Provider, log *audit.Log, tokens *Tokens, prov AuthProvider, kp keys.KeyProvider, cfg Config) (*Service, error) {
@@ -68,6 +69,7 @@ func NewService(p storage.Provider, log *audit.Log, tokens *Tokens, prov AuthPro
 	s.pending = newTTL[pendingData](pendingEnrollTTL, now)
 	s.codes = newTTL[cliCode](cliCodeTTL, now)
 	s.stepUps = newTTL[stepUp](5*time.Minute, now)
+	s.adds = newTTL[addReq](addFactorTTL, now)
 	return s, nil
 }
 
@@ -98,6 +100,7 @@ type pendingData struct {
 	cli        CLIParams
 	session    *webauthn.SessionData
 	totpSecret string
+	add        string // "passkey" or "totp" when this enroll session adds a factor to an active account
 }
 
 type cliCode struct {
@@ -141,6 +144,7 @@ type Pending struct {
 	Profile     string // CLI profile name to display, if the CLI sent one
 	// What this account can use for the second step (mode "mfa"), so the page offers only real options.
 	HasPasskey, HasTOTP bool
+	Add                 string // mode "add": the kind of factor being added ("passkey" or "totp")
 }
 
 // Callback handles the provider redirect. Only an invited email or an existing identity gets through.

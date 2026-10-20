@@ -62,6 +62,7 @@ var domainCodes = map[string]struct {
 	access.CodeKindMismatch: {409, "kind-mismatch", "Different kind of secret"},
 	access.CodeLastAdmin:    {409, "last-admin", "Last admin"},
 	access.CodeConflict:     {409, "conflict", "Already exists"},
+	access.CodeLastFactor:   {409, "last-factor", "Only second step"},
 }
 
 func toAPIError(err error) *apiError {

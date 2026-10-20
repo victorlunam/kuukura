@@ -168,6 +168,32 @@
     $('#go').addEventListener('click', () => { location.href = redirect; });
   }
 
+  // ---- add a passkey or an authenticator app to an account that is already active ----
+  if (mode === 'add') {
+    const base = '/auth/enroll';
+    const go = (j) => { location.href = j.redirect; };
+    const pk = $('#pk');
+    if (pk) {
+      pk.addEventListener('click', action(pk, async () => {
+        const o = await post(base + '/passkey/begin', undefined, TOKEN);
+        const c = await navigator.credentials.create({ publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(o.publicKey) });
+        go(await post(base + '/passkey/finish', c.toJSON(), TOKEN));
+      }));
+    }
+    const tf = $('#tf');
+    if (tf) {
+      post(base + '/totp/begin', undefined, TOKEN).then((j) => {
+        $('#sec').textContent = j.secret;
+        if (j.qr) $('#qr').innerHTML = j.qr;
+      }, () => say('That did not work. Run the command in your terminal again.'));
+      tf.addEventListener('submit', action(tf.querySelector('button[type=submit]'), async () =>
+        go(await post(base + '/totp/confirm', { code: $('#totp').value }, TOKEN))));
+      $('#totp').addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      });
+    }
+  }
+
   // ---- confirmation for a terminal command: the account's own second step (passkey or authenticator code) ----
   if (mode === 'stepup') {
     const confirmed = () => {

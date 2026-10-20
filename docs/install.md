@@ -9,6 +9,17 @@ ku profile add work --url https://vault.example.com     # a profile = a server a
 ku login
 ```
 
+## Your second steps (passkey, authenticator app)
+
+```sh
+ku account factor list                 # what the account has
+ku account factor add passkey          # or: add totp (an authenticator app)
+ku account factor remove <id>          # the id (or its start) from `list`; the last one cannot be removed
+```
+
+Adding or removing asks you to confirm with a second step you already have, then opens a one-time page to register
+the new one. To move from an authenticator app to a passkey: add the passkey, then remove the app.
+
 ## Where things live
 
 | | macOS | Linux | Windows |
