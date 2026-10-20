@@ -9,7 +9,7 @@ print, echo or log values.
 `ku run` puts values in the child process's environment (and file secrets in a private temp file). An agent that
 runs a command can make that command print its environment, or read the temp file, and so can see or leak the values.
 `SKILL.md` asks agents not to; nothing technical stops a determined or confused agent. Revealing a value by hand
-(`ku secret get --reveal`) needs a confirmation with your second step (passkey or authenticator code), which an
+(`ku secret get --reveal`) needs a confirmation with your passkey or authenticator app, which an
 agent cannot give, but `ku run` does not.
 
 ## What to do about it
@@ -18,5 +18,5 @@ agent cannot give, but `ku run` does not.
   of the folders where agents work (grants are per person, so use a separate identity or machine for agent work).
 - Treat anything an agent could print as exposed if a transcript leaks. **Rotate on leak** (`ku secret revoke`, then `ku secret set`).
 - Mark sensitive secrets `requires_authorize` (`ku secret update NAME --authorize on`): `ku run` then needs a confirmation
-  (passkey or authenticator code) that an agent cannot provide.
+  (passkey or authenticator app) that an agent cannot provide.
 - Machines (CI) can never confirm and never reveal; for agents prefer a person's session with narrow grants.

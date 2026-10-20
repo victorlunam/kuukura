@@ -20,7 +20,7 @@ WebAuthn works on `localhost` without HTTPS, so you can exercise the full login 
    ku profile add local --url http://localhost:8080
    ku login
    ku secret set DEMO_KEY app:demo                   # hidden prompt
-   ku secret get DEMO_KEY --reveal                   # opens the browser: confirm with Touch ID
+   ku secret get DEMO_KEY --reveal                   # opens the browser: confirm with your passkey (Touch ID)
    ```
    Use Chrome or Safari recent enough for `PublicKeyCredential.parseCreationOptionsFromJSON`.
 

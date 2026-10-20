@@ -14,7 +14,9 @@ binaries are signed when the repository has the `MACOS_CERT_P12` and `MACOS_CERT
 maintainer runs `scripts/sign-macos.sh <tag>`. They are signed, not notarized: if Gatekeeper blocks a downloaded
 copy, run `xattr -d com.apple.quarantine ku` once.
 
-## Your second steps (passkey, authenticator app)
+## Your passkeys and authenticator apps
+
+The commands call them factors:
 
 ```sh
 ku account factor list                 # what the account has
@@ -23,8 +25,8 @@ ku account factor default <id>         # the one the sign-in and confirmation pa
 ku account factor remove <id>          # the id (or its start) from `list`; the last one cannot be removed
 ```
 
-Adding or removing asks you to confirm with a second step you already have, then opens a one-time page to register
-the new one. To move from an authenticator app to a passkey: add the passkey, then remove the app.
+Adding or removing asks you to confirm with a passkey or authenticator app you already have, then opens a one-time
+page to register the new one. To move from an authenticator app to a passkey: add the passkey, then remove the app.
 
 ## Where things live
 
@@ -45,7 +47,7 @@ The session token (valid 8 hours, 1 hour idle) is stored in this order:
 2. **Only when there is no keychain** (a server, a container, WSL, a Linux box without a desktop): a private file
    `<config>/sessions/<profile>`, readable only by your user (mode `0600`, folder `0700`). `ku` tells you when it does
    this. The file is not encrypted: anyone who can run programs as you can read it. It is bounded by the short session
-   life, and `ku workspace remove <person>` ends a session on the server at once. `ku` refuses a session file that
+   life, and `ku workspace disable <person>` ends a session on the server at once. `ku` refuses a session file that
    other users can read.
 3. **CI**: set `KU_URL` and `KU_TOKEN` (a machine token); nothing is stored.
 
@@ -61,13 +63,25 @@ command's own output through unchanged and returns its exit code.
 
 - An unknown flag (`--profle`) is an error, never ignored.
 - An argument with a colon that is not a `key:value` tag is refused and never echoed or sent: values are never
-  arguments.
+  arguments. No error message repeats what you typed in a place where a value could be.
 - `ku run` refuses to inject a secret named like a loader or interpreter hook (`LD_PRELOAD`, `DYLD_*`, `PATH`,
   `NODE_OPTIONS`, `PYTHONPATH`, `BASH_ENV` and a few more) and does not start the command: such a name could run
   code chosen by whoever saved the secret. Rename the secret.
-- Links from the server (confirmation, adding a second step) are opened in the browser only when they point at the
+- Links from the server (confirmation, adding a passkey or authenticator app) are opened in the browser only when they point at the
   profile's own server; anything else is printed and not opened.
 - Ctrl-C reaches the command from the terminal itself; `ku run` forwards only `TERM` and `HUP`.
+
+## Errors and exit codes
+
+`ku help` lists every command, one `noun verb` line each (`ku-server help` has the same shape). A failure prints
+`✗ <A sentence.>` on stderr and, when one command fixes it, a second line `  Run: <that command>`. Exit codes:
+
+| code | meaning |
+|---|---|
+| 0 | done |
+| 1 | the command ran and failed (not logged in, not permitted, the server said no) |
+| 2 | wrong arguments: the command prints its own `Usage:` line and does nothing else |
+| other | `ku run` returns the exit code of the command it ran |
 
 ## Notes per system
 

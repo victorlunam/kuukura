@@ -8,8 +8,9 @@ POST/PATCH bodies and responses, never in URLs. Responses that carry a value, an
 
 ## Errors
 
-RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to plain copy) and optional `items`
-(the secrets or identities involved, never values):
+RFC 9457 `application/problem+json`, with a stable `code` (kebab-case; the CLI maps every one to plain copy) and a
+sentence-case `title`, and optional `items` (the secrets or identities involved, never values). The table below is the
+whole list: the server builds every error from one table, and the CLI's tests walk it:
 
 ```json
 { "type": "/problems/blocked", "title": "Secret is blocked", "status": 409,
@@ -24,8 +25,8 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 400 | `https-required` | request was not HTTPS |
 | 401 | `unauthorized` | any authentication failure (always generic) |
 | 403 | `forbidden` | not permitted (deny by default; every denial is audited) |
-| 403 | `step-up-required` | a confirmation with the account's second step is needed (see Step-up) |
-| 403 | `second-factor-required` | `POST /auth/stepup` on an account with no passkey and no authenticator app |
+| 403 | `step-up-required` | a confirmation with the account's passkey or authenticator app is needed (see Step-up) |
+| 403 | `factor-required` | `POST /auth/stepup` on an account with no passkey and no authenticator app |
 | 404 | `not-found` | nothing matches, archived, or a secret the caller may not read (indistinguishable) |
 | 404 | `confirmation-expired` | the confirmation request is unknown, expired, or was lost in a server restart; run the command again |
 | 409 | `needs-confirmation` | `POST /secrets/versions` without `create` and no exact match |
@@ -34,6 +35,7 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 409 | `clash` | name + tags would collide; `items` lists the clashes; nothing changed |
 | 409 | `kind-mismatch`, `conflict`, `last-admin` | |
 | 409 | `last-factor` | removing the account's only passkey or authenticator app |
+| 405 | `method-not-allowed` | |
 | 413 | `too-large` | body over 2 MB |
 | 429 | `quota-exceeded` | rate limit; has `Retry-After` and `RateLimit: limit=10, remaining=0, reset=6` |
 | 500 | `internal` | nothing else is exposed |
@@ -54,7 +56,7 @@ tags optional and ANDed (`key:value`, each part `^[a-z0-9._-]{1,64}$`, max 10, o
    `GET /auth/login?cli_port=53682&cli_challenge=<base64url sha256(verifier)>&cli_state=<random>&cli_profile=work`.
    `cli_profile` is optional, display-only (`^[a-z0-9._-]{1,32}$`, anything else is ignored): the pages show it in the header.
 2. The server redirects to Google (code flow + PKCE, `email_verified` required). `GET /auth/callback` shows a
-   page for the second step (passkey, TOTP or recovery code; enrollment on first login).
+   page for the passkey, authenticator app code or recovery code (enrollment on first login).
 3. On success the browser goes to `http://127.0.0.1:<port>/callback?code=<one-time>&state=<cli_state>`.
 4. `POST /auth/token` `{ "code": "...", "verifier": "..." }` ->
    `{ "token": "ku_...", "expires_at": "2026-10-19T22:00:00Z" }`. Sessions: 8 h absolute, 1 h idle.
@@ -68,10 +70,10 @@ Pages' JSON endpoints (bearer = the short mid-login token the page holds): `POST
 `/auth/enroll/totp/begin`, `/auth/enroll/totp/confirm {code}`. Finish/confirm return
 `{ "redirect": "...", "recovery_codes": ["ABCD-...", ...] }` (codes only on first enrollment, shown once).
 
-## Step-up (confirmation with the account's own second step)
+## Step-up (a confirmation with the account's passkey or authenticator app)
 
 For reveal, `--out`, `--authorize off` and running `requires_authorize` secrets. Machines never get one.
-The confirmation uses whatever the account has set up: a **passkey** (Touch ID, with user verification required) or an
+The confirmation uses whatever the account has set up: a **passkey** (user verification required) or an
 **authenticator app code**. An authenticator code works once (its 30-second step is spent), across sign-in and
 confirmations alike, so a code that was just used to sign in has to be replaced by the next one.
 
@@ -82,7 +84,7 @@ confirmations alike, so a code that was just used to sign in has to be replaced 
    "Subject is required." when empty) and is the selector as `NAME tag tag` (name uppercased, tags sorted); for
    `factor_add` it is the kind, for `factor_remove` the credential id. The server keeps `purpose` and `subject` with the request.
 2. The CLI opens `url`; the page says what is being confirmed ("Reveal STRIPE_KEY env:prod", "Run with ...",
-   "Turn off confirmation for ...", "Add a passkey", "Add an authenticator app", "Remove a second step"; the subject is
+   "Turn off confirmation for ...", "Add a passkey", "Add an authenticator app", "Remove a passkey or authenticator app"; the subject is
    shown as escaped plain text) and offers only the account's methods: a WebAuthn assertion
    (`POST /stepup/{id}/begin`, `/finish`) or an authenticator code (`POST /stepup/{id}/totp` `{ "code": "123456" }` -> 204).
 3. The CLI polls `GET /auth/stepup/{id}` -> `{ "done": true }`.
@@ -94,7 +96,7 @@ request's principal, with metadata `{ "step": "confirmation", "purpose": "reveal
 not advance (it may have been copied) still works, and is audited as `update` on the principal with metadata
 `{ "factor": "passkey", "change": "clone_warning" }`.
 
-## Account: second steps
+## Account: factors (passkeys and authenticator apps)
 
 Humans only (machines get 403). Adding or removing needs a confirmation (Step-up above) with purpose
 `factor_add` (subject `passkey` or `totp`) or `factor_remove` (subject: the credential id), sent as `X-Step-Up`.
@@ -174,7 +176,12 @@ Being admin does not grant secret access.
 - `DELETE /workspace/grants` `{ "subject": "...", "tags": ["app:shop"] }` -> 204.
 - `PATCH /workspace/identities/{id}` `{ "status": "disabled" }` -> 204. `{id}` is the identity name (email or
   machine name). Ends its sessions and tokens (and its machines'). The last admin cannot be disabled.
-- `GET /workspace/audit?name=&tags=&limit=100` ->
+  `{ "status": "active" }` -> 200 `{ "status": "active" | "invited" }` lifts a disable, with the rules of
+  `ku-server user enable`: only a disabled identity can be enabled (409 `conflict` otherwise); a person who never
+  enrolled a passkey or authenticator app goes back to `invited`; a machine whose owner is disabled stays disabled
+  (409 `conflict`); tokens revoked by the disable stay revoked. Any other status is 400 `invalid-request`.
+  Audited as `disable`, and as `update` with metadata `{ "change": "enabled", "status": "..." }`.
+- `GET /workspace/audit?name=&tags=&limit=100` (`limit` 1 to 1000, default 100) ->
   `{ "rows": [ { "id": "...", "at": "2026-10-19T14:00:00Z", "principal": "dev@example.com", "action": "read",
   "secret": "STRIPE_KEY", "secret_id": "...", "version": 4, "result": "ok", "ip": "203.0.113.7",
   "target_type": "...", "target_id": "...", "metadata": {} } ] }`.

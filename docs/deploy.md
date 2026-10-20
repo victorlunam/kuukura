@@ -208,10 +208,14 @@ register a passkey (or an authenticator app). You get 10 recovery codes, shown o
 logged and never written to the audit log. There is no HTTP bootstrap and no allowed-domain sign-up: people join only
 through invites (`ku workspace invite someone@example.com`).
 
-Lost every second factor (passkey and recovery codes)? Run `ku-server user reset-factors you@example.com`. In one
-transaction it deletes their factors and recovery codes, ends their sessions and puts them back into enrollment, and
-prints a new 15-minute link: sign in with Google, register a new factor, store the new recovery codes. Also:
-`user disable <email|machine>` and `user enable <email|machine>` (the last active admin cannot be disabled).
+Lost every passkey and authenticator app, and the recovery codes? Run `ku-server user reset-factors you@example.com`.
+In one transaction it deletes their factors and recovery codes, ends their sessions and puts them back into enrollment, and
+prints a new 15-minute link: sign in with Google, register a new passkey or authenticator app, store the new recovery
+codes. Also: `user disable <email|machine>` and `user enable <email|machine>` (the last active admin cannot be
+disabled). Admins have the same pair as `ku workspace disable <identity>` and `ku workspace enable <identity>`.
+
+Errors: `ku-server` prints one line per problem on stderr, `ku-server: <A sentence.>`, and exits 1. Wrong arguments
+print the command's own `Usage:` line and exit 2 (`ku` uses the same two codes). `ku-server help` lists every command.
 
 ## 6. Using it
 
@@ -228,8 +232,7 @@ needs, and store it as `KU_TOKEN` next to `KU_URL`. A machine can do only what b
 grants allow, and can never reveal a value.
 
 Confirmations (reveal, `--out`, `--authorize off`, secrets marked `requires_authorize`) open a browser page on your
-instance and use the second step your account has: your passkey (Touch ID, with user verification) or a code from your
-authenticator app.
+instance and use what your account has: your passkey (with user verification) or a code from your authenticator app.
 
 ## Verifying a release
 

@@ -63,11 +63,11 @@ count must not have gone down.
 
 ## B. Rotate one machine token
 
-Machine tokens last about 90 days. To renew: issue a new machine, short overlap, remove the old one.
+Machine tokens last about 90 days. To renew: issue a new machine, short overlap, disable the old one.
 
 1. `ku workspace invite ci-deploy-2 --machine` (copy the token) and `ku workspace grant ci-deploy-2 read <tags>`.
 2. Update `KU_TOKEN` in CI; run one pipeline.
-3. `ku workspace remove ci-deploy` (ends its tokens immediately).
+3. `ku workspace disable ci-deploy` (ends its tokens immediately).
 
 ## C. Rotate one secret
 
@@ -90,7 +90,7 @@ sops).
 
 ## E. Rehearse offboarding
 
-1. `ku workspace remove leaver@example.com` (disables login, ends sessions, disables machines they own).
+1. `ku workspace disable leaver@example.com` (disables login, ends sessions, disables machines they own).
 2. List what they could read: `ku workspace audit` for their `read`/`reveal` rows, and check their grants/groups.
 3. Rotate each of those secrets (part C).
 

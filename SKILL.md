@@ -18,10 +18,11 @@ Secrets live in a vault. You run commands *with* them; you never read them.
 - If a secret is "blocked" or you are "not permitted", stop and tell the user. Do not look for another way in.
 - If `ku run` refuses a secret named like `LD_PRELOAD`, `NODE_OPTIONS` or `PATH` (names that change how programs load code), stop and tell the user to rename it.
 - stdout holds only list rows, values and tokens; every ✓, ✗ and "No secrets found." goes to stderr, so empty stdout from `ku secret list` means nothing matched.
+- Exit code 1 means the command failed, 2 means wrong arguments (the `Usage:` line says how to call it); the line after a `✗` that starts with `Run:` is the command that fixes it, but only run it if it is in your remit (see Never).
 
 ## Never
 
-- Never run `ku secret get --reveal` or `ku secret get --out`. They need the user's own confirmation (passkey or authenticator code) and are for humans.
+- Never run `ku secret get --reveal` or `ku secret get --out`. They need the user's own confirmation (passkey or authenticator app) and are for humans.
 - Never print, echo, log, write to a file, or paste a secret value anywhere: not in output, commit messages, issues, or chat. That includes `env`, `printenv`, `echo $NAME`, debug logging of the environment, and `cat` on injected files.
 - Never put a value in a command line, a URL, a config file, or a test fixture. Use `ku run`.
 - Never run `ku secret set`, `update`, `revoke`, `archive`, any `ku workspace` or `ku account` command unless the user explicitly asks.
