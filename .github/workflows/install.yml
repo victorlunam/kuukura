@@ -1,0 +1,89 @@
+name: install
+# Installs the CLI from the latest published release on every OS. On push and pull_request the scripts under test
+# are the checked-out ones; the archives they download are the published ones.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1" # weekly, Monday
+  release:
+    types: [published]
+  push:
+    paths:
+      - scripts/install.sh
+      - scripts/install.ps1
+      - .github/workflows/install.yml
+  pull_request:
+    paths:
+      - scripts/install.sh
+      - scripts/install.ps1
+      - .github/workflows/install.yml
+
+permissions:
+  contents: read
+
+jobs:
+  install-sh:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: echo "KU_INSTALL_DIR=$RUNNER_TEMP/ku-bin" >> "$GITHUB_ENV"
+      - name: Install the latest release
+        run: sh scripts/install.sh
+      - name: Run it
+        run: |
+          "$KU_INSTALL_DIR/ku" --version
+          "$KU_INSTALL_DIR/ku" help
+          "$KU_INSTALL_DIR/kuukura" --version
+      - name: Install a pinned version
+        run: |
+          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          rm -rf "$KU_INSTALL_DIR"
+          KU_VERSION="${tag#v}" sh scripts/install.sh
+          "$KU_INSTALL_DIR/ku" --version | grep -F "${tag#v}"
+      - name: A bad version fails and installs nothing
+        run: |
+          rm -rf "$KU_INSTALL_DIR"
+          if KU_VERSION=2099.1.1 sh scripts/install.sh; then echo "expected a failure"; exit 1; fi
+          if KU_VERSION=nonsense sh scripts/install.sh; then echo "expected a failure"; exit 1; fi
+          test ! -e "$KU_INSTALL_DIR/ku"
+
+  install-ps1:
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [pwsh, powershell] # PowerShell 7 and Windows PowerShell 5.1
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: Add-Content -Path $env:GITHUB_ENV -Value "KU_INSTALL_DIR=$env:RUNNER_TEMP\ku-bin"
+      - name: Install the latest release
+        run: '& ./scripts/install.ps1'
+      - name: Run it and check the user PATH
+        run: |
+          & "$env:KU_INSTALL_DIR\ku.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw "ku --version exited $LASTEXITCODE" }
+          & "$env:KU_INSTALL_DIR\ku.exe" help
+          if ($LASTEXITCODE -ne 0) { throw "ku help exited $LASTEXITCODE" }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if (($userPath -split ';') -notcontains $env:KU_INSTALL_DIR) { throw "user PATH lacks $env:KU_INSTALL_DIR" }
+      - name: A bad version fails
+        run: |
+          $env:KU_VERSION = '2099.1.1'
+          $failed = $false
+          try { & ./scripts/install.ps1 } catch { $failed = $true; Write-Host "failed as expected: $_" }
+          if (-not $failed) { throw 'expected a failure' }
+          $env:KU_VERSION = 'nonsense'
+          $failed = $false
+          try { & ./scripts/install.ps1 } catch { $failed = $true; Write-Host "failed as expected: $_" }
+          if (-not $failed) { throw 'expected a failure' }
