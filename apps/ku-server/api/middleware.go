@@ -60,6 +60,9 @@ func (s *Server) accessLog(next echo.HandlerFunc) echo.HandlerFunc {
 func (s *Server) httpsOnly(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if c.Scheme() != "https" && !s.AllowHTTP {
+			if wantsPage(c) {
+				return s.httpsPage(c)
+			}
 			return newError("https-required", "")
 		}
 		return next(c)

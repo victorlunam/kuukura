@@ -189,6 +189,7 @@ input.code { text-align: center; font-size: 1.5rem; letter-spacing: .5em; text-i
 .term button svg { color: inherit; width: 18px; height: 18px; }
 .note { display: flex; gap: 10px; align-items: flex-start; color: var(--muted); font-size: .85rem; margin-top: 18px; }
 .note svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--acc); }
+.note a { color: var(--ink); text-underline-offset: 2px; }
 .note code { display: inline-block; margin-top: 4px; font: 500 .8rem var(--mono); color: var(--ink); background: var(--soft-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; word-break: break-all; }
 input + .btn, .panel + label { margin-top: 12px; }
 .msg { margin: 12px 0 0; color: var(--danger); font-size: .9rem; font-weight: 500; }

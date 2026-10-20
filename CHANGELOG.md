@@ -6,6 +6,14 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Added
+
+- A page at `/` that shows how to connect the CLI; a readable page when a browser reaches the server over plain HTTP.
+
+### Fixed
+
+- The image includes a minimal shell (busybox) so platform terminals (Dokploy, Coolify) can run `ku-server` commands.
+
 ## [2026.10.5] - 2026-10-20
 
 ### Changed

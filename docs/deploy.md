@@ -33,11 +33,11 @@ How to use each template:
   template's domain as a generated host without a certificate: in the Domains tab set your real domain and turn HTTPS
   on (Let's Encrypt), and set `VAULT_DOMAIN` in the Environment tab to the same domain. The Dokploy repository wants
   a pinned image, so the pull request sets `KUUKURA_VERSION` and `meta.json` `version` to a release tag; here they stay
-  `latest`.
+  `latest`. To back up the key, open the service's terminal (`sh`) and run `/ku-server key show`.
 - **Coolify**: add `deploy/coolify/kuukura.yaml` as a Docker Compose service (or submit it to Coolify's service
   templates), fill `VAULT_OIDC_CLIENT_ID` and `VAULT_OIDC_CLIENT_SECRET` when asked. Coolify assigns the domain
-  (`VAULT_DOMAIN` is set from `SERVICE_FQDN_KUUKURA`, the domain without a scheme). Open the service's terminal once
-  and run `/ku-server key show`.
+  (`VAULT_DOMAIN` is set from `SERVICE_FQDN_KUUKURA`, the domain without a scheme). Open the service's terminal
+  (`sh`) once and run `/ku-server key show`.
 - **Render**: "New Blueprint Instance" from this repository's `render.yaml`. Render asks for the `sync: false`
   values (`VAULT_DOMAIN`, the two OIDC values); everything else is set. **On Render the key lives in Render's
   environment** (`VAULT_MASTER_KEY`, generated once as a bare key): read it from the Environment tab and store a copy
@@ -121,7 +121,9 @@ not readable inside it. Make the secret files belong to that user and keep them 
 
 ### Back it up: `key show`, once per version
 
-Without the key the data cannot be read, and nobody can recover it for you. Right after the first start:
+Without the key the data cannot be read, and nobody can recover it for you. Right after the first start, open the
+service's terminal in Dokploy or Coolify (the image includes a minimal busybox `sh` for this) and run
+`/ku-server key show`. From a host, the same thing:
 
 ```sh
 docker exec -it <container> /ku-server key show

@@ -140,6 +140,18 @@
   <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd2">ku login</code><button type="button" data-copy="#cmd2" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
   <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>The profile name is just a label on your machine. The address is what matters.</span></p>
 
+  {{else if eq .Mode "home"}}
+  <h1>kuukura server</h1>
+  <p class="lead">This is your team's kuukura server. To use it, add it to the CLI and sign in:</p>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add {{.Suggest}} --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd2">ku login</code><button type="button" data-copy="#cmd2" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>No CLI yet? <a href="https://kuukura-main-landing.neodev-f72.workers.dev/docs/install/">Install it</a>. More in the <a href="https://kuukura-main-landing.neodev-f72.workers.dev/docs/">docs</a>. Access is by invite only.</span></p>
+
+  {{else if eq .Mode "https"}}
+  <h1>This kuukura server only works over HTTPS</h1>
+  <p class="lead">You reached it over plain HTTP, so nothing was sent. Open the address with <b>https://</b>.</p>
+  <p class="lead">If that does not work, you run this server: turn HTTPS on for its domain in your platform (for example Dokploy, Domains, HTTPS), and make sure <b>VAULT_DOMAIN</b> is that same domain.</p>
+
   {{else}}
   <h1>{{.Title}}</h1>
   {{if .Email}}<p class="lead">You chose <b>{{.Email}}</b>.</p>{{end}}

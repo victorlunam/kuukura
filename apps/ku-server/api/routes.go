@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 
 	"github.com/victorlunam/kuukura/internal/auth"
@@ -15,6 +17,7 @@ func (s *Server) routes() {
 	e.GET("/assets/:name", s.asset)
 
 	// browser pages and the login flow (unauthenticated, 10/min per IP)
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/", s.homePage, s.httpsOnly, pub)
 	e.GET("/invite", s.invitePage, s.httpsOnly, pub)
 	e.GET("/auth/login", s.login, s.httpsOnly, pub)
 	e.GET("/auth/callback", s.callback, s.httpsOnly, pub)
