@@ -14,6 +14,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # @astrojs/check supports TypeScript 5 and 6 only; lift this when it accepts 7
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   # Base images are pinned by digest; Dependabot bumps the digest with the tag.
   - package-ecosystem: docker
     directory: /
