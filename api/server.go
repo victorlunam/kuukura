@@ -116,6 +116,7 @@ func (s *Server) routes() {
 	api.GET("/account/factors", s.listFactors, read)
 	api.POST("/account/factors", s.addFactor, write)
 	api.DELETE("/account/factors/:id", s.removeFactor, write)
+	api.PATCH("/account/factors/:id", s.defaultFactor, write)
 
 	api.GET("/secrets", s.listSecrets, read)
 	api.POST("/secrets/versions", s.setSecret, write)

@@ -107,22 +107,32 @@ func (s *Service) consumeTOTP(ctx context.Context, principal uuid.UUID, code str
 	return false, nil
 }
 
-// factorsOf reports which second steps an account has set up.
-func (s *Service) factorsOf(ctx context.Context, q storage.Querier, principal uuid.UUID) (passkey, totp bool, err error) {
-	rows, err := q.QueryContext(ctx, s.p.Rebind(`SELECT DISTINCT kind FROM credentials WHERE principal_id = ?`), principal)
+// Methods are the second steps an account has set up. Default is the kind of its default factor ("" if none),
+// the one the pages offer first.
+type Methods struct {
+	Passkey, TOTP bool
+	Default       string
+}
+
+func (s *Service) factorsOf(ctx context.Context, q storage.Querier, principal uuid.UUID) (m Methods, err error) {
+	rows, err := q.QueryContext(ctx, s.p.Rebind(`SELECT kind, is_default FROM credentials WHERE principal_id = ?`), principal)
 	if err != nil {
-		return false, false, err
+		return m, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var kind string
-		if err := rows.Scan(&kind); err != nil {
-			return false, false, err
+		var def bool
+		if err := rows.Scan(&kind, &def); err != nil {
+			return m, err
 		}
-		passkey = passkey || kind == "passkey"
-		totp = totp || kind == "totp"
+		m.Passkey = m.Passkey || kind == "passkey"
+		m.TOTP = m.TOTP || kind == "totp"
+		if def {
+			m.Default = kind
+		}
 	}
-	return passkey, totp, rows.Err()
+	return m, rows.Err()
 }
 
 // VerifyTOTP checks a 6-digit code and completes the login.
@@ -292,8 +302,9 @@ func (s *Service) FinishPasskeyRegistration(ctx context.Context, in Info, body [
 		return EnrollResult{}, err
 	}
 	return s.activate(ctx, in, ip, d.add, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, public_key, sign_count) VALUES (?, ?, 'passkey', ?, ?)`),
-			uuid.New(), in.PrincipalID, blob, int(cred.Authenticator.SignCount))
+		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, public_key, sign_count, is_default)
+			VALUES (?, ?, 'passkey', ?, ?, NOT EXISTS (SELECT 1 FROM credentials WHERE principal_id = ?))`), // the first one is the default
+			uuid.New(), in.PrincipalID, blob, int(cred.Authenticator.SignCount), in.PrincipalID)
 		return err
 	})
 }
@@ -446,8 +457,9 @@ func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (En
 		return EnrollResult{}, err
 	}
 	return s.activate(ctx, in, ip, d.add, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, encrypted_totp_secret) VALUES (?, ?, 'totp', ?)`),
-			uuid.New(), in.PrincipalID, enc)
+		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, encrypted_totp_secret, is_default)
+			VALUES (?, ?, 'totp', ?, NOT EXISTS (SELECT 1 FROM credentials WHERE principal_id = ?))`),
+			uuid.New(), in.PrincipalID, enc, in.PrincipalID)
 		return err
 	})
 }
@@ -480,11 +492,11 @@ func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject str
 	if in.Machine || !in.HasScope(ScopeWrite) && !in.HasScope(ScopeRead) {
 		return "", ErrLogin
 	}
-	passkey, totp, err := s.factorsOf(ctx, s.p.DB(), in.PrincipalID)
+	m, err := s.factorsOf(ctx, s.p.DB(), in.PrincipalID)
 	if err != nil {
 		return "", err
 	}
-	if !passkey && !totp {
+	if !m.Passkey && !m.TOTP {
 		return "", ErrNoFactor
 	}
 	id := random(32)
@@ -493,10 +505,10 @@ func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject str
 }
 
 // StepUpMethods tells the confirmation page (and the CLI) which methods the request's account can use.
-func (s *Service) StepUpMethods(ctx context.Context, id string) (passkey, totp bool, err error) {
+func (s *Service) StepUpMethods(ctx context.Context, id string) (Methods, error) {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
-		return false, false, ErrStepUpGone
+		return Methods{}, ErrStepUpGone
 	}
 	return s.factorsOf(ctx, s.p.DB(), r.principal)
 }
@@ -624,14 +636,15 @@ const addFactorTTL = 10 * time.Minute
 
 // Factor is one second step of the caller's account. Added is the date (YYYY-MM-DD).
 type Factor struct {
-	ID    uuid.UUID
-	Kind  string
-	Added string
+	ID      uuid.UUID
+	Kind    string
+	Added   string
+	Default bool
 }
 
 // ListFactors returns the caller's second factors, oldest first.
 func (s *Service) ListFactors(ctx context.Context, in Info) ([]Factor, error) {
-	rows, err := s.p.DB().QueryContext(ctx, s.p.Rebind(`SELECT id, kind, CAST(created_at AS TEXT) FROM credentials WHERE principal_id = ? ORDER BY created_at, id`), in.PrincipalID)
+	rows, err := s.p.DB().QueryContext(ctx, s.p.Rebind(`SELECT id, kind, CAST(created_at AS TEXT), is_default FROM credentials WHERE principal_id = ? ORDER BY created_at, id`), in.PrincipalID)
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +653,7 @@ func (s *Service) ListFactors(ctx context.Context, in Info) ([]Factor, error) {
 	for rows.Next() {
 		var f Factor
 		var at string
-		if err := rows.Scan(&f.ID, &f.Kind, &at); err != nil {
+		if err := rows.Scan(&f.ID, &f.Kind, &at, &f.Default); err != nil {
 			return nil, err
 		}
 		f.Added = at[:min(10, len(at))]
@@ -711,8 +724,39 @@ func (s *Service) RemoveFactor(ctx context.Context, in Info, id uuid.UUID, ip st
 		if _, err := tx.ExecContext(ctx, s.p.Rebind(`DELETE FROM credentials WHERE id = ? AND principal_id = ?`), id, in.PrincipalID); err != nil {
 			return err
 		}
+		// if the default went away, the oldest remaining factor takes over
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET is_default = ? WHERE id = (SELECT id FROM credentials WHERE principal_id = ? ORDER BY created_at, id LIMIT 1)
+			AND NOT EXISTS (SELECT 1 FROM credentials WHERE principal_id = ? AND is_default = ?)`), true, in.PrincipalID, in.PrincipalID, true); err != nil {
+			return err
+		}
 		pid := in.PrincipalID
 		return s.log.Append(ctx, tx, audit.Entry{Principal: pid, Action: "update", IP: ip, TargetType: "principal", TargetID: &pid,
 			Metadata: map[string]any{"factor": kind, "change": "removed"}})
+	})
+}
+
+// SetDefaultFactor makes one of the caller's factors the default: the one the sign-in and confirmation pages
+// offer first. Every factor keeps working; this only decides the order.
+func (s *Service) SetDefaultFactor(ctx context.Context, in Info, id uuid.UUID, ip string) error {
+	if in.Machine {
+		return ErrLogin
+	}
+	return storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
+		var kind string
+		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT kind FROM credentials WHERE id = ? AND principal_id = ?`), id, in.PrincipalID).Scan(&kind); errors.Is(err, sql.ErrNoRows) {
+			return ErrNoSuchFactor
+		} else if err != nil {
+			return err
+		}
+		// two statements: the unique index allows one default at a time
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET is_default = ? WHERE principal_id = ?`), false, in.PrincipalID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET is_default = ? WHERE id = ?`), true, id); err != nil {
+			return err
+		}
+		pid := in.PrincipalID
+		return s.log.Append(ctx, tx, audit.Entry{Principal: pid, Action: "update", IP: ip, TargetType: "principal", TargetID: &pid,
+			Metadata: map[string]any{"factor": kind, "change": "default"}})
 	})
 }

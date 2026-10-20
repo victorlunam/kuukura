@@ -100,7 +100,7 @@
       });
       tabs.totp[0].addEventListener('click', () => show('totp'));
       tabs.rec[0].addEventListener('click', () => show('rec'));
-      if (!pk) $('#totp').focus(); // the code is the main way in: ready to type
+      if (!pk || B.def === 'totp') $('#totp').focus(); // the code is the main way in: ready to type
     }
     submit($('#f-rec'), $('#rec'), '/recovery');
     if (!pk && !totpForm) $('#rec').focus();
@@ -222,7 +222,7 @@
         e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
         if (e.target.value.length === 6) run();
       });
-      if (!pk) $('#totp').focus();
+      if (!pk || B.def === 'totp') $('#totp').focus();
     }
   }
 })();

@@ -20,7 +20,9 @@ func TestAccountFactors(t *testing.T) {
 		user := w.member(admin, "dev@example.test")
 		w.loginAs(user)
 
-		list := func() [][]string { return factorLine.FindAllStringSubmatch(mustOK(t, w.ku("", false, nil, "account", "factor", "list")).out, -1) }
+		list := func() [][]string {
+			return factorLine.FindAllStringSubmatch(mustOK(t, w.ku("", false, nil, "account", "factor", "list")).out, -1)
+		}
 		if l := list(); len(l) != 1 || l[0][2] != "passkey" {
 			t.Fatalf("starts with the enrollment passkey: %v", l)
 		}

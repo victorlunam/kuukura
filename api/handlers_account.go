@@ -37,9 +37,9 @@ func (s *Server) listFactors(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	out := make([]map[string]string, 0, len(fs))
+	out := make([]map[string]any, 0, len(fs))
 	for _, f := range fs {
-		out = append(out, map[string]string{"id": f.ID.String(), "kind": f.Kind, "added": f.Added})
+		out = append(out, map[string]any{"id": f.ID.String(), "kind": f.Kind, "added": f.Added, "default": f.Default})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"factors": out})
 }
@@ -106,4 +106,31 @@ func (s *Server) addFactorPage(c echo.Context) error {
 
 func (s *Server) addedPage(c echo.Context) error {
 	return s.page(c, http.StatusOK, pageData{Title: "Added", Mode: "added", Art: art("done")})
+}
+
+type defaultFactorReq struct {
+	Default bool `json:"default"`
+}
+
+// defaultFactor marks one of the caller's factors as the default. It only changes which method the pages offer
+// first, so it needs no confirmation.
+func (s *Server) defaultFactor(c echo.Context) error {
+	var r defaultFactorReq
+	if err := decode(c, &r); err != nil {
+		return err
+	}
+	if info(c).Machine {
+		return errForbidden
+	}
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil || !r.Default {
+		return badRequest(`Send {"default": true} for one of your factors.`)
+	}
+	switch err := s.Auth.SetDefaultFactor(c.Request().Context(), info(c), id, c.RealIP()); {
+	case errors.Is(err, auth.ErrNoSuchFactor):
+		return access.Fail(access.CodeNotFound, "no such factor")
+	case err != nil:
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
 }

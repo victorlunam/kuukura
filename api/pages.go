@@ -51,6 +51,7 @@ type pageData struct {
 	Title, Mode, Token, ID, Nonce string
 	Link, Email, Detail, Suggest  string
 	Add                           string // mode "add": passkey or totp
+	Default                       string // the account's default factor kind: its method is offered first
 	Label, Origin                 string
 	Step                          int
 	Hint                          bool // show the `ku login` command on a result page
@@ -147,20 +148,20 @@ func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
 		return s.page(c, http.StatusOK, pageData{Title: "Secure your account", Mode: "enroll", Token: p.Token, Art: art("passkey"), Step: 2, Label: p.Profile})
 	}
 	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "mfa", Token: p.Token, Art: art("shield"), Label: p.Profile,
-		HasPasskey: p.HasPasskey, HasTOTP: p.HasTOTP})
+		HasPasskey: p.HasPasskey, HasTOTP: p.HasTOTP, Default: p.Default})
 }
 
 func (s *Server) stepUpPage(c echo.Context) error {
 	id := c.QueryParam("id")
-	passkey, totp, err := s.Auth.StepUpMethods(c.Request().Context(), id)
-	if err != nil || !passkey && !totp { // unknown, expired or already used request
+	m, err := s.Auth.StepUpMethods(c.Request().Context(), id)
+	if err != nil || !m.Passkey && !m.TOTP { // unknown, expired or already used request
 		return s.page(c, http.StatusNotFound, pageData{
 			Title: "This confirmation is no longer valid", Mode: "fail", Art: art("alert"),
 			Detail: "It may have expired or already been used. Run the command in your terminal again to get a new one.",
 		})
 	}
 	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "stepup", ID: id, Art: art("confirm"),
-		Label: auth.CleanLabel(c.QueryParam("profile")), HasPasskey: passkey, HasTOTP: totp})
+		Label: auth.CleanLabel(c.QueryParam("profile")), HasPasskey: m.Passkey, HasTOTP: m.TOTP, Default: m.Default})
 }
 
 func (s *Server) invitePage(c echo.Context) error {

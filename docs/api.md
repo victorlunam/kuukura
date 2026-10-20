@@ -89,14 +89,19 @@ confirmations alike, so a code that was just used to sign in has to be replaced 
 Humans only (machines get 403). Adding or removing needs a confirmation (Step-up above) with purpose
 `factor_add` (subject `passkey` or `totp`) or `factor_remove` (subject: the credential id), sent as `X-Step-Up`.
 
-- `GET /account/factors` -> `{ "factors": [ { "id": "...", "kind": "passkey" | "totp", "added": "2026-10-19" } ] }`.
+- `GET /account/factors` -> `{ "factors": [ { "id": "...", "kind": "passkey" | "totp", "added": "2026-10-19", "default": true } ] }`.
+  Exactly one factor is the default: the first one enrolled, until the person moves the mark. The sign-in and
+  confirmation pages offer its method first (every factor keeps working), and `methods` in the step-up response
+  lists it first.
+- `PATCH /account/factors/{id}` `{ "default": true }` -> 204. No confirmation is needed (it only changes the order).
+  An id that is not the caller's is 404 `not-found`. Removing the default hands the mark to the oldest remaining factor.
 - `POST /account/factors` `{ "kind": "passkey" | "totp", "profile": "work" }` -> 201 `{ "url": "https://.../account/add?id=..." }`.
   The link works once and lasts 10 minutes. The page registers the new factor with a short enroll session that only
   accepts that kind; it is not a login and issues no recovery codes. Then the browser goes to `/account/added`.
 - `DELETE /account/factors/{id}` -> 204. The last remaining factor is refused with 409 `last-factor`; an id that is
   not the caller's is 404 `not-found`.
 
-Both changes are audited as `update` on the principal with metadata `{ "factor": "passkey", "change": "added" }`.
+Each change is audited as `update` on the principal with metadata `{ "factor": "passkey", "change": "added" | "removed" | "default" }`.
 
 ## Secrets
 

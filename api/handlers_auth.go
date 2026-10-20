@@ -213,16 +213,19 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if p := auth.CleanLabel(r.Profile); p != "" {
 		link += "&profile=" + p
 	}
-	passkey, totp, err := s.Auth.StepUpMethods(c.Request().Context(), id)
+	m, err := s.Auth.StepUpMethods(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
-	var methods []string // the CLI words its prompt from this ("Touch ID" vs "your browser")
-	if passkey {
+	var methods []string // the CLI words its prompt from this ("Touch ID" vs "your browser"); the default comes first
+	if m.Passkey {
 		methods = append(methods, "passkey")
 	}
-	if totp {
+	if m.TOTP {
 		methods = append(methods, "totp")
+	}
+	if m.Default == "totp" && len(methods) == 2 {
+		methods[0], methods[1] = methods[1], methods[0]
 	}
 	return c.JSON(http.StatusCreated, map[string]any{"id": id, "url": link, "methods": methods})
 }

@@ -144,6 +144,7 @@ type Pending struct {
 	Profile     string // CLI profile name to display, if the CLI sent one
 	// What this account can use for the second step (mode "mfa"), so the page offers only real options.
 	HasPasskey, HasTOTP bool
+	Default             string // kind of the account's default factor: the page offers it first
 	Add                 string // mode "add": the kind of factor being added ("passkey" or "totp")
 }
 
@@ -215,10 +216,11 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		}
 		out = Pending{Token: iss.Raw, PrincipalID: pid, Mode: mode, Profile: f.cli.Profile}
 		if mode == "mfa" {
-			var err error
-			if out.HasPasskey, out.HasTOTP, err = s.factorsOf(ctx, tx, pid); err != nil {
+			m, err := s.factorsOf(ctx, tx, pid)
+			if err != nil {
 				return err
 			}
+			out.HasPasskey, out.HasTOTP, out.Default = m.Passkey, m.TOTP, m.Default
 		}
 		s.pending.Put(iss.ID.String(), pendingData{cli: f.cli})
 		return nil

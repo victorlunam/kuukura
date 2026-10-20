@@ -109,7 +109,7 @@ func TestMigrationsReversible(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 4; i++ { // one rollback per migration
 			if err := m.Rollback(); err != nil {
 				t.Fatal(err)
 			}

@@ -7,12 +7,13 @@ import (
 	"time"
 )
 
-const factorUsage = "Use: ku account factor list | add <passkey|totp> | remove <id>"
+const factorUsage = "Use: ku account factor list | add <passkey|totp> | default <id> | remove <id>"
 
 type factor struct {
-	ID    string `json:"id"`
-	Kind  string `json:"kind"`
-	Added string `json:"added"`
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Added   string `json:"added"`
+	Default bool   `json:"default"`
 }
 
 func (a *app) cmdAccount(args []string) int {
@@ -39,10 +40,16 @@ func (a *app) cmdAccount(args []string) int {
 			return report(err)
 		}
 		for _, f := range fs {
-			fmt.Fprintf(a.out, "%s  %-8s  added %s\n", f.ID[:8], factorName(f.Kind), f.Added)
+			mark := ""
+			if f.Default {
+				mark = "  default"
+			}
+			fmt.Fprintf(a.out, "%s  %-8s  added %s%s\n", f.ID[:8], factorName(f.Kind), f.Added, mark)
 		}
 	case sub == "add" && len(pos) == 1 && (pos[0] == "passkey" || pos[0] == "totp"):
 		return a.addFactor(c, pos[0], report)
+	case sub == "default" && len(pos) == 1:
+		return a.defaultFactor(c, pos[0], report)
 	case sub == "remove" && len(pos) == 1:
 		return a.removeFactor(c, pos[0], p.has("yes"), report)
 	default:
@@ -103,32 +110,59 @@ func (a *app) addFactor(c *client, kind string, report func(error) int) int {
 	return a.fail("Timed out waiting for the new second step. Run the command again.")
 }
 
-// removeFactor takes the id shown by `list` (a unique start of it is enough).
-func (a *app) removeFactor(c *client, prefix string, yes bool, report func(error) int) int {
-	fs, err := a.factors(c)
-	if err != nil {
-		return report(err)
-	}
+// pick finds the one factor whose id starts with prefix (the id shown by `list`; a unique start is enough).
+func (a *app) pick(fs []factor, prefix string) (factor, bool) {
 	var hit []factor
 	for _, f := range fs {
 		if strings.HasPrefix(f.ID, strings.ToLower(prefix)) {
 			hit = append(hit, f)
 		}
 	}
-	switch {
-	case len(hit) == 0:
-		return a.fail("No second step starts with %q. See them with: ku account factor list", prefix)
-	case len(hit) > 1:
-		return a.fail("%q matches more than one. Type a longer start of the id.", prefix)
-	case len(fs) == 1:
+	switch len(hit) {
+	case 1:
+		return hit[0], true
+	case 0:
+		a.fail("No second step starts with %q. See them with: ku account factor list", prefix)
+	default:
+		a.fail("%q matches more than one. Type a longer start of the id.", prefix)
+	}
+	return factor{}, false
+}
+
+// defaultFactor makes a factor the one the sign-in and confirmation pages offer first.
+func (a *app) defaultFactor(c *client, prefix string, report func(error) int) int {
+	fs, err := a.factors(c)
+	if err != nil {
+		return report(err)
+	}
+	f, ok := a.pick(fs, prefix)
+	if !ok {
+		return 1
+	}
+	if err := c.call("PATCH", "/account/factors/"+f.ID, map[string]bool{"default": true}, nil); err != nil {
+		return report(err)
+	}
+	fmt.Fprintf(a.out, "✓ The %s is now your default\n", factorName(f.Kind))
+	return 0
+}
+
+func (a *app) removeFactor(c *client, prefix string, yes bool, report func(error) int) int {
+	fs, err := a.factors(c)
+	if err != nil {
+		return report(err)
+	}
+	f, ok := a.pick(fs, prefix)
+	if !ok {
+		return 1
+	}
+	if len(fs) == 1 {
 		return a.fail("This is your only second step. Add another one first: ku account factor add passkey")
 	}
-	f := hit[0]
-	ok, err := a.confirm(fmt.Sprintf("Remove the %s added %s?", factorName(f.Kind), f.Added), yes)
+	sure, err := a.confirm(fmt.Sprintf("Remove the %s added %s?", factorName(f.Kind), f.Added), yes)
 	if err != nil {
 		return a.fail("%v", err)
 	}
-	if !ok {
+	if !sure {
 		return a.fail("Nothing was removed.")
 	}
 	if err := a.callStepUp(c, "factor_remove", f.ID, "DELETE", "/account/factors/"+f.ID, nil, nil); err != nil {

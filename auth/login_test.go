@@ -249,8 +249,8 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 		if err != nil {
 			t.Fatalf("an authenticator-app account can confirm: %v", err)
 		}
-		if pk, tp, err := e.svc.StepUpMethods(ctx, sid); err != nil || pk || !tp {
-			t.Fatalf("methods must be the account's own: passkey=%v totp=%v %v", pk, tp, err)
+		if m, err := e.svc.StepUpMethods(ctx, sid); err != nil || m.Passkey || !m.TOTP || m.Default != "totp" {
+			t.Fatalf("methods must be the account's own, with its only factor as the default: %+v %v", m, err)
 		}
 		if err := e.svc.FinishStepUpTOTP(ctx, sid, code); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("the code that was just used to sign in must not confirm (replay)")

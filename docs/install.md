@@ -19,6 +19,7 @@ copy, run `xattr -d com.apple.quarantine ku` once.
 ```sh
 ku account factor list                 # what the account has
 ku account factor add passkey          # or: add totp (an authenticator app)
+ku account factor default <id>         # the one the sign-in and confirmation pages offer first
 ku account factor remove <id>          # the id (or its start) from `list`; the last one cannot be removed
 ```
 
