@@ -19,6 +19,23 @@ import (
 // Each calls fn once per backend with a migrated, empty database.
 func Each(t *testing.T, fn func(t *testing.T, kind string, p storage.Provider)) {
 	t.Helper()
+	EachDSN(t, func(t *testing.T, kind, dsn string) {
+		if err := storage.Migrate(kind, dsn); err != nil {
+			t.Fatal(err)
+		}
+		p, err := storage.Open(t.Context(), kind, dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = p.Close() })
+		fn(t, kind, p)
+	})
+}
+
+// EachDSN calls fn once per backend with the DSN of a fresh, unmigrated database, for tests that drive
+// migrations themselves.
+func EachDSN(t *testing.T, fn func(t *testing.T, kind, dsn string)) {
+	t.Helper()
 	kinds := []string{"sqlite", "postgres"}
 	switch s := os.Getenv("VAULT_STORAGE"); s {
 	case "":
@@ -28,18 +45,7 @@ func Each(t *testing.T, fn func(t *testing.T, kind string, p storage.Provider)) 
 		t.Fatalf("bad VAULT_STORAGE %q", s)
 	}
 	for _, kind := range kinds {
-		t.Run(kind, func(t *testing.T) {
-			dsn := newDSN(t, kind)
-			if err := storage.Migrate(kind, dsn); err != nil {
-				t.Fatal(err)
-			}
-			p, err := storage.Open(context.Background(), kind, dsn)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = p.Close() })
-			fn(t, kind, p)
-		})
+		t.Run(kind, func(t *testing.T) { fn(t, kind, newDSN(t, kind)) })
 	}
 }
 

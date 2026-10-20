@@ -47,7 +47,10 @@ func (p *sqliteProvider) Contains(col string, sel Tags) (string, []any) {
 	return "(" + strings.Join(conds, " AND ") + ")", args
 }
 
-// TimeArg is fixed width so text order is time order.
+// TimeArg is fixed width (microseconds), so text order is time order among values written through it. Columns
+// that fall back to their DEFAULT hold whole seconds ("...:05Z", written by strftime), which are not that width:
+// two of them tie within a second, and one sorts after a microsecond value of the same second ('Z' > '.').
+// Changing the default would need a table rebuild in SQLite, so code that orders such a column adds a tie-break.
 func (p *sqliteProvider) TimeArg(t time.Time) any {
 	return t.UTC().Format("2006-01-02T15:04:05.000000Z")
 }
