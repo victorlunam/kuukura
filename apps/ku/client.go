@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 // client talks to exactly one server: the resolved profile's. Redirects are never followed
@@ -82,7 +84,7 @@ func plain(err error) string {
 	}
 	detail := func(fallback string) string {
 		if p.Detail != "" {
-			return sentence(p.Detail)
+			return cli.Sentence(p.Detail)
 		}
 		return fallback
 	}

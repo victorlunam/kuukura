@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 // cmdRun injects every selected secret the identity can read into the command's environment.
@@ -28,7 +30,7 @@ func (a *app) cmdRun(args []string) int {
 	}
 	p, ok := a.parse(runUsage, before, []string{"profile"})
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
@@ -48,7 +50,7 @@ func (a *app) cmdRun(args []string) int {
 			hint += "   (your apps: " + strings.Join(apps, ", ") + ")"
 		}
 		fmt.Fprintln(a.err, hint)
-		return exitFail
+		return cli.ExitFail
 	}
 
 	var res struct {

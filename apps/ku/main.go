@@ -16,7 +16,8 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 // version is set at release time: -ldflags "-X main.version=YEAR.MONTH.N".
@@ -91,63 +92,42 @@ func (a *app) configDir() string {
 // say prints a status line to stderr so stdout stays clean for values and pipes.
 func (a *app) say(format string, args ...any) { fmt.Fprintf(a.err, format+"\n", args...) }
 
-// Exit codes: 1 when the command ran and failed, 2 when the arguments were wrong (ku-server uses the same).
-const (
-	exitFail  = 1
-	exitUsage = 2
-)
-
 // nextStep is an error that carries the one command that fixes it; fail prints it on its own line.
 type nextStep struct{ msg, run string }
 
 func (e *nextStep) Error() string { return e.msg }
 
-// sentence makes s read as a sentence: a capital first letter and a final period (unless it ends a list with ":").
-func sentence(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return s
-	}
-	if r := []rune(s); unicode.IsLower(r[0]) {
-		s = string(unicode.ToUpper(r[0])) + string(r[1:])
-	}
-	if !strings.ContainsAny(s[len(s)-1:], ".!?:") {
-		s += "."
-	}
-	return s
-}
-
-// fail prints "✗ <Sentence.>" on stderr and returns exitFail. An error argument that is a nextStep adds the line
+// fail prints "✗ <Sentence.>" on stderr and returns cli.ExitFail. An error argument that is a nextStep adds the line
 // with the command that fixes it.
 func (a *app) fail(format string, args ...any) int {
-	fmt.Fprintf(a.err, "✗ %s\n", sentence(fmt.Sprintf(format, args...)))
+	fmt.Fprintf(a.err, "✗ %s\n", cli.Sentence(fmt.Sprintf(format, args...)))
 	for _, x := range args {
 		var n *nextStep
 		if err, ok := x.(error); ok && errors.As(err, &n) {
 			fmt.Fprintf(a.err, "  Run: %s\n", n.run)
 		}
 	}
-	return exitFail
+	return cli.ExitFail
 }
 
 // failNext is fail plus the exact command to run next.
 func (a *app) failNext(run, format string, args ...any) int {
 	a.fail(format, args...)
 	fmt.Fprintf(a.err, "  Run: %s\n", run)
-	return exitFail
+	return cli.ExitFail
 }
 
 // argFail is fail for an argument that is wrong, which exits like a usage error.
 func (a *app) argFail(format string, args ...any) int {
 	a.fail(format, args...)
-	return exitUsage
+	return cli.ExitUsage
 }
 
 // usageFail prints the usage line of the command that got wrong arguments. It never says what was typed: a secret
 // passed as an argument by mistake must not come back in the terminal.
 func (a *app) usageFail(line string) int {
-	fmt.Fprintf(a.err, "Usage: %s\n", line)
-	return exitUsage
+	fmt.Fprintln(a.err, cli.UsageError(line))
+	return cli.ExitUsage
 }
 
 // usage is the help: one line per command, "noun verb arguments", then what it does.
@@ -185,7 +165,7 @@ Commands that talk to a server take --profile <name>.
 func (a *app) run(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprint(a.err, usage)
-		return exitUsage
+		return cli.ExitUsage
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -211,7 +191,7 @@ func (a *app) run(args []string) int {
 		return 0
 	}
 	fmt.Fprint(a.err, usage)
-	return exitUsage
+	return cli.ExitUsage
 }
 
 // ---- argument parsing ----

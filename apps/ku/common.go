@@ -7,6 +7,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 type selReq struct {
@@ -108,7 +110,7 @@ func (a *app) report(err error, hint func(tag string) string) int {
 			n, t := splitItem(it)
 			a.failNext("ku secret set "+strings.TrimSpace(n+" "+strings.Join(t, " ")), "%s is blocked until you save a new value", n)
 		}
-		return exitFail
+		return cli.ExitFail
 	case "forbidden":
 		if len(p.Items) > 0 {
 			a.fail("You don't have access to:")

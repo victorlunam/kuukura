@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/identity"
 )
 
@@ -15,7 +16,7 @@ import (
 func positional(fs *flag.FlagSet, usage string, args []string, n int) ([]string, error) {
 	pos, err := parseArgs(fs, args)
 	if err != nil || len(pos) != n { // the flag package's error would name what was typed
-		return nil, usageError("ku-server " + usage)
+		return nil, cli.UsageError("ku-server " + usage)
 	}
 	return pos, nil
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/victorlunam/kuukura/apps/ku-server/api"
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 // A problem code added to the API without a message in plain() would reach people as "Something went wrong".
@@ -16,7 +17,7 @@ func TestPlainSaysSomethingSpecificForEveryProblemCode(t *testing.T) {
 		if code != "internal" && msg == generic {
 			t.Errorf("plain has no message for the API code %q", code)
 		}
-		if sentence(msg) != msg {
+		if cli.Sentence(msg) != msg {
 			t.Errorf("%s: %q is not a sentence (capital, final period)", code, msg)
 		}
 		if code != "unauthorized" && strings.Contains(msg, "ku login") {
@@ -26,23 +27,6 @@ func TestPlainSaysSomethingSpecificForEveryProblemCode(t *testing.T) {
 	// the server's own detail wins where it says more than the code, and the result is still a sentence
 	if got := plain(&problem{Code: "conflict", Detail: "that name is already used"}); got != "That name is already used." {
 		t.Errorf("detail: %q", got)
-	}
-}
-
-func TestSentence(t *testing.T) {
-	for in, want := range map[string]string{
-		"you are not logged in":     "You are not logged in.",
-		"Already a sentence.":       "Already a sentence.",
-		"3 secrets match:":          "3 secrets match:",
-		"  spaced out  ":            "Spaced out.",
-		"Is it?":                    "Is it?",
-		"":                          "",
-		"ünïcode first letter":      "Ünïcode first letter.",
-		"ends with detail: no stop": "Ends with detail: no stop.",
-	} {
-		if got := sentence(in); got != want {
-			t.Errorf("sentence(%q) = %q, want %q", in, got, want)
-		}
 	}
 }
 
@@ -78,7 +62,7 @@ func TestHelpIsAlignedAndMatchesTheDispatcher(t *testing.T) {
 			continue // run has no verbs; account has one noun more, checked below
 		}
 		a, _, out := testApp(t, nil)
-		if code := a.run([]string{noun}); code != exitUsage {
+		if code := a.run([]string{noun}); code != cli.ExitUsage {
 			t.Errorf("ku %s: exit %d", noun, code)
 		}
 		want := "Usage: ku " + noun + " " + strings.Join(listed, "|") + "\n"
@@ -87,7 +71,7 @@ func TestHelpIsAlignedAndMatchesTheDispatcher(t *testing.T) {
 		}
 	}
 	a, _, out := testApp(t, nil)
-	if a.run([]string{"account"}) != exitUsage || !strings.HasPrefix(out.String(), "Usage: ku account factor ") {
+	if a.run([]string{"account"}) != cli.ExitUsage || !strings.HasPrefix(out.String(), "Usage: ku account factor ") {
 		t.Errorf("ku account: %q", out.String())
 	}
 }
@@ -96,7 +80,7 @@ func TestUsageErrorsExitTwo(t *testing.T) {
 	a, _, out := testApp(t, nil)
 	for _, args := range [][]string{{}, {"nonsense"}, {"profile"}, {"profile", "use"}, {"profile", "add", "x"}, {"workspace", "disable"}} {
 		out.Reset()
-		if code := a.run(args); code != exitUsage {
+		if code := a.run(args); code != cli.ExitUsage {
 			t.Errorf("%v: exit %d, %q", args, code, out.String())
 		}
 	}

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 type secretRow struct {
@@ -79,7 +81,7 @@ func (a *app) listSecrets(c *client, name string, tags []string) ([]secretRow, e
 func (a *app) secretList(args []string) int {
 	p, ok := a.parse(listUsage, args, []string{"profile"})
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
@@ -112,7 +114,7 @@ func (a *app) secretList(args []string) int {
 func (a *app) secretSet(args []string) int {
 	p, ok := a.parse(setUsage, args, []string{"file", "profile"}, "generate", "yes")
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
@@ -212,7 +214,7 @@ func (a *app) readValue() (string, error) {
 func (a *app) secretGet(args []string) int {
 	p, ok := a.parse(getUsage, args, []string{"out", "profile"}, "reveal")
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
@@ -275,7 +277,7 @@ func splitUpdateArgs(pos []string) (sel, add, rem []string, err error) {
 func (a *app) secretUpdate(args []string) int {
 	p, ok := a.parse(updateUsage, args, []string{"name", "authorize", "profile"}, "yes")
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	selPos, add, rem, err := splitUpdateArgs(p.pos)
 	if err != nil {
@@ -379,7 +381,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 	line := map[string]string{"revoke": revokeUsage, "archive": archiveUsage}[verb]
 	p, ok := a.parse(line, args, []string{"profile"}, "yes")
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {

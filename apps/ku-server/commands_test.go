@@ -15,6 +15,7 @@ import (
 
 	"github.com/victorlunam/kuukura/internal/access"
 	"github.com/victorlunam/kuukura/internal/audit"
+	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/keys"
 	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
@@ -74,7 +75,7 @@ func TestCommandTree(t *testing.T) {
 	if err := run([]string{"nope"}); !errors.Is(err, errUnknown) || strings.Contains(err.Error(), "nope") {
 		t.Errorf("an unknown command is not echoed: %v", err)
 	}
-	var u usageError
+	var u cli.UsageError
 	if err := run([]string{"user", "invite"}); !errors.As(err, &u) || u != "ku-server user invite <email> [--admin]" {
 		t.Errorf("each command prints its own usage line: %v", err)
 	}
@@ -96,21 +97,12 @@ func TestCommandTree(t *testing.T) {
 func TestExitCodes(t *testing.T) {
 	for err, want := range map[error]int{
 		nil:                             0,
-		errors.New("it broke"):          exitFail,
-		usageError("ku-server x"):       exitUsage,
-		fmt.Errorf("x: %w", errUnknown): exitUsage,
+		errors.New("it broke"):          cli.ExitFail,
+		cli.UsageError("ku-server x"):   cli.ExitUsage,
+		fmt.Errorf("x: %w", errUnknown): cli.ExitUsage,
 	} {
 		if got := report(err); got != want {
 			t.Errorf("%v: exit %d, want %d", err, got, want)
-		}
-	}
-	for in, want := range map[string]string{
-		"cannot connect to the database: refused": "Cannot connect to the database: refused.",
-		"Already a sentence.":                     "Already a sentence.",
-		"":                                        "",
-	} {
-		if got := sentence(in); got != want {
-			t.Errorf("sentence(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/victorlunam/kuukura/internal/audit"
 	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/identity"
 	"github.com/victorlunam/kuukura/internal/keys"
 	"github.com/victorlunam/kuukura/internal/storage"
@@ -67,7 +68,7 @@ func withApp(fn func(ctx context.Context, a *app) error) error {
 
 func noArgs(usage string, args []string) error {
 	if len(args) != 0 {
-		return usageError("ku-server " + usage)
+		return cli.UsageError("ku-server " + usage)
 	}
 	return nil
 }

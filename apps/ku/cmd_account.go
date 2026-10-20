@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 const factorUsage = "ku account factor list | add <passkey|totp> | default <id> | remove <id>"
@@ -22,7 +24,7 @@ func (a *app) cmdAccount(args []string) int {
 	}
 	p, ok := a.parse(factorUsage, args[1:], []string{"profile"}, "yes")
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	if len(p.pos) == 0 {
 		return a.usageFail(factorUsage)

@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 const (
@@ -34,7 +36,7 @@ func (a *app) cmdProfile(args []string) int {
 	case "add":
 		p, ok := a.parse(profileAdd, rest, []string{"url"})
 		if !ok {
-			return exitUsage
+			return cli.ExitUsage
 		}
 		if len(p.pos) != 1 || p.flags["url"] == "" {
 			return a.usageFail(profileAdd)
@@ -108,7 +110,7 @@ func (a *app) cmdLink(args []string) int {
 	const linkUsage = "ku link [<app>] [--profile <name>]"
 	p, ok := a.parse(linkUsage, args, []string{"profile"})
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	if len(p.pos) > 1 {
 		return a.usageFail(linkUsage)
@@ -155,7 +157,7 @@ func (a *app) cmdLogin(args []string) int {
 	const loginUsage = "ku login [--profile <name>]"
 	p, ok := a.parse(loginUsage, args, []string{"profile"})
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	if len(p.pos) != 0 {
 		return a.usageFail(loginUsage)

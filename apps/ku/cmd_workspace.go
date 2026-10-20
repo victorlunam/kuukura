@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 // workspaceUsage is the usage line of each `ku workspace` verb.
@@ -43,7 +45,7 @@ func (a *app) cmdWorkspace(args []string) int {
 	}
 	p, ok := a.parse(line, args[1:], []string{"profile"}, "machine")
 	if !ok {
-		return exitUsage
+		return cli.ExitUsage
 	}
 	pos := p.pos
 	if p.has("machine") && sub != "invite" || !workspaceArity(sub, len(pos)) {

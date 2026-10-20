@@ -16,6 +16,7 @@ import (
 
 	"github.com/victorlunam/kuukura/internal/audit"
 	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/keys"
 	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
@@ -36,7 +37,7 @@ func runKeyInit(args []string) error {
 		path = env("VAULT_MASTER_KEY_FILE")
 	}
 	if path == "" {
-		return usageError("ku-server key init --key-file <path>")
+		return cli.UsageError("ku-server key init --key-file <path>")
 	}
 	key, err := keys.GenerateMasterKey(1)
 	if err != nil {

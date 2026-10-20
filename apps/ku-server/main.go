@@ -7,7 +7,8 @@ import (
 	"io"
 	"os"
 	"strings"
-	"unicode"
+
+	"github.com/victorlunam/kuukura/internal/cli"
 )
 
 // version is set at release time: -ldflags "-X main.version=YEAR.MONTH.N".
@@ -30,53 +31,26 @@ const helpText = `Usage: ku-server <command> [options]
   audit verify                   check the audit log chain
 `
 
-// Exit codes: 1 when the command ran and failed, 2 when the arguments were wrong (ku uses the same).
-const (
-	exitFail  = 1
-	exitUsage = 2
-)
-
-// usageError is a command that got wrong arguments. Its text is the usage line; what was typed is never echoed,
-// because a secret passed as an argument by mistake must not come back in the terminal or the shell history.
-type usageError string
-
-func (e usageError) Error() string { return "Usage: " + string(e) }
-
 func main() { os.Exit(report(run(os.Args[1:]))) }
 
 // report prints an error and returns the exit code: a usage line for wrong arguments, otherwise
 // "ku-server: <Sentence.>" (the same sentence rule as `ku`: a capital and a final period).
 func report(err error) int {
-	var u usageError
+	var u cli.UsageError
 	switch {
 	case err == nil:
 		return 0
 	case errors.As(err, &u):
 		fmt.Fprintln(os.Stderr, u)
-		return exitUsage
+		return cli.ExitUsage
 	case errors.Is(err, errUnknown):
 		fmt.Fprint(os.Stderr, helpText)
-		return exitUsage
+		return cli.ExitUsage
 	}
 	for line := range strings.SplitSeq(err.Error(), "\n") { // a bad configuration reports every problem, one per line
-		fmt.Fprintf(os.Stderr, "ku-server: %s\n", sentence(line))
+		fmt.Fprintf(os.Stderr, "ku-server: %s\n", cli.Sentence(line))
 	}
-	return exitFail
-}
-
-// sentence makes s read as a sentence: a capital first letter and a final period (unless it ends a list with ":").
-func sentence(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return s
-	}
-	if r := []rune(s); unicode.IsLower(r[0]) {
-		s = string(unicode.ToUpper(r[0])) + string(r[1:])
-	}
-	if !strings.ContainsAny(s[len(s)-1:], ".!?:") {
-		s += "."
-	}
-	return s
+	return cli.ExitFail
 }
 
 type subcommands map[string]func(args []string) error
@@ -118,7 +92,7 @@ func (s subcommands) run(group, verbs string, args []string) error {
 			return fn(args[1:])
 		}
 	}
-	return usageError("ku-server " + group + " " + verbs)
+	return cli.UsageError("ku-server " + group + " " + verbs)
 }
 
 // parseArgs splits args into positional arguments and the flags declared on fs, accepting flags before, between and
