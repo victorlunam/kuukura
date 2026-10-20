@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.2] - 2026-10-20
+
 ### Security
 
 - Releases carry build provenance, a keyless cosign signature on the image and an SBOM; CI tools and actions are
@@ -22,6 +24,7 @@ A release is a tag: its section is copied into the GitHub release notes.
 - Confirmations have their own rate limit; failed confirmations are audited; an enrollment code cannot be replayed.
 - A database error while checking admin rights is reported instead of being treated as a denial.
 - Postgres: a role that is a member of the table owner is refused.
+- The image's base images are pinned by digest and kept current by Dependabot.
 
 ### Added
 
@@ -49,12 +52,14 @@ A release is a tag: its section is copied into the GitHub release notes.
 - Key rotation and its audit row commit together; `rotate-key` is audited with the rewrap.
 - Invite expiry is shown in RFC 3339.
 - CI runs the SQLite and Postgres tests as separate jobs; releases are built with Go 1.26.
-- Illustrations and the wordmark share one drawing system.
+- A new brand: a vault-door mark, one palette and geometry for the logo, favicon, banner, illustrations and icons.
+- The Go domain packages live under `internal/`; `cmd/` holds the two binaries.
+- `github.com/fxamacker/cbor/v2` 2.9.6.
 
 ### Fixed
 
 - Concurrent secret updates lose cleanly with a retryable clash instead of failing.
-- The last second factor survives concurrent removals.
+- Removing factors at the same time always leaves the account at least one.
 - KMS reads data under its stored ARN, so rotation by a new ARN works; wrap errors keep the AWS error code.
 - An unreadable session is no longer reported as logged out; `ku login` saves the session before the page says
   signed in.
@@ -93,6 +98,7 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.1...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.2...HEAD
+[2026.10.2]: https://github.com/victorlunam/kuukura/compare/v2026.10.1...v2026.10.2
 [2026.10.1]: https://github.com/victorlunam/kuukura/compare/v2026.10.0...v2026.10.1
 [2026.10.0]: https://github.com/victorlunam/kuukura/releases/tag/v2026.10.0
