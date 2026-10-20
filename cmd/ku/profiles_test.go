@@ -38,8 +38,9 @@ func TestConfigDirHonorsXDG(t *testing.T) {
 	if got, want := a.configDir(), filepath.Join(a.home, ".config", "kuukura"); got != want {
 		t.Fatalf("default: %s", got)
 	}
-	env["XDG_CONFIG_HOME"] = "/tmp/elsewhere"
-	if got := a.configDir(); got != "/tmp/elsewhere/kuukura" {
+	elsewhere := t.TempDir() // absolute on every OS
+	env["XDG_CONFIG_HOME"] = elsewhere
+	if got := a.configDir(); got != filepath.Join(elsewhere, "kuukura") {
 		t.Fatalf("XDG_CONFIG_HOME: %s", got)
 	}
 	env["XDG_CONFIG_HOME"] = "relative/path" // not absolute: ignored, never guessed
