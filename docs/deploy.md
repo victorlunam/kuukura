@@ -257,12 +257,18 @@ Dokploy, Coolify or Caddy, the SSL/TLS mode decides what your server sees:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| "This kuukura server only works over HTTPS" although the browser shows https:// | Cloudflare SSL mode **Flexible**: Cloudflare talks to your server over plain HTTP | Set SSL/TLS mode to **Full (strict)** |
-| `ERR_TOO_MANY_REDIRECTS` after turning HTTPS on in the platform | Flexible again: the platform redirects HTTP to HTTPS, Cloudflare asks over HTTP again, forever | Same: **Full (strict)** |
+| "This kuukura server only works over HTTPS" although the browser shows https:// | Cloudflare SSL mode **Flexible**: Cloudflare talks to your server over plain HTTP | DNS only for this hostname (below) |
+| `ERR_TOO_MANY_REDIRECTS` after turning HTTPS on in the platform | Flexible again: the platform redirects HTTP to HTTPS, Cloudflare asks over HTTP again, forever | Same |
 
-With **Full (strict)** the server needs a valid certificate: in Dokploy set the domain's certificate to Let's Encrypt
-(not "none"), or install a Cloudflare Origin Certificate. **Full** (not strict) also works with the platform's
-self-signed certificate. Never use Flexible: the hop between Cloudflare and your server would carry secrets unencrypted.
+**Recommended: DNS only (grey cloud) for the vault's hostname.** A CDN proxy terminates TLS, so it sees every value
+that passes (reveals, `ku run`). Turn the proxy off for this one record, set the platform's certificate to Let's
+Encrypt, and the browser and CLI talk to your server directly. It changes nothing for your other hostnames.
+
+If you keep the proxy, do not change the zone-wide SSL mode (it applies to every hostname in the zone): add a
+**Configuration Rule** for this hostname only (Rules → Configuration Rules, "Hostname equals vault.example.com",
+SSL: Full (strict)). Full (strict) needs a valid certificate on the server: Let's Encrypt in the platform (not
+"none") or a Cloudflare Origin Certificate. Never use Flexible: the hop to your server would carry secrets
+unencrypted.
 
 ## Verifying a release
 
