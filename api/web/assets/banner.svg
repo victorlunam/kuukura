@@ -1,46 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="kuukura: secrets for your team, self-hosted">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-label="kuukura: secrets for your team. Self-hosted. Decrypted only on your server.">
   <defs>
-    <radialGradient id="glow" cx="76%" cy="46%" r="58%">
-      <stop offset="0" stop-color="#14B8A6" stop-opacity=".26"/>
-      <stop offset="1" stop-color="#14B8A6" stop-opacity="0"/>
+    <radialGradient id="glow" cx="75%" cy="50%" r="55%">
+      <stop offset="0" stop-color="#2DD4BF" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#2DD4BF" stop-opacity="0"/>
     </radialGradient>
-    <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1.4" fill="#fff" fill-opacity=".07"/>
+    <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.3" fill="#EAF4F2" fill-opacity=".07"/>
     </pattern>
   </defs>
-  <rect width="1200" height="630" fill="#0B1220"/>
-  <rect width="1200" height="630" fill="url(#dots)"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1280" height="640" fill="#071519"/>
+  <rect width="1280" height="640" fill="url(#dots)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
 
-  <!-- the empty vault, same drawing as the empty-state illustration (dark palette), scaled -->
-  <g transform="translate(610 118) scale(2.4)" stroke-linejoin="round">
-    <ellipse fill="#12302F" cx="122" cy="147" rx="74" ry="6.5"/>
+  <!-- lockup: the mark and the outlined wordmark, same drawing as logo.svg at 1.25x -->
+  <g transform="translate(96 96) scale(1.25)" fill="none">
+    <rect width="64" height="64" rx="14" fill="#0E2A30"/>
+    <rect x=".5" y=".5" width="63" height="63" rx="13.5" stroke="#EAF4F2" stroke-opacity=".14"/>
+    <circle cx="32" cy="32" r="20" stroke="#EAF4F2" stroke-width="4.5"/>
+    <path d="M32 20.5h0M32 43.5h0M20.5 32h0M43.5 32h0M23.87 23.87h0M40.13 23.87h0M23.87 40.13h0M40.13 40.13h0" stroke="#EAF4F2" stroke-width="4.2" stroke-linecap="round"/>
+    <circle cx="32" cy="32" r="4.6" fill="#F5A524"/>
+    <path transform="translate(84 41.5)" d="M0 -31V0M10 -19L0 -7.5M3.2 -10.7L10.5 0M20.5 -19V-8.5A8.5 8.5 0 0 0 37.5 -8.5M37.5 -19V0M47.5 -19V-8.5A8.5 8.5 0 0 0 64.5 -8.5M64.5 -19V0M74.5 -31V0M84.5 -19L74.5 -7.5M77.7 -10.7L85 0M95.5 -19V-8.5A8.5 8.5 0 0 0 112.5 -8.5M112.5 -19V0M122.5 -19V0M122.5 -9.5A9.5 9.5 0 0 1 132 -19M158 -9.5A9.5 9.5 0 1 0 139 -9.5A9.5 9.5 0 1 0 158 -9.5M158 -19V0" stroke="#EAF4F2" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="96" y="318" fill="#EAF4F2" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="64" font-weight="650" letter-spacing="-1.6">Secrets for your team.</text>
+  <text x="96" y="378" fill="#EAF4F2" fill-opacity=".66" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="27">Self-hosted. Decrypted only on your server.</text>
+
+  <!-- the command: the only thing an agent or a script ever needs -->
+  <rect x="96" y="452" width="400" height="60" rx="14" fill="#0E2A30"/>
+  <rect x="96.5" y="452.5" width="399" height="59" rx="13.5" fill="none" stroke="#EAF4F2" stroke-opacity=".14"/>
+  <text x="124" y="490" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="24" fill="#EAF4F2"><tspan fill="#FBBF24">$</tspan> ku run -- npm start</text>
+
+  <!-- hero: the empty vault, same drawing as art/vault-empty.svg (dark palette) at 2.3x -->
+  <g transform="translate(706 132) scale(2.3)" stroke-linejoin="round">
+    <ellipse fill="#0F2E2E" cx="122" cy="147" rx="74" ry="6.5"/>
     <path fill="#FBBF24" d="M208 25l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
     <circle fill="#2DD4BF" cx="222" cy="88" r="3"/>
     <circle fill="#2DD4BF" cx="30" cy="44" r="2.5"/>
-    <rect fill="#EEF2F7" x="104" y="135" width="16" height="7" rx="2.5"/>
-  <rect fill="#EEF2F7" x="148" y="135" width="16" height="7" rx="2.5"/>
-    <rect fill="#101827" stroke="#EEF2F7" x="82" y="30" width="104" height="106" rx="22" stroke-width="2.5"/>
-    <circle fill="#0A1F1F" stroke="#EEF2F7" cx="134" cy="83" r="36" stroke-width="2.5"/>
-    <circle fill="#EEF2F7" cx="134" cy="83" r="26" fill-opacity=".08"/>
-    <circle fill="#EEF2F7" cx="134" cy="83" r="16" fill-opacity=".1"/>
-    <circle fill="#EEF2F7" cx="134" cy="83" r="7" fill-opacity=".14"/>
-    <rect fill="#EEF2F7" x="60" y="52" width="26" height="9" rx="3"/>
-    <rect fill="#EEF2F7" x="60" y="105" width="26" height="9" rx="3"/>
-    <ellipse fill="#101827" stroke="#EEF2F7" cx="60" cy="83" rx="12" ry="40" stroke-width="2.5"/>
-    <ellipse fill="#12302F" cx="60" cy="83" rx="6" ry="27"/>
-    <circle fill="#FBBF24" cx="60" cy="83" r="3"/>
+    <rect fill="#EAF4F2" x="104" y="135" width="16" height="7" rx="2.5"/>
+    <rect fill="#EAF4F2" x="148" y="135" width="16" height="7" rx="2.5"/>
+    <rect fill="#0C1D22" stroke="#EAF4F2" x="82" y="30" width="104" height="106" rx="18" stroke-width="2.5"/>
+    <circle fill="#07201F" stroke="#EAF4F2" cx="134" cy="83" r="36" stroke-width="2.5"/>
+    <circle fill="#EAF4F2" fill-opacity=".08" cx="134" cy="83" r="26"/>
+    <circle fill="#EAF4F2" fill-opacity=".1" cx="134" cy="83" r="16"/>
+    <circle fill="#EAF4F2" fill-opacity=".14" cx="134" cy="83" r="7"/>
+    <rect fill="#EAF4F2" x="62" y="52" width="24" height="9" rx="3"/>
+    <rect fill="#EAF4F2" x="62" y="105" width="24" height="9" rx="3"/>
+    <ellipse fill="#0C1D22" stroke="#EAF4F2" cx="60" cy="83" rx="12" ry="40" stroke-width="2.5"/>
+    <ellipse fill="#0F2E2E" cx="60" cy="83" rx="5" ry="27"/>
+    <circle fill="#FBBF24" cx="60" cy="83" r="3.4"/>
   </g>
-
-  <!-- lockup: the mark and the monoline wordmark (outlined, so it looks the same everywhere) -->
-  <g transform="translate(96 176) scale(1.625)">
-    <rect width="64" height="64" rx="16" fill="#0B1220"/>
-  <rect x=".75" y=".75" width="62.5" height="62.5" rx="15.25" stroke="#fff" stroke-opacity=".12" stroke-width="1.5"/>
-    <circle cx="32" cy="32" r="19" stroke="#fff" stroke-width="3.5"/>
-  <path d="M32 21.5V32M41.1 37.25 32 32M22.9 37.25 32 32" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="32" cy="32" r="4.2" fill="#F5A524"/>
-  </g>
-  <path transform="translate(236 246.05) scale(1.9)" d="M0 -31V0M10.5 -18.5L0 -7M3.3 -10.2L10.5 0M19.7 -19V-8a8 8 0 0 0 16 0M35.7 -19V0M45.9 -19V-8a8 8 0 0 0 16 0M61.9 -19V0M71.1 -31V0M81.6 -18.5L71.1 -7M74.4 -10.2L81.6 0M90.8 -19V-8a8 8 0 0 0 16 0M106.8 -19V0M117 -19V0M117 -9.5a9.5 9.5 0 0 1 9.5 -9.5M151.3 -19V0M151.3 -9.5a9.5 9.5 0 1 0 -19 0a9.5 9.5 0 1 0 19 0" fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="96" y="388" fill="#fff" fill-opacity=".94" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="42" font-weight="600" letter-spacing="-.4">Secrets for your team.</text>
-  <text x="96" y="436" fill="#fff" fill-opacity=".62" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="28">Self-hosted. Decrypted only on your server.</text>
 </svg>

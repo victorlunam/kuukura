@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A closed vault with a check mark">
   <style>
-    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
-    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    :root{--ink:#0a1b20;--muted:#566870;--card:#fff;--soft:#e3f1ee;--hollow:#cde3df;--acc:#0e9384;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#e9f3f2;--muted:#8fa5aa;--card:#0c1d22;--soft:#0f2e2e;--hollow:#07201f;--acc:#2dd4bf;--amber:#fbbf24}}
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
@@ -12,9 +12,10 @@
   <rect class="f-ink" x="82" y="135" width="16" height="7" rx="2.5"/>
   <rect class="f-ink" x="142" y="135" width="16" height="7" rx="2.5"/>
   <rect class="f-card s-ink" x="60" y="30" width="120" height="106" rx="18" stroke-width="2.5"/>
+  <!-- the door: a rim, eight bolts, a hub (the mark, large) -->
   <circle class="f-soft s-ink" cx="120" cy="83" r="38" stroke-width="2.5"/>
-  <path class="s-ink" d="M120 83L120 62M120 83L138.19 93.5M120 83L101.81 93.5" fill="none" stroke-width="3.4" stroke-linecap="round"/>
-  <circle class="f-amber s-ink" cx="120" cy="83" r="5" stroke-width="2.5"/>
+  <path class="s-ink" d="M120 56h0M120 110h0M93 83h0M147 83h0M100.91 63.91h0M139.09 63.91h0M100.91 102.09h0M139.09 102.09h0" fill="none" stroke-width="5.6" stroke-linecap="round"/>
+  <circle class="f-amber s-ink" cx="120" cy="83" r="7" stroke-width="2.5"/>
   <circle class="f-acc s-card" cx="176" cy="40" r="18" stroke-width="4"/>
   <path d="m167.5 40.5 6 6 11-12.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

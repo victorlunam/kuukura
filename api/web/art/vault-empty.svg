@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="An empty vault, its round door swung open">
   <style>
-    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
-    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    :root{--ink:#0a1b20;--muted:#566870;--card:#fff;--soft:#e3f1ee;--hollow:#cde3df;--acc:#0e9384;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#e9f3f2;--muted:#8fa5aa;--card:#0c1d22;--soft:#0f2e2e;--hollow:#07201f;--acc:#2dd4bf;--amber:#fbbf24}}
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
@@ -11,16 +11,16 @@
   <circle class="f-acc" cx="30" cy="44" r="2.5"/>
   <rect class="f-ink" x="104" y="135" width="16" height="7" rx="2.5"/>
   <rect class="f-ink" x="148" y="135" width="16" height="7" rx="2.5"/>
-  <rect class="f-card s-ink" x="82" y="30" width="104" height="106" rx="22" stroke-width="2.5"/>
+  <rect class="f-card s-ink" x="82" y="30" width="104" height="106" rx="18" stroke-width="2.5"/>
   <!-- the round doorway: rings getting darker toward the middle read as an empty, deep interior -->
   <circle class="f-hollow s-ink" cx="134" cy="83" r="36" stroke-width="2.5"/>
   <circle class="f-ink" cx="134" cy="83" r="26" fill-opacity=".08"/>
   <circle class="f-ink" cx="134" cy="83" r="16" fill-opacity=".1"/>
   <circle class="f-ink" cx="134" cy="83" r="7" fill-opacity=".14"/>
   <!-- the door, swung open to the left and seen almost edge-on -->
-  <rect class="f-ink" x="60" y="52" width="26" height="9" rx="3"/>
-  <rect class="f-ink" x="60" y="105" width="26" height="9" rx="3"/>
+  <rect class="f-ink" x="62" y="52" width="24" height="9" rx="3"/>
+  <rect class="f-ink" x="62" y="105" width="24" height="9" rx="3"/>
   <ellipse class="f-card s-ink" cx="60" cy="83" rx="12" ry="40" stroke-width="2.5"/>
-  <ellipse class="f-soft" cx="60" cy="83" rx="6" ry="27"/>
-  <circle class="f-amber" cx="60" cy="83" r="3"/>
+  <ellipse class="f-soft" cx="60" cy="83" rx="5" ry="27"/>
+  <circle class="f-amber" cx="60" cy="83" r="3.4"/>
 </svg>

@@ -1,10 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="kuukura">
-  <rect width="64" height="64" rx="16" fill="#0B1220"/>
-  <rect x=".75" y=".75" width="62.5" height="62.5" rx="15.25" stroke="#fff" stroke-opacity=".12" stroke-width="1.5"/>
-  <!-- vault door -->
-  <circle cx="32" cy="32" r="19" stroke="#fff" stroke-width="3.5"/>
-  <!-- wheel: three spokes -->
-  <path d="M32 21.5V32M41.1 37.25 32 32M22.9 37.25 32 32" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- hub -->
-  <circle cx="32" cy="32" r="4.2" fill="#F5A524"/>
+  <rect width="64" height="64" rx="14" fill="#071519"/>
+  <rect x=".5" y=".5" width="63" height="63" rx="13.5" stroke="#EAF4F2" stroke-opacity=".14"/>
+  <circle cx="32" cy="32" r="20" stroke="#EAF4F2" stroke-width="4.5"/>
+  <path d="M32 20.5h0M32 43.5h0M20.5 32h0M43.5 32h0M23.87 23.87h0M40.13 23.87h0M23.87 40.13h0M40.13 40.13h0" stroke="#EAF4F2" stroke-width="4.2" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="4.6" fill="#F5A524"/>
 </svg>

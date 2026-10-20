@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A phone with a fingerprint, adding a passkey">
   <style>
-    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
-    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    :root{--ink:#0a1b20;--muted:#566870;--card:#fff;--soft:#e3f1ee;--hollow:#cde3df;--acc:#0e9384;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#e9f3f2;--muted:#8fa5aa;--card:#0c1d22;--soft:#0f2e2e;--hollow:#07201f;--acc:#2dd4bf;--amber:#fbbf24}}
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
@@ -15,10 +15,10 @@
   <rect class="f-ink" x="109" y="29" width="22" height="4.5" rx="2.25"/>
   <rect class="f-soft" x="97" y="42" width="46" height="86" rx="8"/>
   <!-- fingerprint -->
-  <g class="s-acc" fill="none" stroke-width="3" stroke-linecap="round" transform="translate(120 83) scale(1)"><path d="M-16 18v-9a16 16 0 0 1 32 0v4"/><path d="M-9 23v-14a9 9 0 0 1 18 0v8"/><path d="M-2 25v-16a2 2 0 0 1 4 0v12"/><path d="M-22.5 7a22.5 22.5 0 0 1 45 0"/></g>
+  <g class="s-acc" fill="none" stroke-width="3" stroke-linecap="round" transform="translate(120 83)"><path d="M-16 18v-9a16 16 0 0 1 32 0v4"/><path d="M-9 23v-14a9 9 0 0 1 18 0v8"/><path d="M-2 25v-16a2 2 0 0 1 4 0v12"/><path d="M-22.5 7a22.5 22.5 0 0 1 45 0"/></g>
   <!-- key badge -->
   <circle class="f-amber s-card" cx="158" cy="116" r="18" stroke-width="4"/>
-  <g transform="translate(158 116) rotate(45)" fill="none" stroke="#0b1220" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(158 116) rotate(45)" fill="none" stroke="#0a1b20" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="-5.5" cy="0" r="4"/>
     <path d="M-1.5 0H9M5 0v3.6M9 0v3"/>
   </g>

@@ -1,15 +1,31 @@
 package main
 
 import (
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
 
+// markShapes is the drawing inside api/web/assets/mark.svg (the web pages inline that file), without the
+// <svg> wrapper and without the whitespace between tags.
+func markShapes(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile("../../api/web/assets/mark.svg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	s = s[strings.Index(s, ">")+1 : strings.LastIndex(s, "</svg>")]
+	return regexp.MustCompile(`>\s+<`).ReplaceAllString(strings.TrimSpace(s), "><")
+}
+
 // The pages `ku login` leaves in the browser carry the brand mark and the profile name, escaped.
 func TestSignedInPageBrand(t *testing.T) {
 	page := signedInPage("some_name")
-	if !strings.Contains(page, "M32 21.5V32M41.1 37.25 32 32M22.9 37.25 32 32") || !strings.Contains(page, `r="4.2" fill="#F5A524"`) {
-		t.Fatal("the mark must be there")
+	// the CLI page and the web pages must draw the same mark: this copy is the file's shapes, byte for byte
+	if want := markShapes(t); !strings.Contains(page, want) || !strings.Contains(want, `fill="#F5A524"`) {
+		t.Fatalf("the CLI page must carry api/web/assets/mark.svg exactly:\n%s", want)
 	}
 	if !strings.Contains(page, "<small>some_name</small>") || !strings.Contains(page, "You're signed in") {
 		t.Fatal("profile name and message")

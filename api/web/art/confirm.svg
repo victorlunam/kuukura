@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A fingerprint asking for confirmation">
   <style>
-    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
-    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    :root{--ink:#0a1b20;--muted:#566870;--card:#fff;--soft:#e3f1ee;--hollow:#cde3df;--acc:#0e9384;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#e9f3f2;--muted:#8fa5aa;--card:#0c1d22;--soft:#0f2e2e;--hollow:#07201f;--acc:#2dd4bf;--amber:#fbbf24}}
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>

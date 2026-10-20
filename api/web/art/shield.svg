@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A shield with a keyhole">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="A shield with a vault dial">
   <style>
-    :root{--ink:#0b1220;--muted:#5a6578;--card:#fff;--soft:#e6f4f1;--hollow:#d3e6e1;--acc:#0f9d8a;--amber:#f5a524}
-    @media (prefers-color-scheme:dark){:root{--ink:#eef2f7;--muted:#94a0b3;--card:#101827;--soft:#12302f;--hollow:#0a1f1f;--acc:#2dd4bf;--amber:#fbbf24}}
+    :root{--ink:#0a1b20;--muted:#566870;--card:#fff;--soft:#e3f1ee;--hollow:#cde3df;--acc:#0e9384;--amber:#f5a524}
+    @media (prefers-color-scheme:dark){:root{--ink:#e9f3f2;--muted:#8fa5aa;--card:#0c1d22;--soft:#0f2e2e;--hollow:#07201f;--acc:#2dd4bf;--amber:#fbbf24}}
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
@@ -11,10 +11,11 @@
   <circle class="f-acc" cx="50" cy="50" r="3"/>
   <circle class="f-acc" cx="198" cy="112" r="2.5"/>
   <!-- shield -->
-  <path class="f-card s-ink" d="M120 20 166 37v38c0 29-19 49-46 61-27-12-46-32-46-61V37z" stroke-width="2.5" stroke-linejoin="round"/>
+  <path class="f-card" d="M120 20 166 37v38c0 29-19 49-46 61-27-12-46-32-46-61V37z"/>
   <path class="f-soft" d="M120 20 74 37v38c0 29 19 49 46 61z" opacity=".7"/>
   <path class="s-ink" d="M120 20 166 37v38c0 29-19 49-46 61-27-12-46-32-46-61V37z" fill="none" stroke-width="2.5" stroke-linejoin="round"/>
-  <!-- keyhole -->
-  <circle class="f-ink" cx="120" cy="72" r="10"/>
-  <path class="f-ink" d="M115 78h10l3 24a2 2 0 0 1-2 2.3h-12a2 2 0 0 1-2-2.3z"/>
+  <!-- the dial: rim, eight bolts, hub (the mark) -->
+  <circle class="s-ink" cx="120" cy="76" r="19" fill="none" stroke-width="3.4"/>
+  <path class="s-ink" d="M120 65h0M120 87h0M109 76h0M131 76h0M112.22 68.22h0M127.78 68.22h0M112.22 83.78h0M127.78 83.78h0" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <circle class="f-amber" cx="120" cy="76" r="5"/>
 </svg>
