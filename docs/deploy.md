@@ -250,6 +250,21 @@ grants allow, and can never reveal a value.
 Confirmations (reveal, `--out`, `--authorize off`, secrets marked `requires_authorize`) open a browser page on your
 instance and use what your account has: your passkey (with user verification) or a code from your authenticator app.
 
+## Troubleshooting: a load balancer in front of the platform
+
+If the domain resolves to a cloud load balancer (an AWS ALB, a GCP or Azure load balancer) that terminates TLS and
+forwards plain HTTP to Dokploy's or Coolify's Traefik, you get the same two symptoms as below: the HTTPS page while HTTPS
+is off in the platform, and a redirect loop once it is on. Check with `dig +short <domain>`: a `*.elb.amazonaws.com`
+name means an ALB. Either point the domain straight at the platform's server (simplest; the platform's Let's Encrypt
+then works), or keep the load balancer and:
+
+1. give its HTTPS listener a certificate for the domain (ACM on AWS);
+2. turn HTTPS off for the domain in the platform (the load balancer does TLS; otherwise the platform redirects forever);
+3. let Traefik keep the load balancer's `X-Forwarded-Proto`: in the Traefik config add
+   `entryPoints.web.forwardedHeaders.trustedIPs` with the load balancer's private range (e.g. `10.0.0.0/8`), restart.
+
+kuukura trusts `X-Forwarded-Proto` only from private addresses, which is what Traefik is from its point of view.
+
 ## Troubleshooting: HTTPS behind Cloudflare (or another CDN)
 
 kuukura only answers requests that reached your proxy over HTTPS. With Cloudflare's proxy (orange cloud) in front of
