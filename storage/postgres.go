@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -34,6 +35,13 @@ func (p *postgresProvider) Contains(col string, sel Tags) (string, []any) {
 }
 
 func (p *postgresProvider) TimeArg(t time.Time) any { return t.UTC() }
+
+func (p *postgresProvider) ForUpdate() string { return " FOR UPDATE" }
+
+func pgUnique(err error) bool {
+	var pe *pgconn.PgError
+	return errors.As(err, &pe) && pe.Code == "23505"
+}
 
 func (p *postgresProvider) LockAudit(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(7266011)`)

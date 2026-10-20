@@ -3,11 +3,13 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/url"
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 type sqliteProvider struct{ db *sql.DB }
@@ -53,6 +55,18 @@ func (p *sqliteProvider) Contains(col string, sel Tags) (string, []any) {
 // Changing the default would need a table rebuild in SQLite, so code that orders such a column adds a tie-break.
 func (p *sqliteProvider) TimeArg(t time.Time) any {
 	return t.UTC().Format("2006-01-02T15:04:05.000000Z")
+}
+
+// ForUpdate is empty: the single connection already serializes transactions.
+func (p *sqliteProvider) ForUpdate() string { return "" }
+
+func sqliteUnique(err error) bool {
+	var se *sqlite.Error
+	if !errors.As(err, &se) {
+		return false
+	}
+	c := se.Code()
+	return c == sqlite3.SQLITE_CONSTRAINT_UNIQUE || c == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY
 }
 
 // LockAudit is a no-op: sqlite has a single connection, so transactions are serial.
