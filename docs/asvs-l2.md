@@ -1,8 +1,8 @@
-# OWASP ASVS 5.0 Level 2: self-review checklist
+# OWASP ASVS 5.0.0 Level 2: self-review checklist
 
-Status: **draft for the reviewer**. It is organized by ASVS 5.0 chapter. Each row is a theme with our control and where
-to verify it; it is not yet mapped to individual requirement IDs (do that pass against the published ASVS 5.0 text and
-record the ID next to each row). Status: **Met** (implemented and tested), **Partial**, **Open** (known gap), **N/A**.
+Status: **draft for the reviewer**. It is organized by the chapters of OWASP ASVS 5.0.0. Each row is a theme with our
+control and where to verify it; it is not yet mapped to individual requirement IDs (do that pass against the published
+ASVS 5.0.0 text and record the ID next to each row). Status: **Met** (implemented and tested), **Partial**, **Open** (known gap), **N/A**.
 Do this review before real secrets go in, together with [threat-model.md](threat-model.md).
 
 | Chapter | Theme | Our control | Evidence | Status |
@@ -28,35 +28,36 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 | | Timeouts, logout, revocation | 8 h absolute, 1 h idle (server-enforced), logout and disable revoke; machine keys ~90 d | `auth/tokens_test.go`, `TestWorkspaceAdminAndMachines` | Met |
 | | Client storage | System keychain first (macOS Keychain, Windows Credential Manager, Linux Secret Service); only when there is none, a private file (0600, never config.toml, never both places). Sessions last 8 h, revocable on the server | `cmd/ku/store.go`, `store_test.go`, `docs/install.md` | Partial (the file fallback is not encrypted; macOS uses the login keychain, not the data protection keychain, which needs a signed binary) |
 | V8 Authorization | Deny by default, least privilege | Grants (`read`/`write` on tag sets) only; admin role gives no secret access; machine = own grants AND owner's | `access/`, tests | Met |
-| | Step-up for sensitive actions | Passkey with user verification; single-use, 60 s, bound to principal/purpose/selector; machines never | `auth/login_test.go`, `TestTouchIDGates` | Met |
+| | Step-up for sensitive actions | A confirmation with the account's second step: a passkey with user verification or an authenticator code; single-use, 60 s, bound to principal/purpose/selector; machines never | `auth/login_test.go`, `TestTouchIDGates` | Met |
 | V9 Self-contained tokens | | Tokens are opaque, not JWTs | | N/A |
 | V10 OAuth and OIDC | Code flow + PKCE, state, nonce, `email_verified`, ID token verification | `auth/provider.go`, `auth/login.go`; CLI uses its own localhost PKCE | tests (fake provider); real Google invite + passkey enrollment run by hand on localhost (2026-10-19) | Met (the Google path is not exercised in CI) |
 | | Redirect handling | The CLI callback binds `127.0.0.1`, checks `state`; the CLI never follows redirects with a token | `cmd/ku/cmd_profile.go`, `cmd/ku/main.go` | Met |
 | V11 Cryptography | Standard primitives only | AES-256-GCM, 96-bit random nonces, per-version random DEK, AAD with domain separation, age (scrypt) for the offline copy, SHA-256 | `keys/`, `keys/keys_test.go` | Met |
-| | Key management | Master key in memory only; rotation by rewrap; KMS option | `keys/`, `secrets/rotate.go`, runbook | Met |
+| | Key management | Master key in memory only; rotation by rewrap (to a new key version, or to a new KMS key: each row keeps the ARN it was wrapped under until rewrapped); KMS option; DEKs cleared after use. No migration between the manual and KMS providers | `keys/`, `secrets/rotate.go`, runbook | Met (switching providers is unsupported) |
 | | Nonce uniqueness | Random 96-bit per encryption under a fresh DEK | | Met |
-| | Fuzzing | `FuzzParseAAD`, `FuzzOpen` | `keys/keys_test.go` | Met |
+| | Fuzzing | `FuzzOpen` (a forged payload must never open) | `keys/keys_test.go` | Met |
 | V12 Secure communication | TLS | HTTPS required (`https-required` otherwise); TLS terminates at your proxy | `TestProblemJSONAndTransport` | Met (depends on proxy config) |
 | | Trust of forwarded headers | Only from private/loopback peers | `api/server.go` | Met (check your network layout) |
 | V13 Configuration | Fail fast, no secrets in code/logs | Validated at startup; secrets via Docker secret files; values never in errors | `cmd/ku-server/config.go`, tests | Met |
 | | Secure defaults | Distroless non-root image, read-only secrets, `/data` volume | `Dockerfile` | Met |
-| | Dependency hygiene | `govulncheck`, `gosec`, `staticcheck`, `go vet` required in CI | `.github/workflows/ci.yml` | Met |
+| | Dependency hygiene | `govulncheck`, `gosec`, `staticcheck` (pinned versions), `go vet` required in CI; actions pinned by commit; Dependabot for actions and Go modules | `.github/workflows/ci.yml`, `.github/dependabot.yml` | Met |
+| | Release integrity | Build provenance for the CLI archives and the image, keyless cosign signature and SBOM for the image, OpenSSF Scorecard | `.github/workflows/release.yml`, `scorecard.yml`, [deploy.md](deploy.md#verifying-a-release) | Partial (only as good as the user verifying them; the macOS signature depends on the signing secrets) |
 | V14 Data protection | Secrets at rest | Envelope encryption; no hash/plaintext columns; TOTP secrets encrypted under the master key | `secrets/`, `auth/factors.go` | Met |
 | | Values never in logs/errors/audit | Tests assert a fake value never appears in logs, audit rows, list output, errors | `TestSecretsOverHTTP`, `TestMaskingEverywhere` | Met |
 | | Cache control | `no-store` on all responses | | Met |
 | V15 Secure coding and architecture | Minimal dependencies, no custom crypto | Stdlib crypto + go-webauthn, go-oidc, age, pquerna/otp, Echo, pgx, modernc sqlite | `go.mod` | Met |
-| | Concurrency | Audit appends are serialized (advisory lock / single writer); unique `prev_hash` keeps the chain linear | `audit/audit.go` | Met |
+| | Concurrency | Audit appends are serialized (advisory lock / single writer); unique `prev_hash` keeps the chain linear; writers of one secret take a row lock, and losing a race on a unique index is a retryable clash, not an error | `audit/audit.go`, `secrets/`, `TestConcurrent*` | Met |
 | | In-memory login state | Login/step-up/CLI-code state lives in process memory; a restart drops in-flight logins | `auth/ttl.go` | Partial (fine for one instance) |
 | V16 Logging and error handling | Audit trail | Append-only, hash-chained audit log (Postgres grants / SQLite triggers); denials audited; `Verify` detects edits and deletions | `audit/`, tests | Met |
 | | Structured logs, no sensitive data | JSON access logs with route, status, timing; panics logged without values | `api/server.go` | Met |
-| | Audit verification job | There is no scheduled `Verify`; run it from a script or console | | Open |
+| | Audit verification | `ku-server admin verify-audit` recomputes the chain and prints rows and head hash; the server does not run it by itself, so the operator schedules it and stores the head elsewhere ([runbook](runbook-key-rotation-drill.md)) | `cmd/ku-server/admin.go`, `TestAdminVerifyAudit` | Partial (no built-in schedule or alert) |
 | V17 WebRTC | | Not used | | N/A |
 
 ## Open items to decide before real secrets
 
 1. (closed) TOTP code replay: a code now works once.
 2. Per-account lockout / failed-login counter (currently per-IP rate limits only).
-3. Periodic audit-chain verification (and where to alert).
+3. Scheduling `verify-audit` and deciding where its failure alerts and where the head hash is kept (the command exists; the schedule is the operator's).
 4. Restrict step-up/enrollment to platform authenticators (`authenticatorAttachment=platform`) if hardware keys should not count.
 5. Move the macOS token to the data protection keychain once the CLI is signed with the needed entitlement.
 6. Repeat the real Google + Touch ID run on a staging domain over HTTPS (done once on localhost, see [local-testing.md](local-testing.md)).

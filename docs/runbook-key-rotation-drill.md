@@ -24,8 +24,34 @@ Record start and end time of each part in the table at the bottom.
 5. Only after step 3 reports success, and the old offline copy is destroyed or clearly marked retired, you may remove
    the `1:` line from the key file. Keep it if you might restore an older database backup.
 
-(AWS KMS: rotate the KMS key material in AWS, or point `VAULT_KMS_KEY_ARN` at a new key and run `rotate-key`; old
-ARNs must stay usable until the rewrap finishes.)
+**AWS KMS.** Either let AWS rotate the key material (nothing to do here), or move to a new KMS key:
+
+1. Give the server's AWS identity `kms:Encrypt` on the new key and keep `kms:Decrypt` on the old one.
+2. Set `VAULT_KMS_KEY_ARN` to the new key and restart. New data is wrapped under the new key; existing rows keep
+   the ARN they were wrapped with (stored per row) and are still read through it.
+3. Run `ku-server admin rotate-key --admin you@example.com`. It rewraps every row to the new key (authenticator
+   secrets too) and prints `... to aws-kms:<new arn>.`
+4. Only then remove `kms:Decrypt` on the old key and schedule it for deletion (keep the long deletion window). Keep
+   it if you might restore an older database backup.
+
+Switching between the two providers (a key file to KMS, or back) is **not supported**: a stored key id such as
+`manual:v2` is read only by the manual provider and `aws-kms:...` only by KMS, and there is no migration that
+rewraps across them. Pick one at the start; changing needs a purpose-built migration that does not exist yet.
+
+## A2. Verify the audit log
+
+The audit log is a hash chain; nothing in the running server re-checks it, so run it on a schedule (weekly is
+reasonable) and after any incident:
+
+```sh
+docker compose exec kuukura /ku-server admin verify-audit
+```
+
+Output: `OK: audit log verified, 1432 rows, head 3f5a...`. It exits non-zero and says where the chain breaks if
+a row was edited or removed in the middle. Copy the row count and head hash to somewhere the database's operator
+cannot edit (a ticket, a git repo, another system). The chain alone cannot show that the newest rows were cut
+off; comparing a later run with a stored head can: the head you stored must still be in the chain, and the row
+count must not have gone down.
 
 ## B. Rotate one machine token
 
@@ -60,6 +86,7 @@ On a scratch machine:
 | Part | Start | End | Minutes | Notes |
 |---|---|---|---|---|
 | A master key |  |  |  |  |
+| A2 audit verification |  |  |  | rows and head stored where: |
 | B machine token |  |  |  |  |
 | C one secret |  |  |  |  |
 | D offline recovery |  |  |  |  |
