@@ -11,8 +11,8 @@ import (
 
 // cmdLink links the current folder to an app (local alias only; nothing in the repo or on the server).
 func (a *app) cmdLink(args []string) int {
-	const linkUsage = "ku link [<app>] [--create] [--profile <name>]"
-	p, ok := a.parse(linkUsage, args, []string{"profile"}, "create")
+	const linkUsage = "ku link [<app>] [--profile <name>]"
+	p, ok := a.parse(linkUsage, args, []string{"profile"})
 	if !ok {
 		return cli.ExitUsage
 	}
@@ -52,45 +52,39 @@ func (a *app) cmdLink(args []string) int {
 	if err := a.saveLinks(links); err != nil {
 		return a.fail("%v", err)
 	}
-	a.say("✓ Linked this folder to %s", app)
-	return a.createApp(app, p)
+	return a.createApp(app, p.flags["profile"])
 }
 
-// createApp offers to create the app the folder was just linked to. It asks the server only when the person said
-// so (--create or a yes on a terminal): the server gives write access when the app is new, and says so when not.
-// The link is already saved, so a refusal here never undoes it. Machines never create apps.
-func (a *app) createApp(name string, p parsed) int {
-	explicit := p.has("create")
-	if !explicit && !a.isTTY {
-		return 0
-	}
-	c, pr, err := a.withProfile(p.flags["profile"], true)
-	if err != nil { // not signed in: linking works offline, creating does not
-		if explicit {
-			return a.fail("%v", err)
-		}
-		return 0
-	}
-	if pr.ephemeral {
-		if explicit {
-			return a.fail("A machine token cannot create apps")
-		}
-		return 0
-	}
-	if !explicit {
-		if ok, _ := a.confirm("Create app "+name+" and give you write access if it is new?", false); !ok {
+// createApp runs after the folder is linked: the server creates the app when it is new and gives the caller write
+// access, and says app-exists when not (so linking again is harmless). The link is already saved, so a failure
+// here never undoes it. Machines (KU_URL + KU_TOKEN) never create apps.
+func (a *app) createApp(name, flagProfile string) int {
+	linked := func() { a.say("✓ Linked this folder to %s", name) }
+	c, pr, err := a.withProfile(flagProfile, true)
+	if err != nil {
+		linked()
+		if pr.ephemeral {
 			return 0
 		}
+		return a.fail("%v", err)
+	}
+	if pr.ephemeral {
+		linked()
+		return 0
 	}
 	err = c.call("POST", "/apps", map[string]string{"name": name}, nil)
 	var pb *problem
 	switch {
 	case err == nil:
-		a.say("✓ Created app %s; you can write its secrets", name)
+		a.say("✓ Created app %s and linked this folder; you can write its secrets", name)
 	case errors.As(err, &pb) && pb.Code == "app-exists":
-		a.say("  %s already exists. To get access, ask an admin: ku workspace grant <you> write app:%s", name, name)
+		linked()
+		if rows, lerr := a.listSecrets(c, "", []string{"app:" + name}); lerr != nil || len(rows) == 0 {
+			a.say("  %s already exists. If you can't read or write its secrets, ask an admin: ku workspace grant <you> write app:%s", name, name)
+		}
 	default:
-		return a.fail("%s", plain(err))
+		linked()
+		return a.fail("The app could not be created on the server: %s", plain(err))
 	}
 	return 0
 }

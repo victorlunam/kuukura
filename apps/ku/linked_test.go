@@ -66,7 +66,10 @@ func TestSecretCommandsUseTheLinkedApp(t *testing.T) {
 
 func TestDeniedWriteSaysWhichTagsAndHowToGetAccess(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
-		w, _ := userWorld(t, p) // dev can write app:shop only
+		w, admin := userWorld(t, p) // dev can write app:shop only
+		if code, _ := w.api(admin, "POST", "/apps", map[string]string{"name": "darwin-cloud"}); code != 201 { // an existing app
+			t.Fatalf("create: %d", code)
+		}
 		env := map[string]string{"CWD": t.TempDir()}
 		mustOK(t, w.ku("", false, env, "link", "darwin-cloud"))
 		want := "✗ You can't write secrets tagged app:darwin-cloud.\n  Ask an admin: ku workspace grant <you> write app:darwin-cloud\n"
