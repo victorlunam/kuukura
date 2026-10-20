@@ -30,9 +30,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      KU_INSTALL_DIR: ${{ runner.temp }}/ku-bin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: echo "KU_INSTALL_DIR=$RUNNER_TEMP/ku-bin" >> "$GITHUB_ENV"
       - name: Install the latest release
         run: sh scripts/install.sh
       - name: Run it
@@ -61,12 +61,12 @@ jobs:
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      KU_INSTALL_DIR: ${{ runner.temp }}\ku-bin
     defaults:
       run:
         shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: Add-Content -Path $env:GITHUB_ENV -Value "KU_INSTALL_DIR=$env:RUNNER_TEMP\ku-bin"
       - name: Install the latest release
         run: '& ./scripts/install.ps1'
       - name: Run it and check the user PATH
