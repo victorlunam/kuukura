@@ -16,7 +16,7 @@ import (
 func (e *env) callbackFor(authURL string, id auth.Identity) (auth.Pending, error) {
 	u, _ := url.Parse(authURL)
 	code := uuid.NewString()
-	e.idp.byCode[code] = id
+	e.idp.Allow(code, id)
 	return e.svc.Callback(e.t.Context(), u.Query().Get("state"), code, "203.0.113.9")
 }
 

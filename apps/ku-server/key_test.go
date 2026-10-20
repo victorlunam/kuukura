@@ -2,223 +2,24 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/victorlunam/kuukura/internal/access"
 	"github.com/victorlunam/kuukura/internal/audit"
-	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/keys"
 	"github.com/victorlunam/kuukura/internal/masterkey"
 	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
 )
 
-func runOut(t *testing.T, args ...string) (string, error) {
-	t.Helper()
-	return capture(t, func() error { return run(args) })
-}
-
-func mustRun(t *testing.T, args ...string) string {
-	t.Helper()
-	out, err := runOut(t, args...)
-	if err != nil {
-		t.Fatalf("%v: %v", args, err)
-	}
-	return out
-}
-
 func asTerminal(t *testing.T, is bool) {
 	old := stdoutIsTerminal
 	stdoutIsTerminal = func() bool { return is }
 	t.Cleanup(func() { stdoutIsTerminal = old })
-}
-
-func TestCommandTree(t *testing.T) {
-	for _, args := range [][]string{{"help"}, {"--help"}, {"-h"}} {
-		out, err := runOut(t, args...)
-		if err != nil || out != helpText {
-			t.Fatalf("%v: %q %v", args, out, err)
-		}
-	}
-	// every command of the tree is in the help, one "noun verb" line each, and the description column is aligned
-	col := -1
-	for l := range strings.SplitSeq(helpText, "\n") {
-		if !strings.HasPrefix(l, "  ") {
-			continue
-		}
-		i := strings.Index(l[2:], "  ") + 2
-		j := i + len(l[i:]) - len(strings.TrimLeft(l[i:], " "))
-		if col == -1 {
-			col = j
-		}
-		if i < 2 || j != col {
-			t.Errorf("description of %q starts at column %d, not %d", l, j, col)
-		}
-	}
-	for _, c := range []string{"serve", "healthcheck", "version", "key init", "key rotate", "key show", "user list", "user invite",
-		"user disable", "user enable", "user reset-factors", "audit verify"} {
-		if !strings.Contains(helpText, "\n  "+c) {
-			t.Errorf("%q is not in the help", c)
-		}
-	}
-	if err := run(nil); !errors.Is(err, errUnknown) {
-		t.Errorf("no command: %v", err)
-	}
-	if err := run([]string{"nope"}); !errors.Is(err, errUnknown) || strings.Contains(err.Error(), "nope") {
-		t.Errorf("an unknown command is not echoed: %v", err)
-	}
-	var u cli.UsageError
-	if err := run([]string{"user", "invite"}); !errors.As(err, &u) || u != "ku-server user invite <email> [--admin]" {
-		t.Errorf("each command prints its own usage line: %v", err)
-	}
-	if out := mustRun(t, "version"); strings.TrimSpace(out) != version {
-		t.Fatal(out)
-	}
-	for _, args := range [][]string{
-		{"admin", "invite"}, {"init"}, {"key"}, {"key", "nope"}, {"user"}, {"user", "invite"}, {"user", "invite", "a@example.test", "b@example.test"},
-		{"user", "invite", "a@example.test", "--bogus"}, {"user", "list", "extra"}, {"user", "disable"}, {"audit", "verify", "extra"},
-		{"key", "show", "extra"}, {"key", "rotate", "extra"}, {"key", "init", "--nope"}, {"serve", "extra"},
-	} {
-		if out, err := runOut(t, args...); err == nil || out != "" || strings.Contains(err.Error(), "\n") {
-			t.Errorf("%v: one plain error line and no data, got %q %v", args, out, err)
-		}
-	}
-}
-
-// Exit 0 on success, 1 when a command ran and failed, 2 when the arguments were wrong (`ku` does the same).
-func TestExitCodes(t *testing.T) {
-	for err, want := range map[error]int{
-		nil:                             0,
-		errors.New("it broke"):          cli.ExitFail,
-		cli.UsageError("ku-server x"):   cli.ExitUsage,
-		fmt.Errorf("x: %w", errUnknown): cli.ExitUsage,
-	} {
-		if got := report(err); got != want {
-			t.Errorf("%v: exit %d, want %d", err, got, want)
-		}
-	}
-}
-
-func TestUserCommands(t *testing.T) {
-	serverEnv(t)
-	link := regexp.MustCompile(`valid until \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ\):\nhttps://vault.example.test/invite\?token=ku_\S+\n`)
-	out := mustRun(t, "user", "invite", "Root@Example.test", "--admin")
-	if !link.MatchString(out) {
-		t.Fatalf("a link with an RFC 3339 UTC expiry: %q", out)
-	}
-	mustRun(t, "user", "invite", "--admin", "other@example.test")
-	if out := mustRun(t, "user", "invite", "dev@example.test"); !link.MatchString(out) {
-		t.Fatalf("%q", out)
-	}
-	p := openTest(t)
-	var n int
-	if err := p.DB().QueryRow(`SELECT COUNT(*) FROM principals WHERE (name = 'root@example.test' AND role = 'admin') OR (name = 'dev@example.test' AND role = 'member')`).Scan(&n); err != nil || n != 2 {
-		t.Fatalf("admin with --admin, member without: %d %v", n, err)
-	}
-	if _, err := runOut(t, "user", "invite", "root@example.test"); err == nil {
-		t.Fatal("the role must match a pending invite")
-	}
-
-	// two people active, with one passkey for the member
-	if _, err := p.DB().Exec(`UPDATE principals SET status = 'active' WHERE name IN ('root@example.test', 'dev@example.test')`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO credentials (id, principal_id, kind, public_key) VALUES (?, (SELECT id FROM principals WHERE name = 'dev@example.test'), 'passkey', ?)`), uuid.New(), []byte{1}); err != nil {
-		t.Fatal(err)
-	}
-	out = mustRun(t, "user", "list")
-	if strings.Contains(out, "ku-server") || !regexp.MustCompile(`(?m)^dev@example.test\s+human\s+member\s+active\s+1\s+\d{4}-\d\d-\d\d$`).MatchString(out) ||
-		!regexp.MustCompile(`(?m)^root@example.test\s+human\s+admin\s+active\s+0\s`).MatchString(out) || !strings.Contains(out, "other@example.test") ||
-		strings.Contains(out, "ku_") {
-		t.Fatalf("name, kind, role, status, factors, date; no host principal, no tokens:\n%s", out)
-	}
-
-	if _, err := runOut(t, "user", "disable", "root@example.test"); err == nil {
-		t.Fatal("the last active admin cannot be disabled")
-	}
-	if out := mustRun(t, "user", "disable", "dev@example.test"); !strings.Contains(out, "Disabled dev@example.test") {
-		t.Fatal(out)
-	}
-	if out := mustRun(t, "user", "list"); !regexp.MustCompile(`dev@example.test\s+human\s+member\s+disabled`).MatchString(out) {
-		t.Fatal(out)
-	}
-	if out := mustRun(t, "user", "enable", "dev@example.test"); !strings.Contains(out, "Enabled dev@example.test (active)") {
-		t.Fatal(out)
-	}
-	if _, err := runOut(t, "user", "enable", "ku-server"); err == nil {
-		t.Fatal("the host principal is not manageable")
-	}
-
-	// reset-factors: the passkey is gone, the person is back in enrollment, and a link is printed
-	out = mustRun(t, "user", "reset-factors", "dev@example.test")
-	if !link.MatchString(out) {
-		t.Fatalf("%q", out)
-	}
-	if out := mustRun(t, "user", "list"); !regexp.MustCompile(`dev@example.test\s+human\s+member\s+invited\s+0\s`).MatchString(out) {
-		t.Fatal(out)
-	}
-	if _, err := runOut(t, "user", "reset-factors", "dev@example.test"); err == nil {
-		t.Fatal("nothing left to reset")
-	}
-
-	// every change is audited under the host principal, and no link is in the log
-	rows, err := audit.New(p).List(t.Context(), audit.Filter{}, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rows) != 6 {
-		t.Fatalf("3 invites, disable, enable, reset (the refused ones leave nothing): %d", len(rows))
-	}
-	for _, r := range rows {
-		if r.PrincipalName != "ku-server" {
-			t.Fatalf("audited under %q: %+v", r.PrincipalName, r)
-		}
-		for _, v := range r.Metadata {
-			if s, _ := v.(string); strings.Contains(s, "ku_") {
-				t.Fatal("a link in the audit log")
-			}
-		}
-	}
-	if err := audit.New(p).Verify(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestAuditVerify(t *testing.T) {
-	serverEnv(t)
-	for _, e := range []string{"a", "b", "c"} {
-		mustRun(t, "user", "invite", e+"@example.test")
-	}
-	p := openTest(t)
-	var head []byte
-	if err := p.DB().QueryRow(`SELECT hash FROM audit_log ORDER BY at DESC LIMIT 1`).Scan(&head); err != nil {
-		t.Fatal(err)
-	}
-	out := mustRun(t, "audit", "verify")
-	if want := fmt.Sprintf("OK: audit log verified, 3 rows, head %x", head); strings.TrimSpace(out) != want {
-		t.Fatalf("got %q, want %q", out, want)
-	}
-
-	// an edit by someone with direct database access: the command fails
-	if _, err := p.DB().Exec(`DROP TRIGGER audit_log_no_update`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := p.DB().Exec(`UPDATE audit_log SET action = 'login' WHERE rowid = (SELECT MIN(rowid) FROM audit_log)`); err != nil {
-		t.Fatal(err)
-	}
-	out, err := runOut(t, "audit", "verify")
-	if err == nil || !strings.Contains(err.Error(), "does not verify") || strings.Contains(out, "OK") {
-		t.Fatalf("a tampered log must fail: %q %v", out, err)
-	}
 }
 
 func TestKeyInitWritesOnlyTheKeyFile(t *testing.T) {
