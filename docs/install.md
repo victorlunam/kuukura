@@ -52,6 +52,23 @@ The session token (valid 8 hours, 1 hour idle) is stored in this order:
 The token is never in `config.toml`, and never in both the keychain and a file. `ku profile remove <name>` deletes it
 from wherever it is.
 
+## What goes where
+
+`ku` prints only data on stdout: `secret list` rows, a revealed value (`secret get --reveal`), a machine token, an
+invite link, `profile list` rows. Every status line (the `✓` and `✗` marks, prompts, `profile: <name>`, "No secrets
+found.") goes to stderr, so `ku workspace invite ci --machine | pbcopy` copies the token alone. `ku run` passes the
+command's own output through unchanged and returns its exit code.
+
+- An unknown flag (`--profle`) is an error, never ignored.
+- An argument with a colon that is not a `key:value` tag is refused and never echoed or sent: values are never
+  arguments.
+- `ku run` refuses to inject a secret named like a loader or interpreter hook (`LD_PRELOAD`, `DYLD_*`, `PATH`,
+  `NODE_OPTIONS`, `PYTHONPATH`, `BASH_ENV` and a few more) and does not start the command: such a name could run
+  code chosen by whoever saved the secret. Rename the secret.
+- Links from the server (confirmation, adding a second step) are opened in the browser only when they point at the
+  profile's own server; anything else is printed and not opened.
+- Ctrl-C reaches the command from the terminal itself; `ku run` forwards only `TERM` and `HUP`.
+
 ## Notes per system
 
 - **macOS**: the first time a new build of `ku` reads its saved session, macOS may ask for your keychain password.
