@@ -2,7 +2,7 @@
 // each page's content comes from is decided in scripts/sync.mjs.
 
 /** The public address of the site. Override with SITE_URL at build time (for example a custom domain). */
-export const SITE = process.env.SITE_URL || 'https://kuukura-main-landing.workers.dev';
+export const SITE = process.env.SITE_URL || 'https://kuukura-main-landing.neodev-f72.workers.dev';
 
 export const REPO_URL = 'https://github.com/victorlunam/kuukura';
 
