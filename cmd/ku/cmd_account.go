@@ -44,7 +44,7 @@ func (a *app) cmdAccount(args []string) int {
 			if f.Default {
 				mark = "  default"
 			}
-			fmt.Fprintf(a.out, "%s  %-8s  added %s%s\n", f.ID[:8], factorName(f.Kind), f.Added, mark)
+			fmt.Fprintf(a.out, "%s  %-8s  added %s%s\n", f.ID[:min(8, len(f.ID))], factorName(f.Kind), f.Added, mark)
 		}
 	case sub == "add" && len(pos) == 1 && (pos[0] == "passkey" || pos[0] == "totp"):
 		return a.addFactor(c, pos[0], report)
@@ -86,28 +86,25 @@ func (a *app) addFactor(c *client, kind string, report func(error) int) int {
 		return report(err)
 	}
 	fmt.Fprintf(a.err, "If the browser does not open, copy this link (it works once):\n  %s\n", r.URL)
+	a.openLink(c, r.URL)
 	if kind == "passkey" {
 		fmt.Fprint(a.err, "Add your passkey in the browser...")
 	} else {
 		fmt.Fprint(a.err, "Add your authenticator app in the browser...")
 	}
-	_ = a.openURL(r.URL)
-	deadline := time.Now().Add(5 * time.Minute)
-	for time.Now().Before(deadline) {
+	err = a.waitFor(5*time.Minute, func() (bool, error) {
 		now, err := a.factors(c)
-		if err != nil {
-			fmt.Fprintln(a.err)
-			return report(err)
-		}
-		if len(now) > len(before) {
-			fmt.Fprintln(a.err, " ✓")
-			fmt.Fprintf(a.out, "✓ Added %s. See them all with: ku account factor list\n", factorName(kind))
-			return 0
-		}
-		time.Sleep(a.poll)
-	}
+		return len(now) > len(before), err
+	})
 	fmt.Fprintln(a.err)
-	return a.fail("Timed out waiting for the new second step. Run the command again.")
+	if errors.Is(err, errTimeout) {
+		return a.fail("Timed out waiting for the new second step. Run the command again.")
+	}
+	if err != nil {
+		return report(err)
+	}
+	a.say("✓ Added %s. See them all with: ku account factor list", factorName(kind))
+	return 0
 }
 
 // pick finds the one factor whose id starts with prefix (the id shown by `list`; a unique start is enough).
@@ -142,7 +139,7 @@ func (a *app) defaultFactor(c *client, prefix string, report func(error) int) in
 	if err := c.call("PATCH", "/account/factors/"+f.ID, map[string]bool{"default": true}, nil); err != nil {
 		return report(err)
 	}
-	fmt.Fprintf(a.out, "✓ The %s is now your default\n", factorName(f.Kind))
+	a.say("✓ The %s is now your default", factorName(f.Kind))
 	return 0
 }
 
@@ -163,7 +160,7 @@ func (a *app) removeFactor(c *client, prefix string, yes bool, report func(error
 		return a.fail("%v", err)
 	}
 	if !sure {
-		return a.fail("Nothing was removed.")
+		return a.fail("Nothing changed.")
 	}
 	if err := a.callStepUp(c, "factor_remove", f.ID, "DELETE", "/account/factors/"+f.ID, nil, nil); err != nil {
 		var p *problem
@@ -172,6 +169,6 @@ func (a *app) removeFactor(c *client, prefix string, yes bool, report func(error
 		}
 		return report(err)
 	}
-	fmt.Fprintf(a.out, "✓ Removed the %s\n", factorName(f.Kind))
+	a.say("✓ Removed the %s", factorName(f.Kind))
 	return 0
 }

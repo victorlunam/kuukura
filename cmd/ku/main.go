@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,7 +31,8 @@ type app struct {
 	isTTY      bool
 	readSecret func(label string) (string, error) // hidden prompt
 	home, cwd  string
-	poll       time.Duration // step-up polling interval
+	poll       time.Duration // how often a confirmation or a new second step is checked for
+	stdinR     *bufio.Reader // see stdin()
 }
 
 func main() {

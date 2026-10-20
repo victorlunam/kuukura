@@ -47,7 +47,8 @@ func (a *app) cmdWorkspace(args []string) int {
 			if err := c.call("POST", "/workspace/invites", map[string]any{"name": pos[0], "machine": true}, &r); err != nil {
 				return report(err)
 			}
-			fmt.Fprintf(a.out, "✓ Created %s. This token is shown once. Store it in CI as KU_TOKEN:\n%s\n", pos[0], r.Token)
+			a.say("✓ Created %s. This token is shown once. Store it in CI as KU_TOKEN:", pos[0])
+			fmt.Fprintln(a.out, r.Token)
 			return 0
 		}
 		var r struct {
@@ -56,7 +57,8 @@ func (a *app) cmdWorkspace(args []string) int {
 		if err := c.call("POST", "/workspace/invites", map[string]any{"email": pos[0], "profile": c.profile}, &r); err != nil {
 			return report(err)
 		}
-		fmt.Fprintf(a.out, "✓ Invited %s. Send them this link (valid 24 hours, works once):\n%s\n", pos[0], r.Link)
+		a.say("✓ Invited %s. Send them this link (valid 24 hours, works once):", pos[0])
+		fmt.Fprintln(a.out, r.Link)
 	case "group":
 		if len(pos) < 2 {
 			return a.fail("Use: ku workspace group <group> +<identity> -<identity>")
@@ -75,7 +77,7 @@ func (a *app) cmdWorkspace(args []string) int {
 		if err := c.call("PATCH", "/workspace/groups/"+url.PathEscape(pos[0]), map[string]any{"add": nonNilTags(add), "remove": nonNilTags(remove)}, nil); err != nil {
 			return report(err)
 		}
-		fmt.Fprintf(a.out, "✓ Updated group %s\n", pos[0])
+		a.say("✓ Updated group %s", pos[0])
 	case "grant":
 		if len(pos) < 3 {
 			return a.fail("Use: ku workspace grant <identity|group> <read|write> <tags>")
@@ -86,7 +88,7 @@ func (a *app) cmdWorkspace(args []string) int {
 		if err := c.call("POST", "/workspace/grants", map[string]any{"subject": pos[0], "permission": pos[1], "tags": pos[2:]}, nil); err != nil {
 			return report(err)
 		}
-		fmt.Fprintf(a.out, "✓ %s can now %s secrets tagged %s\n", pos[0], pos[1], strings.Join(pos[2:], " "))
+		a.say("✓ %s can now %s secrets tagged %s", pos[0], pos[1], strings.Join(pos[2:], " "))
 	case "ungrant":
 		if len(pos) < 2 {
 			return a.fail("Use: ku workspace ungrant <identity|group> <tags>")
@@ -97,7 +99,7 @@ func (a *app) cmdWorkspace(args []string) int {
 		if err := c.call("DELETE", "/workspace/grants", map[string]any{"subject": pos[0], "tags": pos[1:]}, nil); err != nil {
 			return report(err)
 		}
-		fmt.Fprintf(a.out, "✓ Removed access for %s to %s\n", pos[0], strings.Join(pos[1:], " "))
+		a.say("✓ Removed access for %s to %s", pos[0], strings.Join(pos[1:], " "))
 	case "remove":
 		if len(pos) != 1 {
 			return a.fail("Use: ku workspace remove <identity>")
@@ -109,7 +111,7 @@ func (a *app) cmdWorkspace(args []string) int {
 			}
 			return report(err)
 		}
-		fmt.Fprintf(a.out, "✓ Removed %s. Their sessions have ended.\n", pos[0])
+		a.say("✓ Removed %s. Their sessions have ended.", pos[0])
 	}
 	return 0
 }
@@ -154,7 +156,7 @@ func (a *app) workspaceAudit(p parsed) int {
 		return a.report(err, func(t string) string { return "ku workspace audit " + t })
 	}
 	if len(r.Rows) == 0 {
-		fmt.Fprintln(a.out, "Nothing recorded yet.")
+		a.say("Nothing recorded yet.")
 		return 0
 	}
 	// Column widths follow the content, so a long email never runs into the next column.

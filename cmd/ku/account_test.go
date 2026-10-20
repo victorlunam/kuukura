@@ -29,7 +29,7 @@ func TestAccountFactors(t *testing.T) {
 
 		// add an authenticator app: confirms first, then the browser registers it
 		r := mustOK(t, w.ku("", false, nil, "account", "factor", "add", "totp"))
-		if w.stepUps != 1 || !strings.Contains(r.out, "✓ Added app") || !strings.Contains(r.errOut, "/account/add?id=") {
+		if w.stepUps != 1 || !strings.Contains(r.errOut, "✓ Added app") || !strings.Contains(r.errOut, "/account/add?id=") {
 			t.Fatalf("add totp: steps=%d out=%q err=%q", w.stepUps, r.out, r.errOut)
 		}
 		mustOK(t, w.ku("", false, nil, "account", "factor", "add", "passkey"))
@@ -120,13 +120,18 @@ func TestAccountFactorEndpoints(t *testing.T) {
 		}
 
 		// someone else's factor is not found, even with a valid confirmation of my own
+		// (the CLI cannot even name it: it only lists the caller's own factors, so the request goes to the API directly)
 		_, ol := w.api(other, "GET", "/account/factors", nil)
 		otherID := ol["factors"].([]any)[0].(map[string]any)["id"].(string)
-		mustOK(t, w.ku("", false, nil, "profile", "list")) // keep the CLI profile config valid for the harness
 		w.loginAs(user)
-		mustOK(t, w.ku("", false, nil, "account", "factor", "add", "totp"))
-		if r := w.ku("", false, nil, "account", "factor", "remove", otherID[:8], "--yes"); r.code == 0 {
-			t.Fatal("another person's factor must not be removable")
+		mustOK(t, w.ku("", false, nil, "account", "factor", "add", "totp")) // so that the caller has a second factor to spare
+		_, st := w.api(user, "POST", "/auth/stepup", map[string]string{"purpose": "factor_remove", "subject": otherID})
+		if err := w.browser(st["url"].(string)); err != nil {
+			t.Fatal(err)
+		}
+		grant := st["id"].(string)
+		if code, m := w.api(user, "DELETE", "/account/factors/"+otherID, nil, "X-Step-Up", grant); code != 404 {
+			t.Fatalf("another person's factor, with my own valid confirmation: %d %v", code, m)
 		}
 		_, ol = w.api(other, "GET", "/account/factors", nil)
 		if len(ol["factors"].([]any)) != 1 {
@@ -151,24 +156,24 @@ func TestAddLinkIsOneShotAndForItsKind(t *testing.T) {
 		w := newWorld(t, p)
 		admin := w.admin()
 		w.member(admin, "dev@example.test")
-		in, _ := w.tokens.Validate(bg, w.member(admin, "dev2@example.test"))
+		in, _ := w.tokens.Validate(t.Context(), w.member(admin, "dev2@example.test"))
 
 		id, err := w.auth.StartAddFactor(in, "passkey")
 		if err != nil {
 			t.Fatal(err)
 		}
-		pd, err := w.auth.OpenAddFactor(bg, id)
+		pd, err := w.auth.OpenAddFactor(t.Context(), id)
 		if err != nil || pd.Mode != "add" || pd.Add != "passkey" {
 			t.Fatalf("open: %+v %v", pd, err)
 		}
-		if _, err := w.auth.OpenAddFactor(bg, id); err == nil {
+		if _, err := w.auth.OpenAddFactor(t.Context(), id); err == nil {
 			t.Fatal("the link must work once")
 		}
-		mid, _ := w.tokens.Validate(bg, pd.Token)
-		if _, _, err := w.auth.BeginTOTP(bg, mid); err == nil {
+		mid, _ := w.tokens.Validate(t.Context(), pd.Token)
+		if _, _, err := w.auth.BeginTOTP(t.Context(), mid); err == nil {
 			t.Fatal("a passkey session must not register an authenticator app")
 		}
-		if _, err := w.auth.BeginPasskeyRegistration(bg, mid); err != nil {
+		if _, err := w.auth.BeginPasskeyRegistration(t.Context(), mid); err != nil {
 			t.Fatal(err)
 		}
 		// the short session cannot read secrets

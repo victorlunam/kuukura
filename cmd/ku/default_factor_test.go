@@ -23,7 +23,8 @@ func TestDefaultFactor(t *testing.T) {
 			return factorLine.FindAllStringSubmatch(mustOK(t, w.ku("", false, nil, "account", "factor", "list")).out, -1)
 		}
 		defaults := func() (n int, kinds string) {
-			for _, line := range strings.Split(mustOK(t, w.ku("", false, nil, "account", "factor", "list")).out, "\n") {
+			for line := range strings.Lines(mustOK(t, w.ku("", false, nil, "account", "factor", "list")).out) {
+				line = strings.TrimSuffix(line, "\n")
 				if strings.HasSuffix(line, "default") {
 					n++
 					kinds += strings.Fields(line)[1]
@@ -51,8 +52,8 @@ func TestDefaultFactor(t *testing.T) {
 			}
 		}
 		r := mustOK(t, w.ku("", false, nil, "account", "factor", "default", app))
-		if !strings.Contains(r.out, "default") {
-			t.Fatalf("default: %q", r.out)
+		if !strings.Contains(r.errOut, "✓ The app is now your default") {
+			t.Fatalf("default: %q", r.errOut)
 		}
 		if n, k := defaults(); n != 1 || k != "app" {
 			t.Fatalf("exactly one default, now the app: %d %s", n, k)

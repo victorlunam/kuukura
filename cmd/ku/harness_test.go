@@ -39,8 +39,6 @@ const (
 	fakeValue  = "sk_test_FAKE_EXAMPLE"
 )
 
-var bg = context.Background()
-
 type memStore struct {
 	mu sync.Mutex
 	m  map[string]string
@@ -88,14 +86,15 @@ type world struct {
 	idp     *fakeIDP
 	store   *memStore
 	home    string
-	stepUps int                                // Touch ID confirmations performed by the fake browser
+	stepUps int                                // confirmations (passkey or authenticator code) performed by the fake browser
 	devs    map[string]*authtest.Authenticator // by principal email
 	emails  map[string]string                  // session token -> email
 	now     time.Time
 	mu      sync.Mutex
 
-	totpSecrets map[string]string // authenticator-app secrets by principal email (users enrolled with TOTP only)
-	altStore    tokenStore        // a test can swap the in-memory Keychain for the real session store
+	totpSecrets map[string]string  // authenticator-app secrets by principal email (users enrolled with TOTP only)
+	altStore    tokenStore         // a test can swap the in-memory Keychain for the real session store
+	opener      func(string) error // a test can replace the fake browser
 	skew        time.Duration
 }
 
@@ -116,12 +115,16 @@ func newWorld(t *testing.T, p storage.Provider) *world {
 		t.Fatal(err)
 	}
 	w.ids = identity.New(p, w.log, w.tokens)
+	// The links the server hands out must point at the server the profile names, as they do in a real deployment:
+	// the CLI opens nothing else. So the public origin is the test server's own address.
+	w.srv = httptest.NewUnstartedServer(nil)
 	srv := api.New(api.Deps{
 		Secrets: secrets.New(p, kp, w.log), Admin: access.NewAdmin(p, w.log), Identity: w.ids, Auth: w.auth, Tokens: w.tokens,
-		Audit: w.log, Storage: p, BaseURL: "https://" + testDomain,
+		Audit: w.log, Storage: p, BaseURL: "https://" + w.srv.Listener.Addr().String(),
 		Now: func() time.Time { w.mu.Lock(); defer w.mu.Unlock(); w.now = w.now.Add(10 * time.Second); return w.now }, // limits never bite
 	})
-	w.srv = httptest.NewTLSServer(srv.Handler())
+	w.srv.Config.Handler = srv.Handler()
+	w.srv.StartTLS()
 	t.Cleanup(w.srv.Close)
 	return w
 }
@@ -144,22 +147,22 @@ func (w *world) onboardTOTP(invite, email string) string {
 	w.idp.mu.Lock()
 	w.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
 	w.idp.mu.Unlock()
-	pd, err := w.auth.Callback(bg, pu.Query().Get("state"), code, "203.0.113.9")
+	pd, err := w.auth.Callback(w.t.Context(), pu.Query().Get("state"), code, "203.0.113.9")
 	if err != nil {
 		w.t.Fatal(err)
 	}
-	in, _ := w.tokens.Validate(bg, pd.Token)
-	secret, _, err := w.auth.BeginTOTP(bg, in)
+	in, _ := w.tokens.Validate(w.t.Context(), pd.Token)
+	secret, _, err := w.auth.BeginTOTP(w.t.Context(), in)
 	if err != nil {
 		w.t.Fatal(err)
 	}
 	first, _ := totp.GenerateCode(secret, w.tokens.Now())
-	res, err := w.auth.ConfirmTOTP(bg, in, first, "203.0.113.9")
+	res, err := w.auth.ConfirmTOTP(w.t.Context(), in, first, "203.0.113.9")
 	if err != nil {
 		w.t.Fatal(err)
 	}
 	ru, _ := url.Parse(res.Redirect)
-	iss, err := w.auth.ExchangeCode(bg, ru.Query().Get("code"), verifier)
+	iss, err := w.auth.ExchangeCode(w.t.Context(), ru.Query().Get("code"), verifier)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -180,23 +183,23 @@ func (w *world) onboard(invite, email string) string {
 	w.idp.mu.Lock()
 	w.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
 	w.idp.mu.Unlock()
-	pd, err := w.auth.Callback(bg, pu.Query().Get("state"), code, "203.0.113.9")
+	pd, err := w.auth.Callback(w.t.Context(), pu.Query().Get("state"), code, "203.0.113.9")
 	if err != nil {
 		w.t.Fatal(err)
 	}
-	in, _ := w.tokens.Validate(bg, pd.Token)
+	in, _ := w.tokens.Validate(w.t.Context(), pd.Token)
 	dev := &authtest.Authenticator{RPID: testDomain, Origin: "https://" + testDomain}
-	opts, err := w.auth.BeginPasskeyRegistration(bg, in)
+	opts, err := w.auth.BeginPasskeyRegistration(w.t.Context(), in)
 	if err != nil {
 		w.t.Fatal(err)
 	}
 	ob, _ := json.Marshal(opts)
-	res, err := w.auth.FinishPasskeyRegistration(bg, in, dev.Register(w.t, ob, true), "203.0.113.9")
+	res, err := w.auth.FinishPasskeyRegistration(w.t.Context(), in, dev.Register(w.t, ob, true), "203.0.113.9")
 	if err != nil {
 		w.t.Fatal(err)
 	}
 	ru, _ := url.Parse(res.Redirect)
-	iss, err := w.auth.ExchangeCode(bg, ru.Query().Get("code"), verifier)
+	iss, err := w.auth.ExchangeCode(w.t.Context(), ru.Query().Get("code"), verifier)
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -206,18 +209,21 @@ func (w *world) onboard(invite, email string) string {
 }
 
 func (w *world) admin() string {
-	inv, err := w.ids.BootstrapAdmin(bg, "root@example.test")
+	inv, err := w.ids.BootstrapAdmin(w.t.Context(), "root@example.test")
 	if err != nil {
 		w.t.Fatal(err)
 	}
 	return w.onboard(inv.Token, "root@example.test")
 }
 
-func (w *world) api(token, method, path string, body any) (int, map[string]any) {
+func (w *world) api(token, method, path string, body any, hdr ...string) (int, map[string]any) {
 	w.t.Helper()
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequest(method, w.srv.URL+path, bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
+	for i := 0; i+1 < len(hdr); i += 2 {
+		req.Header.Set(hdr[i], hdr[i+1])
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -382,7 +388,7 @@ type result struct {
 	out, errOut string
 }
 
-// ku runs the CLI against the world. The profile and token are set up by setup().
+// ku runs the CLI against the world. The profile and token are set up by loginAs.
 func (w *world) ku(stdin string, tty bool, env map[string]string, args ...string) result {
 	w.t.Helper()
 	var out, errb bytes.Buffer
@@ -393,10 +399,11 @@ func (w *world) ku(stdin string, tty bool, env map[string]string, args ...string
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		openURL: w.browser, isTTY: tty, home: w.home, cwd: w.home, poll: 5 * time.Millisecond,
 	}
-	stdinReader = nil
-	a.readSecret = func(string) (string, error) { return strings.TrimSpace(stdin), nil }
-	if tty {
+	if tty { // without a terminal the value comes from stdin and nothing prompts
 		a.readSecret = func(string) (string, error) { return fakeValue, nil }
+	}
+	if w.opener != nil {
+		a.openURL = w.opener
 	}
 	if cwd, ok := env["CWD"]; ok {
 		a.cwd = cwd
@@ -405,7 +412,7 @@ func (w *world) ku(stdin string, tty bool, env map[string]string, args ...string
 	return result{code, out.String(), errb.String()}
 }
 
-// login gives the CLI profile "default" pointing at the test server with the given session.
+// loginAs gives the CLI profile "default" pointing at the test server with the given session.
 func (w *world) loginAs(token string) {
 	w.t.Helper()
 	if _, err := os.Stat(filepath.Join(w.home, ".config", "kuukura", "config.toml")); err != nil {
@@ -417,8 +424,6 @@ func (w *world) loginAs(token string) {
 }
 
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
-
-var _ = filepath.Join
 
 func (w *world) sessionStore() tokenStore {
 	if w.altStore != nil {

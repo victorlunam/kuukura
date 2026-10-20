@@ -55,8 +55,8 @@ func TestValuesAreNotMistakenForTags(t *testing.T) {
 			}
 			noValue(t, r, fake, "FAKEPW", "fakeuser")
 		}
-		if r := mustOK(t, w.ku("", false, nil, "secret", "list")); !strings.Contains(r.out, "No secrets found") {
-			t.Fatalf("nothing may have been stored: %q", r.out)
+		if r := mustOK(t, w.ku("", false, nil, "secret", "list")); r.out != "" || !strings.Contains(r.errOut, "No secrets found") {
+			t.Fatalf("nothing may have been stored: %q %q", r.out, r.errOut)
 		}
 		if r := w.ku("v\n", false, nil, "secret", "set", "DB_URL", "app:shop", "x", "--yes"); !strings.Contains(r.errOut, "argument 3 is not a tag") {
 			t.Fatalf("the message names the position: %q", r.errOut)

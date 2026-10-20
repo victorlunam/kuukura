@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -20,7 +21,6 @@ type client struct {
 
 // problem is an RFC 9457 error from the server.
 type problem struct {
-	Status     int      `json:"status"`
 	Code       string   `json:"code"`
 	Detail     string   `json:"detail"`
 	Items      []string `json:"items"`
@@ -60,7 +60,7 @@ func (c *client) call(method, path string, body, out any, hdr ...string) error {
 		return errors.New("cannot reach the server")
 	}
 	if resp.StatusCode/100 != 2 {
-		p := &problem{Status: resp.StatusCode, retryAfter: resp.Header.Get("Retry-After")}
+		p := &problem{retryAfter: resp.Header.Get("Retry-After")}
 		_ = json.Unmarshal(data, p)
 		if p.Code == "" {
 			p.Code = "internal"
@@ -92,7 +92,7 @@ func plain(err error) string {
 	case "not-found":
 		return "No matching secret."
 	case "step-up-required":
-		return "This needs a Touch ID confirmation."
+		return "This needs a confirmation with your passkey or authenticator app."
 	case "invalid-request", "needs-one", "conflict", "last-admin", "last-factor", "kind-mismatch":
 		if p.Detail != "" {
 			return strings.ToUpper(p.Detail[:1]) + p.Detail[1:] + "."
@@ -113,9 +113,15 @@ func (a *app) withProfile(flagProfile string, needToken bool) (*client, profile,
 	}
 	a.say("profile: %s", p.name)
 	if needToken && p.token == "" {
+		if p.ephemeral {
+			return nil, p, errors.New("KU_URL is set but KU_TOKEN is not. Set KU_TOKEN to a machine token")
+		}
 		tok, err := a.store.Get(p.name)
-		if err != nil || tok == "" {
+		switch {
+		case errors.Is(err, errNoToken) || err == nil && tok == "":
 			return nil, p, errors.New("you are not logged in. Run: ku login")
+		case err != nil: // an unreadable session is not a missing one: say what is wrong
+			return nil, p, fmt.Errorf("cannot read the saved session: %w", err)
 		}
 		p.token = tok
 	}
