@@ -145,12 +145,7 @@ func (s *Server) auditRows(c echo.Context) error {
 	if err != nil {
 		return badRequest(err.Error())
 	}
-	limit := 100
-	if l := c.QueryParam("limit"); l != "" {
-		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 1000 {
-			limit = n
-		}
-	}
+	limit, _ := strconv.Atoi(c.QueryParam("limit")) // anything unusable falls back to the log's default
 	rows, err := s.Audit.List(ctx, audit.Filter{Name: c.QueryParam("name"), Tags: nt}, limit)
 	if err != nil {
 		return err

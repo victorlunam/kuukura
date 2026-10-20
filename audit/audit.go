@@ -292,8 +292,17 @@ type Filter struct {
 	Tags storage.Tags
 }
 
+// Row counts of List: a limit outside 1..MaxLimit (including 0, "not given") means DefaultLimit.
+const (
+	DefaultLimit = 100
+	MaxLimit     = 1000
+)
+
 // List returns rows newest first, with principal and secret names.
 func (l *Log) List(ctx context.Context, f Filter, limit int) ([]Row, error) {
+	if limit < 1 || limit > MaxLimit {
+		limit = DefaultLimit
+	}
 	q := `SELECT ` + columns + `, COALESCE(pr.name, ''), COALESCE(s.name, '')
 		FROM audit_log a LEFT JOIN principals pr ON pr.id = a.principal_id LEFT JOIN secrets s ON s.id = a.secret_id WHERE 1=1`
 	var args []any

@@ -19,6 +19,21 @@ type Methods struct {
 	Default       string
 }
 
+// Kinds lists the kinds the account has ("passkey", "totp"), the default one first.
+func (m Methods) Kinds() []string {
+	var kinds []string
+	if m.Passkey {
+		kinds = append(kinds, "passkey")
+	}
+	if m.TOTP {
+		kinds = append(kinds, "totp")
+	}
+	if m.Default == "totp" && len(kinds) == 2 {
+		kinds[0], kinds[1] = kinds[1], kinds[0]
+	}
+	return kinds
+}
+
 func (s *Service) factorsOf(ctx context.Context, q storage.Querier, principal uuid.UUID) (m Methods, err error) {
 	rows, err := q.QueryContext(ctx, s.p.Rebind(`SELECT kind, is_default FROM credentials WHERE principal_id = ?`), principal)
 	if err != nil {

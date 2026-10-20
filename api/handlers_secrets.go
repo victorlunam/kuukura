@@ -9,15 +9,15 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/victorlunam/kuukura/access"
+	"github.com/victorlunam/kuukura/auth"
 	"github.com/victorlunam/kuukura/secrets"
 	"github.com/victorlunam/kuukura/storage"
 )
 
-// Step-up purposes. A grant is bound to one purpose and one selector.
 const (
-	purposeReveal       = "reveal" // `get --reveal` and `get --out`
-	purposeRun          = "run"
-	purposeAuthorizeOff = "authorize_off"
+	purposeReveal       = auth.PurposeReveal
+	purposeRun          = auth.PurposeRun
+	purposeAuthorizeOff = auth.PurposeAuthorizeOff
 )
 
 type selectorJSON struct {

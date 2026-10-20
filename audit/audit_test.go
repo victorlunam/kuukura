@@ -132,6 +132,26 @@ func TestNonCanonicalIPStillVerifies(t *testing.T) {
 	})
 }
 
+// A limit that is missing or out of range falls back to the default instead of failing or returning everything.
+func TestListLimit(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
+		l := New(p)
+		who := principal(t, p)
+		for range 3 {
+			if err := l.Record(ctx, Entry{Principal: who, Action: "list"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for limit, want := range map[int]int{2: 2, 0: 3, -1: 3, MaxLimit + 1: 3} {
+			rows, err := l.List(ctx, Filter{}, limit)
+			if err != nil || len(rows) != want {
+				t.Fatalf("limit %d: %d rows, %v; want %d", limit, len(rows), err, want)
+			}
+		}
+	})
+}
+
 // A rolled-back append must leave no row and no fork: the next append chains onto the last committed row.
 func TestRolledBackAppendKeepsChain(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {

@@ -15,6 +15,25 @@ import (
 
 // ---- step-up: a fresh confirmation with the account's own second step ----
 
+// What a confirmation can be for. A grant is bound to one purpose and one subject (a selector, a factor kind or a
+// factor id).
+const (
+	PurposeReveal       = "reveal" // `get --reveal` and `get --out`
+	PurposeRun          = "run"
+	PurposeAuthorizeOff = "authorize_off"
+	PurposeFactorAdd    = "factor_add"    // subject: "passkey" or "totp"
+	PurposeFactorRemove = "factor_remove" // subject: the credential id
+)
+
+// ValidPurpose reports whether p is one of the purposes above.
+func ValidPurpose(p string) bool {
+	switch p {
+	case PurposeReveal, PurposeRun, PurposeAuthorizeOff, PurposeFactorAdd, PurposeFactorRemove:
+		return true
+	}
+	return false
+}
+
 type stepUp struct {
 	principal        uuid.UUID
 	purpose, subject string

@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	purposeFactorAdd    = "factor_add"    // subject: "passkey" or "totp"
-	purposeFactorRemove = "factor_remove" // subject: the credential id
+	purposeFactorAdd    = auth.PurposeFactorAdd
+	purposeFactorRemove = auth.PurposeFactorRemove
 )
 
 // confirmed spends the caller's confirmation for this purpose and subject, or asks for one. Machines have no

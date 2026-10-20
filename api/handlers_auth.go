@@ -202,9 +202,7 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if err := decode(c, &r); err != nil {
 		return err
 	}
-	switch r.Purpose {
-	case purposeReveal, purposeRun, purposeAuthorizeOff, purposeFactorAdd, purposeFactorRemove:
-	default:
+	if !auth.ValidPurpose(r.Purpose) {
 		return badRequest("Unknown purpose.")
 	}
 	if r.Subject == "" {
@@ -225,17 +223,8 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	if p := auth.CleanLabel(r.Profile); p != "" {
 		link += "&profile=" + p
 	}
-	var methods []string // the CLI words its prompt from this ("Touch ID" vs "your browser"); the default comes first
-	if m.Passkey {
-		methods = append(methods, "passkey")
-	}
-	if m.TOTP {
-		methods = append(methods, "totp")
-	}
-	if m.Default == "totp" && len(methods) == 2 {
-		methods[0], methods[1] = methods[1], methods[0]
-	}
-	return c.JSON(http.StatusCreated, map[string]any{"id": id, "url": link, "methods": methods})
+	// the CLI words its prompt from methods ("Touch ID" vs "your browser")
+	return c.JSON(http.StatusCreated, map[string]any{"id": id, "url": link, "methods": m.Kinds()})
 }
 
 func (s *Server) stepUpStatus(c echo.Context) error {
