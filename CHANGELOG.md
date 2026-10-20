@@ -6,6 +6,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Fixed
+
+- Deploy templates, checked by running them: render.yaml uses the current plan id `0.5c-512mb` and Render's port 10000; the Swarm stack documents the `proxy` network it requires; the Dokploy and Coolify docs say what the platform leaves to you (HTTPS and `VAULT_DOMAIN` on Dokploy, a bare domain on Coolify).
+
 ## [2026.10.3] - 2026-10-20
 
 ### Added

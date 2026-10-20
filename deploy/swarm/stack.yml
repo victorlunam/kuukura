@@ -1,6 +1,7 @@
 # Docker Swarm stack (Portainer "Stack" works too). Uses real Docker secrets. Run ONE replica: kuukura keeps
 # login state in memory and SQLite has a single writer.
 #
+#   docker network create --driver overlay --attachable proxy      (once; skip if your proxy already made it)
 #   printf '1:%s\n' "$(head -c 32 /dev/urandom | base64)" | docker secret create kuukura_master_key -
 #       (then run `ku-server key show` once in a terminal in the container and store the key in your password
 #       manager, see docs/deploy.md)
