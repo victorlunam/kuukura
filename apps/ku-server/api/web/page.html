@@ -19,7 +19,7 @@
 
   {{if eq .Mode "invite"}}
   <h1>You're invited</h1>
-  <p class="lead">Your team set up a vault for you. Sign in with the account for <b>{{.Email}}</b> to join.</p>
+  <p class="lead">Your team set up a vault for you. Sign in with the account for {{email .Email}} to join.</p>
   <a class="btn google" href="{{.Link}}"><svg aria-hidden="true"><use href="#i-google"/></svg>Continue with Google</a>
   <p class="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>This invite works once and is tied to that email. Next you will add a passkey to protect your account.</span></p>
 
@@ -154,7 +154,7 @@
 
   {{else}}
   <h1>{{.Title}}</h1>
-  {{if .Email}}<p class="lead">You chose <b>{{.Email}}</b>.</p>{{end}}
+  {{if .Email}}<p class="lead">You chose {{email .Email}}.</p>{{end}}
   <p class="lead">{{.Detail}}</p>
   {{if .Hint}}<div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd">ku login</code><button type="button" data-copy="#cmd" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>{{end}}
   {{end}}

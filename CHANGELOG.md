@@ -6,6 +6,14 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.7] - 2026-10-20
+
+### Fixed
+
+- Behind Cloudflare, the invite and sign-in pages showed "[email protected]": addresses are now marked so a CDN's email
+  obfuscation leaves them alone (its decoding script is, correctly, blocked by the pages' CSP).
+- Docs: deploying behind a cloud load balancer that terminates TLS, and HTTPS behind Cloudflare.
+
 ## [2026.10.6] - 2026-10-20
 
 ### Added
@@ -147,7 +155,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.6...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.7...HEAD
+[2026.10.7]: https://github.com/victorlunam/kuukura/compare/v2026.10.6...v2026.10.7
 [2026.10.6]: https://github.com/victorlunam/kuukura/compare/v2026.10.5...v2026.10.6
 [2026.10.5]: https://github.com/victorlunam/kuukura/compare/v2026.10.4...v2026.10.5
 [2026.10.4]: https://github.com/victorlunam/kuukura/compare/v2026.10.3...v2026.10.4

@@ -26,7 +26,7 @@ func TestLoginFailedPages(t *testing.T) {
 		return rec.Body.String()
 	}
 	b := render("no_identity_for_this_account", "stranger@example.test")
-	if !strings.Contains(b, "No account found") || !strings.Contains(b, "not registered in this vault") || !strings.Contains(b, "You chose <b>stranger@example.test</b>") {
+	if !strings.Contains(b, "No account found") || !strings.Contains(b, "not registered in this vault") || !strings.Contains(b, "You chose <!--email_off--><b>stranger@example.test</b><!--/email_off-->") {
 		t.Fatal("the not-invited account is named")
 	}
 	b = render("invite_email_mismatch", "other@example.test")
@@ -82,5 +82,13 @@ func TestHeaderLabel(t *testing.T) {
 		if got := auth.CleanLabel(bad); got != "" {
 			t.Fatalf("unsafe label %q must be dropped, got %q", bad, got)
 		}
+	}
+}
+
+// Addresses on the pages are escaped and kept out of a CDN's email obfuscation, whose script our CSP blocks.
+func TestEmailIsEscapedAndNotObfuscated(t *testing.T) {
+	got := string(emailHTML(`dev@example.test<script>`))
+	if got != "<!--email_off--><b>dev@example.test&lt;script&gt;</b><!--/email_off-->" {
+		t.Fatalf("email markup: %s", got)
 	}
 }
