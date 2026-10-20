@@ -177,7 +177,7 @@ const usage = `Usage: ku <command> [options]
   account factor add <passkey|totp>          add one
   account factor default <id>                offer it first
   account factor remove <id>                 remove one
-  version                                    print the version
+  version, --version                         print the version
 
 Commands that talk to a server take --profile <name>.
 `

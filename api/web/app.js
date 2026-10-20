@@ -66,7 +66,7 @@
 
   const mode = B.mode;
 
-  // ---- second step at sign-in ----
+  // ---- passkey or authenticator code at sign-in ----
   if (mode === 'mfa') {
     const base = '/auth/mfa';
     const go = (j) => { location.href = j.redirect; };
@@ -194,7 +194,7 @@
     }
   }
 
-  // ---- confirmation for a terminal command: the account's own second step (passkey or authenticator code) ----
+  // ---- confirmation for a terminal command: the account's own passkey or authenticator code ----
   if (mode === 'stepup') {
     const confirmed = () => {
       $('#ask').hidden = true;

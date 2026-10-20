@@ -9,3 +9,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # Base images are pinned by digest; Dependabot bumps the digest with the tag.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

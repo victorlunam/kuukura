@@ -121,7 +121,7 @@ docker exec -it <container> /ku-server key show
 
 It prints the key text once, only to a real terminal (it refuses a pipe or a log), and records that it did, under the
 `ku-server` principal. Store the text in your password manager. A second `key show` for the same key version
-refuses ("the key was already shown on <date>"); after a rotation the new version can be shown once as well, so every
+refuses ("the key was already shown on <date>. The key file ... is the source of truth"); after a rotation the new version can be shown once as well, so every
 version has a backup. Until the active version has been shown, `serve` logs a warning at every start.
 
 Anyone with this key and a copy of the database can read every secret. If you want an encrypted file instead of a
@@ -159,6 +159,7 @@ that role is created by the first start.
    holding the right grants (INSERT and SELECT only on `audit_log`). `serve` then stops with an error, by
    design: the owner may modify `audit_log`, and the server refuses to run as such a role. To migrate without
    that error, run `ku-server audit verify` with the owner's URL instead: it migrates and changes nothing else.
+   Both need the master key configured (section 2), like every `ku-server` command.
 3. Create the **login** role the server will use: a member of `kuukura_app` that neither owns the tables nor is a
    member of the role that does:
    ```sql
@@ -166,7 +167,9 @@ that role is created by the first start.
    ```
 4. Start for real with `VAULT_MIGRATE_DATABASE_URL` = the owner's URL (used for migrations only) and
    `VAULT_DATABASE_URL` = the login role's URL. On every start the server checks that its role can neither
-   modify `audit_log` nor become the table owner, and refuses to start otherwise.
+   modify `audit_log` nor become the table owner, and refuses to start otherwise. Keep `VAULT_MIGRATE_DATABASE_URL`
+   set on every upgrade: without it the login role tries to migrate and fails with "permission denied for schema
+   public".
 
 ## 4. Configure and start
 
