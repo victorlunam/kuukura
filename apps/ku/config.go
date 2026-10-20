@@ -9,11 +9,30 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+// configRoot is where the per-user configuration lives: $XDG_CONFIG_HOME when set, %AppData% on Windows,
+// ~/.config elsewhere (macOS included, as the spec says).
+func configRoot(goos, home, xdg, appData string) string {
+	switch {
+	case xdg != "" && filepath.IsAbs(xdg):
+		return xdg
+	case goos == "windows" && appData != "":
+		return appData
+	}
+	return filepath.Join(home, ".config")
+}
+
+// configDir is <config root>/kuukura. Use XDG_CONFIG_HOME to keep a separate configuration (for tests); do not
+// change HOME, because the macOS Keychain lives under it.
+func (a *app) configDir() string {
+	return filepath.Join(configRoot(runtime.GOOS, a.home, a.getenv("XDG_CONFIG_HOME"), a.getenv("APPDATA")), "kuukura")
+}
 
 // config.toml holds profiles (server URL only, never a secret); links.json maps folders to apps.
 type configFile struct {

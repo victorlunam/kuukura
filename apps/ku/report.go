@@ -1,41 +1,53 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
 	"github.com/victorlunam/kuukura/internal/cli"
 )
 
-type selReq struct {
-	Name string   `json:"name,omitempty"`
-	Tags []string `json:"tags"`
+// say prints a status line to stderr so stdout stays clean for values and pipes.
+func (a *app) say(format string, args ...any) { fmt.Fprintf(a.err, format+"\n", args...) }
+
+// nextStep is an error that carries the one command that fixes it; fail prints it on its own line.
+type nextStep struct{ msg, run string }
+
+func (e *nextStep) Error() string { return e.msg }
+
+// fail prints "✗ <Sentence.>" on stderr and returns cli.ExitFail. An error argument that is a nextStep adds the line
+// with the command that fixes it.
+func (a *app) fail(format string, args ...any) int {
+	fmt.Fprintf(a.err, "✗ %s\n", cli.Sentence(fmt.Sprintf(format, args...)))
+	for _, x := range args {
+		var n *nextStep
+		if err, ok := x.(error); ok && errors.As(err, &n) {
+			fmt.Fprintf(a.err, "  Run: %s\n", n.run)
+		}
+	}
+	return cli.ExitFail
 }
 
-// stdin is the one buffered reader of a.in, so a second prompt does not lose what the first one buffered.
-func (a *app) stdin() *bufio.Reader {
-	if a.stdinR == nil {
-		a.stdinR = bufio.NewReader(a.in)
-	}
-	return a.stdinR
+// failNext is fail plus the exact command to run next.
+func (a *app) failNext(run, format string, args ...any) int {
+	a.fail(format, args...)
+	fmt.Fprintf(a.err, "  Run: %s\n", run)
+	return cli.ExitFail
 }
 
-// confirm asks a y/N question. --yes skips it; without a terminal it refuses rather than guessing.
-func (a *app) confirm(question string, yes bool) (bool, error) {
-	if yes {
-		return true, nil
-	}
-	if !a.isTTY {
-		return false, errors.New("add --yes to confirm when there is no terminal")
-	}
-	fmt.Fprintf(a.err, "%s (y/N) ", question)
-	line, _ := a.stdin().ReadString('\n')
-	l := strings.ToLower(strings.TrimSpace(line))
-	return l == "y" || l == "yes", nil
+// argFail is fail for an argument that is wrong, which exits like a usage error.
+func (a *app) argFail(format string, args ...any) int {
+	a.fail(format, args...)
+	return cli.ExitUsage
+}
+
+// usageFail prints the usage line of the command that got wrong arguments. It never says what was typed: a secret
+// passed as an argument by mistake must not come back in the terminal.
+func (a *app) usageFail(line string) int {
+	fmt.Fprintln(a.err, cli.UsageError(line))
+	return cli.ExitUsage
 }
 
 func splitItem(item string) (name string, tags []string) {
@@ -122,26 +134,4 @@ func (a *app) report(err error, hint func(tag string) string) int {
 		return a.failNext("ku login", "%s", plain(err))
 	}
 	return a.fail("%s", plain(err))
-}
-
-func writePrivate(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- the user chose this path
-	if err != nil {
-		return err
-	}
-	return fillPrivate(f, data)
-}
-
-// fillPrivate writes data to a freshly opened file, forces mode 0600 (an existing file keeps its old mode
-// otherwise) and closes it.
-func fillPrivate(f *os.File, data []byte) error {
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if _, err := f.Write(data); err != nil {
-		_ = f.Close()
-		return err
-	}
-	return f.Close()
 }

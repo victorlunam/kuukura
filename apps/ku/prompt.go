@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,6 +13,28 @@ import (
 )
 
 func isTerminal(f *os.File) bool { return term.IsTerminal(int(f.Fd())) } // #nosec G115 -- fd fits in int
+
+// stdin is the one buffered reader of a.in, so a second prompt does not lose what the first one buffered.
+func (a *app) stdin() *bufio.Reader {
+	if a.stdinR == nil {
+		a.stdinR = bufio.NewReader(a.in)
+	}
+	return a.stdinR
+}
+
+// confirm asks a y/N question. --yes skips it; without a terminal it refuses rather than guessing.
+func (a *app) confirm(question string, yes bool) (bool, error) {
+	if yes {
+		return true, nil
+	}
+	if !a.isTTY {
+		return false, errors.New("add --yes to confirm when there is no terminal")
+	}
+	fmt.Fprintf(a.err, "%s (y/N) ", question)
+	line, _ := a.stdin().ReadString('\n')
+	l := strings.ToLower(strings.TrimSpace(line))
+	return l == "y" || l == "yes", nil
+}
 
 type hiddenModel struct {
 	label     string
