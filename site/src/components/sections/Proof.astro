@@ -24,12 +24,12 @@ const signals = [
 
 <Section class="proof" aria-label="The product">
   <div class="strip">
-    <figure class="phone" data-reveal>
+    <figure class="phone">
       <DeviceFrame src={stepup} alt={alt} size="sm" />
       <figcaption>A reveal opens this page on your own server. It says exactly what you are confirming.</figcaption>
     </figure>
     <div class="right">
-      <figure data-reveal>
+      <figure>
         <Terminal title="~/shop" label="A terminal: ku run starts npm start with the app's secrets" lines={lines} />
         <figcaption>
           <code>ku run</code> starts your program with its secrets in the environment. The values never reach your screen.
