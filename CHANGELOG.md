@@ -6,6 +6,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Security
+
+- Website: strict Content-Security-Policy and HSTS.
+
 ## [2026.10.3] - 2026-10-20
 
 ### Added

@@ -11,7 +11,7 @@
     "predev": "node scripts/sync.mjs",
     "dev": "astro dev",
     "prebuild": "node scripts/sync.mjs",
-    "build": "astro build",
+    "build": "astro build && node scripts/csp.mjs",
     "preview": "astro preview",
     "precheck": "node scripts/sync.mjs",
     "check": "astro check",
