@@ -32,6 +32,13 @@ Out of scope: attacks that need root on the server host or your database adminis
 [docs/threat-model.md](docs/threat-model.md), "Not defended"), a compromised user device, social engineering,
 denial of service by sheer volume, and weaknesses in your reverse proxy, Google account or DNS.
 
+## Known scanner findings
+
+CI runs `govulncheck` on every change. It reports one module-level advisory that does not affect kuukura:
+GO-2026-5932, the unmaintained `golang.org/x/crypto/openpgp` package. The module comes in through Echo
+(`x/crypto/acme`); kuukura never imports `openpgp`, and govulncheck confirms no vulnerable code is called. There is
+no fixed version; the module is kept at its latest release.
+
 ## Safe harbor
 
 If you act in good faith, test only your own instance, avoid other people's data, do not degrade the service for
