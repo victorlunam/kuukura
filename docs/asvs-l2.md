@@ -4,6 +4,7 @@ Status: **draft for the reviewer**. It is organized by the chapters of OWASP ASV
 control and where to verify it; it is not yet mapped to individual requirement IDs (do that pass against the published
 ASVS 5.0.0 text and record the ID next to each row). Status: **Met** (implemented and tested), **Partial**, **Open** (known gap), **N/A**.
 Do this review before real secrets go in, together with [threat-model.md](threat-model.md).
+Code paths in the Evidence column are under [`internal/`](../internal) unless they start with `cmd/`.
 
 | Chapter | Theme | Our control | Evidence | Status |
 |---|---|---|---|---|
@@ -22,13 +23,13 @@ Do this review before real secrets go in, together with [threat-model.md](threat
 | V6 Authentication | Strong, phishing-resistant second factor | WebAuthn passkey with user verification required; TOTP fallback; 10 single-use recovery codes stored hashed | `auth/`, `auth/login_test.go` | Met |
 | | Credential recovery | `ku-server user invite` / `user reset-factors` (server terminal only, 15 min, single use, audited under the host principal); recovery codes | `identity/host.go`, `cmd/ku-server/user.go`, `TestResetFactorsByHost` | Met |
 | | Brute-force resistance | Per-IP limit on all login endpoints; mid-login tokens expire in 5 min; no per-account lockout | | Partial (consider per-account failure counter) |
-| | TOTP replay | A code's 30 s step is spent on use, at sign-in and for confirmations (`last_used_at` guard, atomic) | `auth/factors.go`, `TestInviteTOTPEnrollmentAndLogin` | Met |
-| | Recovery code storage | SHA-256 of an 80-bit random code | `auth/factors.go` | Met |
+| | TOTP replay | A code's 30 s step is spent on use, at sign-in and for confirmations (`last_used_at` guard, atomic) | `auth/totp.go`, `TestInviteTOTPEnrollmentAndLogin` | Met |
+| | Recovery code storage | SHA-256 of an 80-bit random code | `auth/recovery.go` | Met |
 | V7 Session management | Token generation/storage | 256-bit random `ku_` tokens, only SHA-256 stored, constant-time compare | `auth/tokens.go`, `TestTokenLifecycle` | Met |
 | | Timeouts, logout, revocation | 8 h absolute, 1 h idle (server-enforced), logout and disable revoke; machine keys ~90 d | `auth/tokens_test.go`, `TestWorkspaceAdminAndMachines` | Met |
 | | Client storage | System keychain first (macOS Keychain, Windows Credential Manager, Linux Secret Service); only when there is none, a private file (0600, never config.toml, never both places). Sessions last 8 h, revocable on the server | `cmd/ku/store.go`, `store_test.go`, `docs/install.md` | Partial (the file fallback is not encrypted; macOS uses the login keychain, not the data protection keychain, which needs a signed binary) |
 | V8 Authorization | Deny by default, least privilege | Grants (`read`/`write` on tag sets) only; admin role gives no secret access; machine = own grants AND owner's | `access/`, tests | Met |
-| | Step-up for sensitive actions | A confirmation with the account's passkey (user verification) or authenticator app; single-use, 60 s, bound to principal/purpose/selector; machines never | `auth/login_test.go`, `TestTouchIDGates` | Met |
+| | Step-up for sensitive actions | A confirmation with the account's passkey (user verification) or authenticator app; single-use, 60 s, bound to principal/purpose/selector; machines never | `auth/login_test.go`, `TestConfirmationGates`, `TestConfirmationPageSaysWhatItConfirms` | Met |
 | V9 Self-contained tokens | | Tokens are opaque, not JWTs | | N/A |
 | V10 OAuth and OIDC | Code flow + PKCE, state, nonce, `email_verified`, ID token verification | `auth/provider.go`, `auth/login.go`; CLI uses its own localhost PKCE | tests (fake provider); real Google invite + passkey enrollment run by hand on localhost (2026-10-19) | Met (the Google path is not exercised in CI) |
 | | Redirect handling | The CLI callback binds `127.0.0.1`, checks `state`; the CLI never follows redirects with a token | `cmd/ku/cmd_profile.go`, `cmd/ku/main.go` | Met |

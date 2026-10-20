@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 // passkeyConfirm is the prompt line while the only second step is a passkey.

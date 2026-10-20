@@ -38,7 +38,7 @@ jobs:
           check-latest: true
       - run: go test -race ./...
       - name: Fuzz (short)
-        run: go test ./keys -run '^$' -fuzz FuzzOpen -fuzztime 20s
+        run: go test ./internal/keys -run '^$' -fuzz FuzzOpen -fuzztime 20s
 
   test-postgres:
     runs-on: ubuntu-latest

@@ -6,13 +6,13 @@ monoline as the ring. Nothing in the brand depends on a font, a script or a netw
 
 | Asset | File |
 |---|---|
-| Mark (app icon, 64x64 tile) | [`api/web/assets/mark.svg`](../api/web/assets/mark.svg) |
-| Logo (mark + wordmark, light and dark aware) | [`api/web/assets/logo.svg`](../api/web/assets/logo.svg) |
-| Favicon (simplified for 16/32 px, dark-mode tile) | [`api/web/assets/favicon.svg`](../api/web/assets/favicon.svg) |
-| Banner (1280x640, README hero) | [`api/web/assets/banner.svg`](../api/web/assets/banner.svg) |
+| Mark (app icon, 64x64 tile) | [`internal/api/web/assets/mark.svg`](../internal/api/web/assets/mark.svg) |
+| Logo (mark + wordmark, light and dark aware) | [`internal/api/web/assets/logo.svg`](../internal/api/web/assets/logo.svg) |
+| Favicon (simplified for 16/32 px, dark-mode tile) | [`internal/api/web/assets/favicon.svg`](../internal/api/web/assets/favicon.svg) |
+| Banner (1280x640, README hero) | [`internal/api/web/assets/banner.svg`](../internal/api/web/assets/banner.svg) |
 | Social preview (the banner rendered, 1280x640 PNG) | [`docs/social-preview.png`](social-preview.png) |
-| Illustrations: empty vault, passkey, shield, closed vault (done), alert, confirm | [`api/web/art/`](../api/web/art) |
-| Icon sprite (Google, fingerprint, key, shield, copy, download, check, terminal, phone, lifebuoy) | [`api/web/sprite.svg`](../api/web/sprite.svg) |
+| Illustrations: empty vault, passkey, shield, closed vault (done), alert, confirm | [`internal/api/web/art/`](../internal/api/web/art) |
+| Icon sprite (Google, fingerprint, key, shield, copy, download, check, terminal, phone, lifebuoy) | [`internal/api/web/sprite.svg`](../internal/api/web/sprite.svg) |
 | Dokploy template logo (a copy of the mark) | [`deploy/dokploy/kuukura.svg`](../deploy/dokploy/kuukura.svg) |
 
 The server serves the mark, logo, favicon and banner at `/favicon.svg` and `/assets/<name>.svg`. The pages use inline
@@ -22,7 +22,7 @@ SVG, system fonts and no external resources, so the strict CSP (`default-src 'no
 
 One accent. The base is teal-ink; amber is the only highlight. Teal is the supporting hue for state (progress, success,
 the fingerprint) and never decorates. These are the same values as the `:root` variables in
-[`api/web/style.css`](../api/web/style.css); each art file and the CLI's "signed in" page repeat them.
+[`internal/api/web/style.css`](../internal/api/web/style.css); each art file and the CLI's "signed in" page repeat them.
 
 | Token (css var) | Light | Dark | Use |
 |---|---|---|---|
@@ -79,6 +79,6 @@ glyph is the one full-color symbol.
   (it must match `mark.svg` exactly). Change the file and both tests together, then copy the mark to
   `deploy/dokploy/kuukura.svg` and update `signedin.go`.
 - After changing the banner, render `docs/social-preview.png` again at exactly 1280x640 (it stays under 1 MB):
-  `chrome --headless --screenshot=docs/social-preview.png --window-size=1280,640 api/web/assets/banner.svg`.
+  `chrome --headless --screenshot=docs/social-preview.png --window-size=1280,640 internal/api/web/assets/banner.svg`.
 
 **Voice:** short, plain, calm. Say what happened and what to do next.

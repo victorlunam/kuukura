@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/victorlunam/kuukura/auth"
+	"github.com/victorlunam/kuukura/internal/auth"
 )
 
 // config is read from the environment and validated at startup (fail fast).

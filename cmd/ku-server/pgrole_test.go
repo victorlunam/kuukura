@@ -8,14 +8,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/victorlunam/kuukura/access"
-	"github.com/victorlunam/kuukura/audit"
-	"github.com/victorlunam/kuukura/auth"
-	"github.com/victorlunam/kuukura/identity"
-	"github.com/victorlunam/kuukura/keys"
-	"github.com/victorlunam/kuukura/secrets"
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/access"
+	"github.com/victorlunam/kuukura/internal/audit"
+	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/identity"
+	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/secrets"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 // The real deployment shape: the app connects with the least privilege its backend offers, and everything it

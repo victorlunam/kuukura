@@ -13,11 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/victorlunam/kuukura/access"
-	"github.com/victorlunam/kuukura/audit"
-	"github.com/victorlunam/kuukura/keys"
-	"github.com/victorlunam/kuukura/secrets"
-	"github.com/victorlunam/kuukura/storage"
+	"github.com/victorlunam/kuukura/internal/access"
+	"github.com/victorlunam/kuukura/internal/audit"
+	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/secrets"
+	"github.com/victorlunam/kuukura/internal/storage"
 )
 
 func runOut(t *testing.T, args ...string) (string, error) {

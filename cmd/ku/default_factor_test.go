@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 // The first factor is the default; the person can move the mark; the confirmation offers the default first;

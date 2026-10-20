@@ -10,6 +10,19 @@ change saves everyone time.
 - All test values, fixtures and docs use **fake** data. Never paste a real secret, token, key or invite link in an
   issue, pull request, log or screenshot.
 
+## Repository layout
+
+| Path | What |
+|---|---|
+| `cmd/ku`, `cmd/ku-server` | the two binaries: the CLI and the server (also the operator tool) |
+| `internal/` | Go domain packages: `access`, `audit`, `auth`, `identity`, `keys`, `secrets`, `storage`, `db` (migrations) and `api` (HTTP + the server's pages and brand assets in `api/web`) |
+| `site/` | the website and docs site (Astro); the docs themselves live in `docs/` |
+| `docs/` | documentation, the single source for the website's docs |
+| `deploy/`, `render.yaml` | Docker Compose, Dokploy, Coolify, Swarm and Render templates |
+| `scripts/` | install scripts, Homebrew formula template, macOS signing |
+
+Both binaries go through the same domain services; neither contains SQL.
+
 ## Setup
 
 Tools are pinned with [mise](https://mise.jdx.dev/) (`mise.toml` selects the Go version):

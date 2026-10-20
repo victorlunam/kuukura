@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 func testApp(t *testing.T, env map[string]string) (*app, *memStore, *strings.Builder) {

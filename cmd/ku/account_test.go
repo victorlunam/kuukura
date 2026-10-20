@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 var factorLine = regexp.MustCompile(`(?m)^([0-9a-f]{8})  (passkey|authenticator app)`)

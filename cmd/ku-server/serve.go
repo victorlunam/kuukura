@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/victorlunam/kuukura/access"
-	"github.com/victorlunam/kuukura/api"
-	"github.com/victorlunam/kuukura/auth"
-	"github.com/victorlunam/kuukura/secrets"
+	"github.com/victorlunam/kuukura/internal/access"
+	"github.com/victorlunam/kuukura/internal/api"
+	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/secrets"
 )
 
 // runServe validates the config, refuses to start without the master key, and serves until SIGTERM/SIGINT.

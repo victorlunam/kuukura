@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 func TestConfirmationGates(t *testing.T) {

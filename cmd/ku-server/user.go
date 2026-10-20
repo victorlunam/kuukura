@@ -8,7 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/victorlunam/kuukura/identity"
+	"github.com/victorlunam/kuukura/internal/identity"
 )
 
 // positional parses args into exactly n positional arguments plus the flags declared on fs.

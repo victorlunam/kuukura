@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/victorlunam/kuukura/storage"
-	"github.com/victorlunam/kuukura/storage/storagetest"
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
 // A link planted in the sessions folder that points outside of it is not followed.

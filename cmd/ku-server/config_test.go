@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/keys"
-	"github.com/victorlunam/kuukura/storage"
+	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/storage"
 )
 
 // serverEnv is a complete sqlite configuration; everything else a developer's shell or CI might have set is

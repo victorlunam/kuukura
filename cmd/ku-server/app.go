@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/victorlunam/kuukura/audit"
-	"github.com/victorlunam/kuukura/auth"
-	"github.com/victorlunam/kuukura/identity"
-	"github.com/victorlunam/kuukura/keys"
-	"github.com/victorlunam/kuukura/storage"
+	"github.com/victorlunam/kuukura/internal/audit"
+	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/identity"
+	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/storage"
 )
 
 func openStorage(ctx context.Context, c config) (storage.Provider, error) {

@@ -14,11 +14,11 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/victorlunam/kuukura/audit"
-	"github.com/victorlunam/kuukura/auth"
-	"github.com/victorlunam/kuukura/keys"
-	"github.com/victorlunam/kuukura/secrets"
-	"github.com/victorlunam/kuukura/storage"
+	"github.com/victorlunam/kuukura/internal/audit"
+	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/secrets"
+	"github.com/victorlunam/kuukura/internal/storage"
 )
 
 const showHint = "run `ku-server key show` once and store the key in your password manager"
