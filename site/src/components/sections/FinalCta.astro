@@ -8,7 +8,7 @@ import InstallCommands from '../InstallCommands.astro';
 
 <Section class="final" aria-labelledby="final-title">
   <div class="stack">
-    <svg class="mark" viewBox="0 0 64 64" width="88" height="88" fill="none" aria-hidden="true">
+    <svg class="mark" viewBox="0 0 64 64" width="72" height="72" fill="none" aria-hidden="true">
       <rect width="64" height="64" rx="14" fill="var(--k-tile-raised)"></rect>
       <rect x=".5" y=".5" width="63" height="63" rx="13.5" stroke="var(--k-fg)" stroke-opacity=".14"></rect>
       <circle cx="32" cy="32" r="20" stroke="var(--k-fg)" stroke-width="4.5"></circle>
@@ -20,7 +20,9 @@ import InstallCommands from '../InstallCommands.astro';
         stroke-linecap="round"></path>
       <circle cx="32" cy="32" r="4.6" fill="var(--k-hub)"></circle>
     </svg>
-    <Heading id="final-title" size="display" align="center" gap={false}>A vault you can operate in an afternoon.</Heading>
+    <Heading id="final-title" size="display" align="center" gap={false} maxWidth="12em" eyebrow="Free · MIT · runs on your server">
+      A vault you can operate in an afternoon.
+    </Heading>
     <div class="ctas">
       <Button href="/docs/install/">Get started</Button>
       <Button href="/docs/" variant="ghost">Read the docs</Button>
@@ -46,13 +48,10 @@ import InstallCommands from '../InstallCommands.astro';
     flex-direction: column;
     align-items: center;
   }
-  .stack > :global(header) {
-    max-width: 14ch;
-  }
   .mark {
     border-radius: var(--k-radius-tile);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-    margin-bottom: 2.5rem;
+    margin-bottom: var(--k-space-6);
   }
   .ctas {
     display: flex;
@@ -64,6 +63,6 @@ import InstallCommands from '../InstallCommands.astro';
   .install {
     width: 100%;
     max-width: 41rem;
-    margin-top: 3rem;
+    margin-top: var(--k-space-6);
   }
 </style>

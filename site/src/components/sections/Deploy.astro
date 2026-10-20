@@ -1,8 +1,8 @@
 ---
-// Deploy targets (docs/deploy.md) and the README quickstart for Docker Compose + Caddy, verbatim.
+// Deploy targets (docs/deploy.md) and the last three commands of the README quickstart for Docker Compose + Caddy,
+// verbatim; the full steps are in the guide.
 import Section from '../ui/Section.astro';
 import Heading from '../ui/Heading.astro';
-import Button from '../ui/Button.astro';
 import ArrowLink from '../ui/ArrowLink.astro';
 import Window from '../ui/Window.astro';
 import CodeBlock from '../ui/CodeBlock.astro';
@@ -15,18 +15,7 @@ const targets = [
   { name: 'Docker Swarm', href: '/docs/templates/#docker-swarm--portainer-stack' },
   { name: 'docker run', href: '/docs/deploy/#deploy-targets' },
 ];
-const raw = 'https://raw.githubusercontent.com/victorlunam/kuukura/main/deploy/docker';
-const quickstart = `# a domain on a Linux host with Docker, and a Google OAuth client
-mkdir kuukura && cd kuukura
-curl -fsSLO ${raw}/docker-compose.yml
-curl -fsSL ${raw}/.env.example -o .env
-# edit .env: VAULT_DOMAIN, VAULT_OIDC_CLIENT_ID, and for production KUUKURA_VERSION
-
-mkdir -p secrets
-docker run --rm -v "$PWD/secrets:/s" ghcr.io/victorlunam/kuukura key init --key-file /s/master_key
-printf '%s' 'your-google-oauth-client-secret' > secrets/oidc_client_secret
-# on Linux hosts the container runs as user 65532: see "File permissions" in the guide
-
+const quickstart = `# with the compose file, .env and a master key in place (see the guide):
 docker compose up -d
 docker compose exec kuukura /ku-server user invite you@example.com --admin
 docker compose exec -it kuukura /ku-server key show`;
@@ -37,8 +26,7 @@ docker compose exec -it kuukura /ku-server key show`;
     <Heading id="deploy-title" eyebrow="Deploy" gap={false}>
       Runs anywhere you run Docker.
       <Fragment slot="lede">
-        One container and the published image. <b>SQLite by default</b>, Postgres when you want it. Nothing is built on
-        your server.
+        One container and the published image. <b>SQLite by default</b>, Postgres when you want it. Nothing to compile.
       </Fragment>
     </Heading>
     <ul class="targets" aria-label="Templates">
@@ -50,10 +38,7 @@ docker compose exec -it kuukura /ku-server key show`;
         ))
       }
     </ul>
-    <div class="ctas">
-      <Button href="https://render.com/deploy?repo=https://github.com/victorlunam/kuukura" variant="ghost">Deploy to Render</Button>
-      <ArrowLink href="/docs/deploy/">Read the deploy guide</ArrowLink>
-    </div>
+    <p class="more"><ArrowLink href="/docs/deploy/">Read the deploy guide</ArrowLink></p>
   </div>
   <Window title="Docker Compose + Caddy, on any VPS" chrome="code" data-reveal>
     <CodeBlock code={quickstart} label="Deploy commands" size="sm" />
@@ -97,12 +82,8 @@ docker compose exec -it kuukura /ku-server key show`;
   .targets a:hover {
     border-color: var(--k-line-3);
   }
-  .ctas {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--k-space-5);
-    margin-top: var(--k-space-6);
+  .more {
+    margin: var(--k-space-5) 0 0;
   }
   @media (max-width: 900px) {
     :global(.deploy-grid) {

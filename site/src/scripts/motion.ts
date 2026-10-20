@@ -53,8 +53,9 @@ if (!reduced && !CSS.supports('animation-timeline: view()')) {
     const captions = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          e.target.toggleAttribute('data-in', e.isIntersecting);
-          if (e.isIntersecting) show(Number((e.target as HTMLElement).dataset['stepCaption']));
+          if (!e.isIntersecting) continue;
+          mark(e.target); // a step that has been reached stays bright
+          show(Number((e.target as HTMLElement).dataset['stepCaption']));
         }
       },
       { rootMargin: '-40% 0px -40% 0px' },

@@ -11,13 +11,21 @@ import { REPO_URL } from '../../../site.config.mjs';
 const claims = [
   { claim: 'Threats, controls and what is not defended', where: 'Threat model', href: '/docs/threat-model/' },
   {
-    claim: 'Self-review against OWASP ASVS 5.0.0 Level 2, a draft checklist with its open items listed',
+    claim: 'A self-review against OWASP ASVS Level 2 (a checklist of application-security requirements), with its open items listed',
     where: 'ASVS L2 self-review',
     href: '/docs/asvs-l2/',
   },
-  { claim: 'Private vulnerability reporting, response targets and scope', where: 'Security policy', href: '/docs/security/' },
-  { claim: 'Releases come from this repository’s workflow', where: 'Verifying a release', href: '/docs/deploy/#verifying-a-release' },
-  { claim: 'The audit log is a hash chain', where: 'ku-server audit verify', href: '/docs/cli/#ku-server', code: true },
+  {
+    claim: 'Nothing is readable by default, and admins have no secret access by role',
+    where: 'Grants',
+    href: '/docs/#the-ideas-in-one-minute',
+  },
+  {
+    claim: 'An audit log you can check: each entry carries a fingerprint of the one before it (hash-chained), so edits show',
+    where: 'ku-server audit verify',
+    href: '/docs/cli/#ku-server',
+    code: true,
+  },
   {
     claim: 'Static analysis and dependency checks in CI (staticcheck, gosec, govulncheck)',
     where: 'ci.yml',
@@ -31,7 +39,6 @@ const notProtected = [
   '<b>A compromised server host.</b> Root access, a debugger or a memory dump exposes keys and plaintext while the server runs.',
   '<b>A malicious admin with host or database access,</b> who can mint invites, replace the binary or rewrite the audit chain.',
   '<b>A stolen session on an unlocked laptop</b> can <code>ku run</code> plain secrets until it expires (8 hours, 1 hour idle). Reveals still need your second factor.',
-  '<b>AI agents that print what <code>ku run</code> injects.</b> Give agents low-value development secrets only.',
   '<b>Phishing of authenticator codes and recovery codes,</b> which passkeys resist and these do not.',
 ].map((html) => ({ icon: 'x' as const, html }));
 
@@ -45,7 +52,10 @@ cosign verify ghcr.io/victorlunam/kuukura:$v \\
 <Section id="security" aria-labelledby="security-title">
   <Heading id="security-title" eyebrow="Security, honestly">
     Every claim comes with a place to check it.
-    <Fragment slot="lede">These are self-reviews and published evidence, not third-party certifications.</Fragment>
+    <Fragment slot="lede">
+      Things you can verify, not take on trust. These are self-reviews and published evidence, not third-party
+      certifications.
+    </Fragment>
   </Heading>
   <ul class="claims">
     {
@@ -67,6 +77,7 @@ cosign verify ghcr.io/victorlunam/kuukura:$v \\
   </div>
   <h3 class="nope">What kuukura does not protect against</h3>
   <IconList items={notProtected} tone="muted" columns={2} />
+  <p class="k-fine">Agents that print what <code>ku run</code> injects are covered in <a href="/docs/agents/">the agent guide</a>.</p>
 </Section>
 
 <style>
@@ -81,11 +92,11 @@ cosign verify ghcr.io/victorlunam/kuukura:$v \\
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--k-space-5);
     align-items: center;
-    padding: 1.35rem 0;
+    padding: 1rem 0;
     border-bottom: 1px solid var(--k-line);
   }
   .claims span {
-    font-size: clamp(1.0625rem, 0.95rem + 0.5vw, 1.375rem);
+    font-size: clamp(1.0625rem, 0.95rem + 0.4vw, 1.25rem);
     letter-spacing: -0.015em;
     font-weight: 600;
     line-height: 1.35;
@@ -97,7 +108,7 @@ cosign verify ghcr.io/victorlunam/kuukura:$v \\
     margin-top: var(--k-space-8);
   }
   .nope {
-    margin: clamp(4.5rem, 9vw, 7rem) 0 0;
+    margin: var(--k-space-8) 0 0;
     font-size: var(--k-text-h3);
     line-height: 1.12;
     letter-spacing: -0.03em;

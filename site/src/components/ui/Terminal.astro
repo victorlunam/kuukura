@@ -1,0 +1,65 @@
+---
+// A terminal window with lines in the CLI's own look: "$" commands, ✓ results, quiet output. A line with a `step`
+// takes part in a scroll-told sequence (styles/motion.css, data-steps); without one it is plain text.
+import Window from './Window.astro';
+
+export type TermLine = {
+  k: 'cmd' | 'cont' | 'ok' | 'out' | 'end';
+  text: string;
+  /** the step whose caption reveals this line; the line is always visible when left out */
+  step?: number;
+  /** the line's scroll range (--tl, --r0, --r1, --n), set by the sequence */
+  style?: string;
+};
+interface Props {
+  title: string;
+  label: string;
+  lines: TermLine[];
+}
+const { title, label, lines } = Astro.props;
+const typed = (l: TermLine) => l.step !== undefined && (l.k === 'cmd' || l.k === 'cont');
+---
+
+<Window title={title} aria-label={label}>
+  <pre><code>{lines.map((l) => (
+    <span class:list={['ln', l.k]} data-line={l.step ? '' : undefined} data-step={l.step} data-command={l.step && l.k === 'cmd' ? '' : undefined} style={l.style}>{l.k === 'cmd' || l.k === 'end' ? <span class="ps">$ </span> : null}{l.k === 'ok' ? <span class="check">✓ </span> : null}{l.k === 'end' ? <span class="cursor" data-blink aria-hidden="true" /> : <span class="tx">{l.text}{typed(l) ? <span data-caret aria-hidden="true" /> : null}</span>}{l.k === 'end' ? null : '\n'}</span>
+  ))}</code></pre>
+</Window>
+
+<style>
+  pre {
+    margin: 0;
+    padding: 1.25rem 1.4rem 1.5rem;
+    font: 400 clamp(0.75rem, 0.6rem + 0.5vw, 0.95rem) / 1.7 var(--k-mono);
+    color: var(--k-ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .ln {
+    display: block;
+  }
+  .ln.cmd:not(:first-child),
+  .ln.end {
+    margin-top: 0.7em;
+  }
+  .ps {
+    color: var(--k-amber);
+  }
+  .check {
+    color: var(--k-acc);
+  }
+  .ln.out {
+    color: var(--k-muted);
+  }
+  .tx {
+    position: relative;
+  }
+  .cursor {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.15em;
+    vertical-align: -0.2em;
+    background: var(--k-ink);
+    opacity: 0.85;
+  }
+</style>

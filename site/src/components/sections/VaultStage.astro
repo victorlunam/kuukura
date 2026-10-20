@@ -1,6 +1,6 @@
 ---
-// The mark at 6x, pinned while it opens: the bolts turn, the door swings, the empty doorway lights up.
-// Two layers so the door can rotate in 3D: the tile and doorway behind, the door (ring, eight bolts, hub) in front.
+// The mark at 6x, opening as it crosses the screen: the bolts turn, the door fades away, the empty doorway lights up.
+// Two layers: the tile and doorway behind, the door (ring, eight bolts, hub) in front.
 // Closed, it is exactly mark.svg on a 64 grid times 6.
 const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
   .map((a) => {
@@ -11,11 +11,7 @@ const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
 ---
 
 <section class="stage" aria-label="The vault" data-stage>
-  <div class="pin">
-    <div class="copy">
-      <p data-stage-part="first">Every secret is sealed with its own key.</p>
-      <p class="second" data-stage-part="second">Opened only on your server, and only for who you grant.</p>
-    </div>
+  <div class="scene">
     <div class="vault" aria-hidden="true" data-stage-part="vault">
       <svg viewBox="0 0 384 384" fill="none">
         <defs>
@@ -43,31 +39,31 @@ const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
         <circle cx="192" cy="192" r="120" stroke="var(--k-fg)" stroke-width="27"></circle>
         <path d={bolts} stroke="var(--k-fg)" stroke-width="25.2" stroke-linecap="round" data-stage-part="bolts"></path>
         <circle cx="192" cy="192" r="27.6" fill="var(--k-hub)"></circle>
-        <circle cx="192" cy="192" r="134" fill="var(--k-bg)" data-stage-part="shade"></circle>
       </svg>
+    </div>
+    <div class="copy">
+      <p data-stage-part="first">Every secret is sealed with its own key.</p>
+      <p class="second" data-stage-part="second">Opened only on your server, and only for who you grant.</p>
     </div>
   </div>
 </section>
 
 <style>
+  /* a compact band: the scene plays while it crosses the page, nothing is pinned */
   .stage {
     position: relative;
-    height: 230vh;
-  }
-  .pin {
-    position: sticky;
-    top: 0;
-    height: 100svh;
-    display: grid;
-    place-items: center;
+    padding-bottom: var(--k-section);
     overflow: hidden;
   }
+  .scene {
+    display: grid;
+    justify-items: center;
+    gap: var(--k-space-6);
+  }
   .vault {
-    grid-area: 1 / 1;
     position: relative;
-    width: min(30rem, 74vw, 56svh);
+    width: min(18rem, 64vw);
     aspect-ratio: 1;
-    perspective: 1600px;
   }
   .vault svg {
     position: absolute;
@@ -76,54 +72,28 @@ const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
     height: 100%;
     overflow: visible;
   }
-  .door {
-    transform-origin: 15.23% 50%; /* the door's left edge: (192 - 133.5) / 384 */
-  }
+  /* the two lines share one place: the first gives way to the second */
   .copy {
-    grid-area: 1 / 1;
-    align-self: end;
-    position: relative;
-    z-index: 2;
+    display: grid;
     width: 100%;
     max-width: 44rem;
-    padding: 0 var(--k-gutter) clamp(2rem, 7vh, 4.5rem);
     text-align: center;
   }
   .copy p {
+    grid-area: 1 / 1;
     margin: 0;
-    font-size: clamp(1.5rem, 0.9rem + 2.4vw, 2.75rem);
+    font-size: clamp(1.375rem, 0.9rem + 1.8vw, 2.25rem);
     line-height: 1.12;
     letter-spacing: -0.035em;
     font-weight: 700;
     text-wrap: balance;
   }
-  .second {
-    position: absolute;
-    inset-inline: var(--k-gutter);
-    bottom: clamp(2rem, 7vh, 4.5rem);
-  }
-  @media (max-width: 560px) {
-    .stage {
-      height: 200vh;
-    }
-  }
-  /* reduced motion: no pinning; the closed door with both lines under it */
+  /* reduced motion: the closed door with both lines under it */
   @media (prefers-reduced-motion: reduce) {
-    .stage {
-      height: auto;
-      padding-block: 2rem 4rem;
-    }
-    .pin {
-      position: relative;
-      height: auto;
-      gap: 2.5rem;
-    }
-    .copy {
-      grid-area: 2 / 1;
-      padding-bottom: 0;
+    .copy p {
+      grid-area: auto;
     }
     .second {
-      position: static;
       margin-top: 0.5rem;
       color: var(--k-muted);
     }

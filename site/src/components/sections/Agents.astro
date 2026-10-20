@@ -6,7 +6,7 @@ import Window from '../ui/Window.astro';
 import Icon from '../ui/Icon.astro';
 ---
 
-<Section aria-labelledby="agents-title" inner="agents-grid">
+<Section id="agents" aria-labelledby="agents-title" inner="agents-grid">
   <div>
     <Heading id="agents-title" eyebrow="Built for AI coding agents" gap={false}>
       Let agents use secrets without handing them over.
@@ -91,7 +91,7 @@ import Icon from '../ui/Icon.astro';
   }
   .h {
     margin: 0 0 0.6rem;
-    font: 600 0.75rem/1 var(--k-mono);
+    font: 600 0.8125rem/1 var(--k-mono);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -99,7 +99,7 @@ import Icon from '../ui/Icon.astro';
     color: var(--k-acc);
   }
   .never {
-    color: var(--k-amber);
+    color: var(--k-ink);
     margin-top: 1.5rem;
   }
   ul {

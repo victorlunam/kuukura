@@ -11,14 +11,16 @@ interface Props {
   align?: 'start' | 'center';
   /** space below the header, before the section's content */
   gap?: boolean;
+  /** a limit on the headline's own line length, in em (so it follows the headline's size, not the body's) */
+  maxWidth?: `${number}em`;
 }
-const { id, eyebrow, level = 2, size = 'h2', align = 'start', gap = true } = Astro.props;
+const { id, eyebrow, level = 2, size = 'h2', align = 'start', gap = true, maxWidth } = Astro.props;
 const Tag = `h${level}` as 'h1' | 'h2';
 ---
 
 <header class:list={['k-head', `k-head-${align}`, `k-head-${size}`, gap && 'k-head-gap']}>
   {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-  <Tag id={id} class:list={['k-title', `k-title-${size}`]}><slot /></Tag>
+  <Tag id={id} class:list={['k-title', `k-title-${size}`]} style={maxWidth ? `max-width: ${maxWidth}` : undefined}><slot /></Tag>
   {
     Astro.slots.has('lede') && (
       <Lede class={align === 'center' ? 'k-center' : undefined}>
@@ -56,6 +58,9 @@ const Tag = `h${level}` as 'h1' | 'h2';
     font-size: var(--k-text-display);
     line-height: 0.98;
     letter-spacing: var(--k-tracking-display);
+  }
+  .k-head-center .k-title {
+    margin-inline: auto;
   }
   .k-head :global(.k-center) {
     margin-inline: auto;

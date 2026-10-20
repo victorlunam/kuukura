@@ -1,5 +1,5 @@
 ---
-// The README's comparison table, with its sources and "last checked" date. Rows become cards on phones.
+// The README's comparison table, with its sources and "last checked" date. Rows become a stacked list on phones.
 import Section from '../ui/Section.astro';
 import Heading from '../ui/Heading.astro';
 import { REPO_URL } from '../../../site.config.mjs';
@@ -7,44 +7,39 @@ import { REPO_URL } from '../../../site.config.mjs';
 const rows = [
   {
     name: 'kuukura',
-    hosting: 'Self-hosted, one organization',
-    strengths: 'Small, simple model; server-side decryption with per-person confirmation; no unseal step',
+    hosting: 'Self-hosted, one organization. MIT.',
     when: 'You are one small team and want a vault you can operate in an afternoon',
   },
   {
     name: 'Infisical',
     href: 'https://github.com/Infisical/infisical',
-    hosting: 'Self-hosted or cloud',
-    strengths: 'MIT core; dynamic secrets listed among its features; paid enterprise edition under ee',
-    when: 'You want a broader platform and can use its enterprise tier where needed',
+    hosting: 'Self-hosted or cloud. MIT core, paid enterprise edition under ee.',
+    when: 'You want a broader platform (dynamic secrets are among its features) and can use its enterprise tier where needed',
   },
   {
     name: 'OpenBao',
     href: 'https://github.com/openbao/openbao',
-    hosting: 'Self-hosted',
-    strengths: 'MPL-2.0; dynamic secrets with leases and revocation; encrypts before writing to storage',
-    when: 'You need dynamic credentials, many backends or large-scale policy',
+    hosting: 'Self-hosted. MPL-2.0.',
+    when: 'You need dynamic credentials with leases and revocation, many backends or large-scale policy',
   },
   {
     name: 'SOPS',
     href: 'https://github.com/getsops/sops',
-    hosting: 'A file tool, no server',
-    strengths: 'MPL-2.0; encrypts YAML, JSON, ENV, INI and binary files; AWS/GCP/Azure KMS, age, PGP',
+    hosting: 'A file tool, no server. MPL-2.0.',
     when: 'Your secrets live in Git and you do not need access logs or per-person grants',
   },
-  { name: '.env files', hosting: 'None', strengths: 'Zero setup', when: 'Throwaway local work with nothing worth protecting' },
+  { name: '.env files', hosting: 'None', when: 'Throwaway local work with nothing worth protecting' },
 ];
 ---
 
-<Section aria-labelledby="compare-title">
+<Section id="compare" aria-labelledby="compare-title">
   <Heading id="compare-title" eyebrow="How it compares">Choose the right tool. Even if it isn’t this one.</Heading>
   <div class="frame">
     <table>
       <thead>
         <tr>
           <th scope="col"><span class="sr-only">Tool</span></th>
-          <th scope="col">Hosting</th>
-          <th scope="col">Strengths</th>
+          <th scope="col">Hosting and license</th>
           <th scope="col">Choose it if</th>
         </tr>
       </thead>
@@ -53,9 +48,8 @@ const rows = [
           rows.map((r) => (
             <tr class:list={{ self: r.name === 'kuukura' }}>
               <th scope="row">{r.href ? <a href={r.href}>{r.name}</a> : r.name}</th>
-              <td data-label="Hosting">{r.hosting}</td>
-              <td data-label="Strengths">{r.strengths}</td>
-              <td data-label="Choose it if">{r.when}</td>
+              <td data-label="Hosting and license">{r.hosting}</td>
+              <td data-label="Choose it if" class="when">{r.when}</td>
             </tr>
           ))
         }
@@ -64,8 +58,7 @@ const rows = [
   </div>
   <p class="k-fine sources">
     Sources, last checked 2026-10-19: the repository pages linked above (licenses and feature lists as stated by each
-    project). Doppler is not listed because its self-hosting status could not be confirmed from its public pages.{' '}
-    <a href={`${REPO_URL}/issues`}>Open an issue</a> if a row is out of date.
+    project). <a href={`${REPO_URL}/issues`}>Open an issue</a> if a row is out of date.
   </p>
 </Section>
 
@@ -85,11 +78,11 @@ const rows = [
   td {
     text-align: left;
     vertical-align: top;
-    padding: 1.15rem 1.25rem;
+    padding: 1.1rem 1.25rem;
     border-bottom: 1px solid var(--k-line);
   }
   thead th {
-    font-size: var(--k-text-xs);
+    font-size: var(--k-text-sm);
     font-weight: 600;
     color: var(--k-muted);
     padding-block: 0.9rem;
@@ -107,22 +100,12 @@ const rows = [
     color: var(--k-muted);
     line-height: 1.5;
   }
-  .self {
-    background: rgba(45, 212, 191, 0.045);
-  }
-  .self td {
+  /* what to choose it for is the answer: full ink */
+  td.when {
     color: var(--k-ink);
   }
-  /* the amber dot: the one accent marks the one row that is us */
-  .self th::after {
-    content: '';
-    display: inline-block;
-    width: 0.45rem;
-    height: 0.45rem;
-    margin-left: 0.55rem;
-    border-radius: 50%;
-    background: var(--k-amber);
-    vertical-align: 0.15rem;
+  .self {
+    background: rgba(45, 212, 191, 0.045);
   }
   .sources {
     max-width: 52rem;
@@ -164,9 +147,9 @@ const rows = [
     td::before {
       content: attr(data-label);
       display: block;
-      font-size: 0.75rem;
+      font-size: var(--k-text-xs);
       font-weight: 600;
-      color: var(--k-ink-2);
+      color: var(--k-muted);
       margin-bottom: 0.1rem;
     }
   }

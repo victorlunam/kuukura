@@ -29,13 +29,14 @@ const lines = code.split('\n');
   const live = document.createElement('div');
   live.className = 'sr-only';
   live.setAttribute('role', 'status');
+  live.setAttribute('aria-live', 'polite');
   document.body.append(live);
   for (const btn of document.querySelectorAll<HTMLButtonElement>('.k-copy')) {
     btn.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(btn.dataset['copy'] ?? '');
         btn.classList.add('done');
-        live.textContent = 'Copied to the clipboard';
+        live.textContent = 'Copied';
         setTimeout(() => {
           btn.classList.remove('done');
           live.textContent = '';
@@ -65,8 +66,10 @@ const lines = code.split('\n');
   .k-code-sm pre {
     font-size: 0.8rem;
   }
+  /* nothing clips silently: long lines wrap, and the block stays focusable in case it still overflows */
   .k-code-block pre {
-    white-space: pre;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     overflow-x: auto;
     padding: 1.25rem 0 1rem 1.5rem;
     scrollbar-width: thin;

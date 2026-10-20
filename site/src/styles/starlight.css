@@ -88,6 +88,11 @@ nav.sidebar a[aria-current='page']:focus {
   outline-offset: 2px;
 }
 
+/* the header's "Get started" (the landing's button): in the light theme its fill is dark, so its text is light */
+:root[data-theme='light'] .k-btn-primary {
+  color: var(--brand-light-card);
+}
+
 /* the overview's screenshots, which follow the docs theme */
 .k-shots {
   display: grid;

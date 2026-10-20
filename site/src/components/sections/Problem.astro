@@ -1,50 +1,47 @@
 ---
-// The problem in a few big lines (README "Why kuukura"), then the answer.
+// The problem in a few big lines (README "Why kuukura"), then the answer and its three ideas.
 import Section from '../ui/Section.astro';
 import Eyebrow from '../ui/Eyebrow.astro';
 import Lede from '../ui/Lede.astro';
 ---
 
-<Section aria-labelledby="problem-title">
-  <Eyebrow id="problem-title">Why kuukura</Eyebrow>
-  <div class="lines">
-    <p data-dim><code>.env</code> files passed around in chat.</p>
-    <p data-dim>API keys in a shared password manager.</p>
-    <p data-dim>A heavyweight vault with seal, unseal and a policy language.</p>
-    <p data-dim>And nobody can say who read what last week.</p>
-  </div>
-  <p class="answer k-quiet" data-reveal>
-    kuukura is one small server, one database and three ideas:{' '}
-    <span>tags, grants and people.</span>
-  </p>
-  <Lede data-reveal>You run it, you hold the keys, and every read lands in a tamper-evident log.</Lede>
+<Section id="why" aria-labelledby="problem-eyebrow">
+  <Eyebrow id="problem-eyebrow">Why kuukura</Eyebrow>
+  <h2 class="lines">
+    <span data-dim><code>.env</code> files passed around in chat.</span>
+    <span data-dim>API keys in a shared password manager.</span>
+    <span data-dim>A heavyweight vault with seal, unseal and a policy language.</span>
+    <span data-dim>And nobody can say who read what last week.</span>
+  </h2>
+  <h2 class="answer" data-reveal>
+    <span class="k-quiet">One server. One database. Three ideas you can learn in a minute:</span>
+    <span>tags, grants, people.</span>
+  </h2>
+  <Lede data-reveal>
+    A tag labels a secret; a grant gives a person or a CI token read or write access to the secrets with those tags.
+  </Lede>
 </Section>
 
 <style>
   .lines,
   .answer {
-    font-size: clamp(2rem, 0.9rem + 4.4vw, 4.25rem);
-    line-height: 1.08;
+    margin: 0;
+    font-size: clamp(1.625rem, 0.9rem + 2.6vw, 2.75rem);
+    line-height: 1.1;
     letter-spacing: var(--k-tracking-tight);
     font-weight: 700;
+    text-wrap: balance;
   }
   .lines {
     display: grid;
     gap: 0.15em;
-  }
-  p {
-    margin: 0;
-    text-wrap: balance;
   }
   .lines code {
     font: inherit;
     color: var(--k-amber);
   }
   .answer {
-    margin-top: clamp(4rem, 10vw, 8rem);
+    margin-top: clamp(2.5rem, 5vw, 4rem);
     max-width: 54rem;
-  }
-  .answer span {
-    color: var(--k-ink);
   }
 </style>

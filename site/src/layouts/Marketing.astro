@@ -5,6 +5,7 @@ import '~/styles/base.css';
 import '~/styles/motion.css';
 import Logo from '~/components/ui/Logo.astro';
 import Button from '~/components/ui/Button.astro';
+import release from '~/generated/release.json';
 import { REPO_URL, SITE } from '../../site.config.mjs';
 
 interface Props {
@@ -21,8 +22,24 @@ const footer = [
   { href: '/docs/install/', label: 'Install' },
   { href: '/docs/deploy/', label: 'Deploy' },
   { href: '/docs/security/', label: 'Security' },
-  { href: '/docs/changelog/', label: 'Changelog' },
+  { href: `${REPO_URL}/security/advisories/new`, label: 'Report a vulnerability' },
   { href: `${REPO_URL}/blob/main/LICENSE`, label: 'License' },
+  { href: '/docs/changelog/', label: 'Changelog' },
+  { href: REPO_URL, label: 'GitHub' },
+];
+// The long page's sections, for the phone menu (the top bar has no room for them)
+const sections = [
+  { href: '/#why', label: 'Why kuukura' },
+  { href: '/#session', label: 'A session' },
+  { href: '/#deploy', label: 'Deploy' },
+  { href: '/#confirm', label: 'Confirmation' },
+  { href: '/#how', label: 'How it works' },
+  { href: '/#agents', label: 'AI agents' },
+  { href: '/#security', label: 'Security' },
+  { href: '/#compare', label: 'Compare' },
+  { href: '/#open-source', label: 'Open source' },
+  { href: '/#faq', label: 'FAQ' },
+  { href: '/docs/', label: 'Docs' },
   { href: REPO_URL, label: 'GitHub' },
 ];
 ---
@@ -63,8 +80,8 @@ const footer = [
             <li class="wide"><a href="/#how">How it works</a></li>
             <li class="wide"><a href="/#security">Security</a></li>
             <li class="wide"><a href="/#deploy">Deploy</a></li>
-            <li><a href="/docs/">Docs</a></li>
-            <li>
+            <li class="wide"><a href="/docs/">Docs</a></li>
+            <li class="wide">
               <a class="gh" href={REPO_URL} aria-label="kuukura on GitHub">
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
                   ><path
@@ -75,6 +92,12 @@ const footer = [
               </a>
             </li>
             <li><Button href="/docs/install/" size="sm">Get started</Button></li>
+            <li class="narrow">
+              <details class="jump">
+                <summary>Menu</summary>
+                <ul>{sections.map((s) => <li><a href={s.href}>{s.label}</a></li>)}</ul>
+              </details>
+            </li>
           </ul>
         </nav>
       </div>
@@ -87,6 +110,9 @@ const footer = [
         <div class="foot-brand">
           <Logo height={24} />
           <p>A self-hosted secrets vault for small teams. MIT licensed. Copyright © 2026 Victor Luna.</p>
+          <p>
+            Latest release: <a href={`${REPO_URL}/releases/tag/v${release.version}`}>{release.version}</a>
+          </p>
         </div>
         <nav aria-label="Footer">
           <ul>{footer.map((l) => <li><a href={l.href}>{l.label}</a></li>)}</ul>
@@ -95,6 +121,17 @@ const footer = [
     </footer>
     <script>
       import '~/scripts/motion';
+
+      // the phone menu closes when a section is chosen, and on Escape
+      const jump = document.querySelector<HTMLDetailsElement>('.jump');
+      jump?.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('a')) jump.open = false;
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || !jump?.open) return;
+        jump.open = false;
+        jump.querySelector('summary')?.focus();
+      });
     </script>
   </body>
 </html>
@@ -170,11 +207,58 @@ const footer = [
     width: 2rem;
     height: 2rem;
   }
+  /* the phone menu: one tap opens every section, one tap goes there */
+  .narrow {
+    display: none;
+  }
+  .jump summary {
+    display: flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--k-line-2);
+    border-radius: var(--k-radius-pill);
+    color: var(--k-ink);
+    font-size: var(--k-text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  .jump summary::-webkit-details-marker {
+    display: none;
+  }
+  .jump[open] summary {
+    background: var(--k-soft-2);
+  }
+  .jump ul {
+    position: absolute;
+    inset: 100% 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    padding: var(--k-space-3) var(--k-gutter) var(--k-space-4);
+    background: var(--k-bg);
+    border-bottom: 1px solid var(--k-line);
+    max-height: calc(100svh - 3.5rem);
+    overflow-y: auto;
+  }
+  .nav .jump a {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-size: var(--k-text-base);
+    color: var(--k-ink);
+  }
   .foot {
     border-top: 1px solid var(--k-line);
-    padding-block: 3rem 3.5rem;
+    padding-block: 2.5rem 3rem;
     color: var(--k-muted);
     font-size: var(--k-text-sm);
+  }
+  .foot a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
   }
   .foot-in {
     display: flex;
@@ -187,12 +271,19 @@ const footer = [
     color: var(--k-muted);
     max-width: 24rem;
   }
+  .foot-brand p + p {
+    margin-top: 0.25rem;
+  }
   .foot ul {
-    gap: 0.75rem 1.5rem;
+    gap: 0 1.5rem;
+    max-width: 30rem;
   }
   @media (max-width: 760px) {
     .wide {
       display: none;
+    }
+    .narrow {
+      display: block;
     }
   }
 </style>

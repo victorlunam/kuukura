@@ -38,8 +38,8 @@
   --k-text-lg: 1.1875rem;
   --k-text-lede: clamp(1.125rem, 0.98rem + 0.62vw, 1.5rem);
   --k-text-h3: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
-  --k-text-h2: clamp(2.125rem, 1rem + 4.4vw, 4.5rem);
-  --k-text-display: clamp(2.6rem, 1rem + 5.6vw, 5.75rem);
+  --k-text-h2: clamp(2rem, 1rem + 3.6vw, 3.75rem);
+  --k-text-display: clamp(2.4rem, 1rem + 4vw, 4.75rem);
   --k-leading-tight: 1.03;
   --k-leading: 1.55;
   --k-tracking-tight: -0.042em;
@@ -53,8 +53,8 @@
   --k-space-5: 1.5rem;
   --k-space-6: 2.25rem;
   --k-space-7: clamp(2.5rem, 6vw, 4rem);
-  --k-space-8: clamp(3rem, 7vw, 5.5rem);
-  --k-section: clamp(6rem, 13vw, 11.5rem);
+  --k-space-8: clamp(2rem, 4vw, 3rem);
+  --k-section: clamp(3.5rem, 6vw, 5.5rem);
   --k-gutter: clamp(1rem, 4.5vw, 3rem);
   --k-maxw: 75rem;
 

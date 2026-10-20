@@ -1,0 +1,57 @@
+---
+// Who it is for, and who it is not for yet (README "Status" and docs "Is it for you?"). Said plainly, up front.
+import Section from '../ui/Section.astro';
+import IconList from '../ui/IconList.astro';
+
+const good = [
+  { icon: 'people', html: '<b>A small team</b> that wants to share secrets without sharing passwords.' },
+  { icon: 'check', html: '<b>One organization.</b> One instance serves one organization.' },
+  { icon: 'terminal', html: '<b>You can run Docker.</b> One container, SQLite by default.' },
+] as const;
+const not = [
+  { icon: 'x', html: '<b>SSO or SAML</b> sign-in.' },
+  { icon: 'x', html: '<b>Dynamic secrets:</b> short-lived credentials generated on demand.' },
+  { icon: 'x', html: '<b>Several organizations</b> in one instance.' },
+] as const;
+---
+
+<Section class="fit" aria-labelledby="fit-title">
+  <h2 id="fit-title" class="sr-only">Who kuukura is for</h2>
+  <div class="cols">
+    <div>
+      <h3>Good fit</h3>
+      <IconList items={good} />
+    </div>
+    <div>
+      <h3>Not a fit yet</h3>
+      <IconList items={not} tone="muted" />
+    </div>
+  </div>
+</Section>
+
+<style>
+  .fit {
+    padding-block: 0 var(--k-section);
+  }
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--k-space-6) clamp(2rem, 6vw, 5rem);
+    padding-top: var(--k-space-6);
+    border-top: 1px solid var(--k-line);
+  }
+  h3 {
+    margin: 0;
+    font-size: var(--k-text-h3);
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+  }
+  .cols :global(.k-icons) {
+    margin-top: var(--k-space-4);
+  }
+  @media (max-width: 720px) {
+    .cols {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

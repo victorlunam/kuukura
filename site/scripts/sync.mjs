@@ -53,6 +53,10 @@ const HELP = {
   server: { file: 'cmd/ku-server/main.go', name: 'helpText' },
 };
 
+/** The command groups of the reference page, by first word; each gets a heading and so an anchor. */
+const KU_GROUPS = ['profile', 'secret', 'run', 'workspace', 'account'];
+const SERVER_GROUPS = ['key', 'user', 'audit'];
+
 // ---- app paths ----
 const APP = resolve(import.meta.dirname, '..');
 const ROOT = resolve(APP, REPO_ROOT);
@@ -182,7 +186,8 @@ production.
       const src = (await readFile(join(ROOT, f), 'utf8')).replace(/\s+$/, '');
       const ext = f.slice(f.lastIndexOf('.'));
       const fence = '`'.repeat(Math.max(3, ...[...src.matchAll(/`+/g)].map((m) => m[0].length + 1)));
-      body += `\n${fence}${LANG[ext] ?? ''} title="${f}"\n${src}\n${fence}\n\n[View ${f} on GitHub](${BLOB}${f})\n`;
+      // `wrap`: long lines and comments wrap instead of scrolling out of sight
+      body += `\n${fence}${LANG[ext] ?? ''} title="${f}" wrap\n${src}\n${fence}\n\n[View ${f} on GitHub](${BLOB}${f})\n`;
     }
   }
   return `${frontmatter({
@@ -199,14 +204,34 @@ async function goConst({ file, name }) {
   return m[1];
 }
 
-function helpTable(text) {
+/** The help text's command lines, as [command, description]. */
+function helpRows(text) {
   const rows = [];
   for (const line of text.split('\n')) {
     const m = line.match(/^ {2}(\S.*?)\s{2,}(\S.*)$/);
-    if (m) rows.push(`| \`${m[1].replace(/\|/g, '\\|')}\` | ${m[2]} |`);
+    if (m) rows.push([m[1], m[2]]);
   }
   if (rows.length < 5) fail('help text format changed');
-  return `| Command | What it does |\n|---|---|\n${rows.join('\n')}`;
+  return rows;
+}
+
+const table = (rows) =>
+  `| Command | What it does |\n|---|---|\n${rows.map(([c, d]) => `| \`${c.replace(/\|/g, '\\|')}\` | ${d} |`).join('\n')}`;
+
+/**
+ * The help text as a table per command group, each under its own heading (so it has an anchor). Commands whose
+ * first word is not a group (login, link, version) lead in a table of their own.
+ */
+function helpTables(text, groups) {
+  const rows = helpRows(text);
+  const lead = rows.filter(([c]) => !groups.includes(c.split(' ')[0]));
+  const parts = lead.length ? [table(lead)] : [];
+  for (const g of groups) {
+    const own = rows.filter(([c]) => c.split(' ')[0] === g);
+    if (!own.length) fail(`help text has no "${g}" commands`);
+    parts.push(`### ${g}\n\n${table(own)}`);
+  }
+  return parts.join('\n\n');
 }
 
 async function cliPage() {
@@ -215,7 +240,8 @@ async function cliPage() {
   const kuNote = ku
     .split('\n')
     .filter((l) => l && !l.startsWith(' ') && !l.startsWith('Usage:'))
-    .join(' ');
+    .join(' ')
+    .replace('--profile <name>', '`--profile <name>`');
   return `${frontmatter({
     title: 'Command reference',
     description: 'Every ku and ku-server command, one noun-verb line each, as printed by their help.',
@@ -224,15 +250,17 @@ There are two programs. \`ku\` (also installed as \`kuukura\`) is the CLI for pe
 and the operator's tool on the host. Both print this list with \`help\`; the tables below are read from their source
 when the site is built.
 
-## ku
+**Start here:** add your server with [\`ku profile add\`](#profile), sign in with \`ku login\`, save a value with
+[\`ku secret set\`](#secret), then start your app with [\`ku run\`](#run). Jump to a group:
+${[...KU_GROUPS, ...SERVER_GROUPS].map((g) => `[${g}](#${g})`).join(' · ')}.
 
-${helpTable(ku)}
+## ku
 
 ${kuNote}
 
 A typical session:
 
-\`\`\`sh
+\`\`\`sh wrap
 ku profile add work --url https://vault.example.com   # the profile holds the server URL
 ku login                                              # Google, then your passkey or authenticator app
 ku secret set DATABASE_URL app:shop                   # the value comes from a hidden prompt
@@ -245,14 +273,24 @@ are in [What goes where](/docs/install/#what-goes-where) and the exit codes in
 [Errors and exit codes](/docs/install/#errors-and-exit-codes). Passkeys and authenticator apps:
 [Your passkeys and authenticator apps](/docs/install/#your-passkeys-and-authenticator-apps).
 
+${helpTables(ku, KU_GROUPS)}
+
 ## ku-server
 
-${helpTable(srv)}
+${helpTables(srv, SERVER_GROUPS)}
 
 Run it inside the container, for example \`docker compose exec kuukura /ku-server user list\`. Every state change is
 audited under the reserved \`ku-server\` principal. See [People from the host](/docs/deploy/#5-people-from-the-host-first-admin-lost-factors),
 [the master key](/docs/deploy/#2-the-master-key) and the [key rotation drill](/docs/runbook-key-rotation-drill/).
 `;
+}
+
+/** The latest released version: the first dated `## [x.y.z] - date` heading of CHANGELOG.md (never "Unreleased"). */
+async function latestRelease() {
+  const md = await readFile(join(ROOT, SOURCES.changelog), 'utf8');
+  const m = md.match(/^## \[(\d[^\]\s]*)\] - (\d{4}-\d{2}-\d{2})/m);
+  if (!m) fail(`${SOURCES.changelog} has no dated "## [x.y.z] - date" heading`);
+  return { version: m[1], date: m[2] };
 }
 
 async function main() {
@@ -284,6 +322,7 @@ async function main() {
   await mkdir(OUT_PUBLIC, { recursive: true });
   await cp(brand, join(OUT_GEN, 'brand'), { recursive: true });
   await cp(resolve(APP, ART_DIR), join(OUT_GEN, 'art'), { recursive: true });
+  await writeFile(join(OUT_GEN, 'release.json'), `${JSON.stringify(await latestRelease())}\n`);
   for (const f of await readdir(brand)) await cp(join(brand, f), join(OUT_PUBLIC, f));
   await cp(join(brand, 'favicon.svg'), join(APP, 'public/favicon.svg'));
   await cp(resolve(APP, SOCIAL_PREVIEW), join(OUT_PUBLIC, 'social-preview.png'));

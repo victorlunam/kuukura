@@ -1,0 +1,72 @@
+---
+// The product in the first two screens: the real confirmation page next to a short `ku run`, and the two best
+// honest trust signals. The page is the server's own (scripts/screens.mjs); the terminal lines are the CLI's.
+import Section from '../ui/Section.astro';
+import DeviceFrame from '../ui/DeviceFrame.astro';
+import Terminal from '../ui/Terminal.astro';
+import type { TermLine } from '../ui/Terminal.astro';
+import IconList from '../ui/IconList.astro';
+import stepup from '~/assets/screens/stepup-dark.webp';
+
+const alt =
+  "The confirmation page on vault.example.com: Confirm it's you. A command in your terminal is asking you to confirm: Reveal STRIPE_KEY app:shop env:prod. Confirm with your passkey, or with a 6-digit code from your authenticator app.";
+const lines: TermLine[] = [
+  { k: 'cmd', text: 'ku run -- npm start' },
+  { k: 'out', text: '> shop@1.0.0 start' },
+  { k: 'out', text: '> node server.js' },
+  { k: 'out', text: 'listening on :3000' },
+];
+const signals = [
+  { icon: 'shield', html: '<a href="/docs/deploy/#verifying-a-release">Signed releases with provenance and an SBOM</a>' },
+  { icon: 'check', html: '<a href="#security">Every claim comes with a place to check it</a>' },
+] as const;
+---
+
+<Section class="proof" aria-label="The product">
+  <div class="strip">
+    <figure class="phone" data-reveal>
+      <DeviceFrame src={stepup} alt={alt} size="sm" />
+      <figcaption>A reveal opens this page on your own server. It says exactly what you are confirming.</figcaption>
+    </figure>
+    <div class="right">
+      <figure data-reveal>
+        <Terminal title="~/shop" label="A terminal: ku run starts npm start with the app's secrets" lines={lines} />
+        <figcaption>
+          <code>ku run</code> starts your program with its secrets in the environment. The values never reach your screen.
+        </figcaption>
+      </figure>
+      <IconList items={signals} columns={2} />
+    </div>
+  </div>
+</Section>
+
+<style>
+  .proof {
+    padding-block: clamp(1.5rem, 3vw, 2.5rem) var(--k-section);
+  }
+  .strip {
+    display: grid;
+    grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+    gap: clamp(2rem, 6vw, 5rem);
+    align-items: center;
+  }
+  figure {
+    margin: 0;
+  }
+  figcaption {
+    margin-top: var(--k-space-4);
+    color: var(--k-muted);
+    font-size: var(--k-text-md);
+  }
+  .right :global(.k-icons) {
+    margin-top: var(--k-space-5);
+  }
+  @media (max-width: 720px) {
+    .strip {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .phone {
+      max-width: 15rem;
+    }
+  }
+</style>

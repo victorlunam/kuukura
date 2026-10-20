@@ -2,12 +2,15 @@
 
    data-intro          children rise in once, on load (the hero)
    data-reveal         fades up as it enters the viewport; style="--i: n" staggers siblings
-   data-dim            brightens from half to full as it crosses the viewport
-   data-stage          a tall, pinned scene; its parts: data-stage-part="vault | bolts | door | shade | glow |
-                       first | second"
+   data-dim            brightens from half to full as it crosses the viewport, and stays bright
+   data-stage          a scene that plays as it crosses the screen; its parts: data-stage-part="vault | bolts |
+                       door | glow | first | second". The scene's timing is a set of variables (--turn, --open, --glow,
+                       --say1 and --say2, each with an -a start and a -b end) declared below: where in the pass
+                       (cover %) each part plays
    data-steps          a scroll-told sequence: captions (data-step-caption, style="view-timeline-name: --sN;
                        --cap: --sN") drive terminal lines (data-line, style="--tl: --sN; --r0; --r1; --n") and
-                       their typing cover (data-caret); data-focus dims a caption's headline while off-center
+                       their typing cover (data-caret); data-focus brightens a caption's headline when its step
+                       arrives and keeps it. Under 900px nothing is told by scroll: the sequence is shown whole
    data-draw-root      an SVG that draws itself: data-draw="line" strokes, data-draw="fade" nodes,
                        style="--a; --b" (their range); data-packets run while the root has data-live
    data-turn           a quarter turn of the mark's bolts
@@ -52,16 +55,6 @@
     opacity: 1;
   }
 }
-@keyframes k-focus {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  35%,
-  65% {
-    opacity: 1;
-  }
-}
 @keyframes k-type {
   from {
     transform: translateX(0);
@@ -103,20 +96,15 @@
     transform: rotate(0deg);
   }
 }
+/* the door gives way: it fades as it grows past the doorway */
 @keyframes k-open {
   from {
-    transform: rotateY(0deg);
+    opacity: 1;
+    transform: scale(1);
   }
   to {
-    transform: rotateY(-70deg);
-  }
-}
-@keyframes k-shade {
-  from {
     opacity: 0;
-  }
-  to {
-    opacity: 0.55;
+    transform: scale(1.14);
   }
 }
 @keyframes k-grow {
@@ -134,7 +122,6 @@
 }
 
 /* resting states that motion changes */
-[data-stage-part='shade'],
 [data-stage-part='glow'],
 [data-stage-part='second'] {
   opacity: 0;
@@ -144,8 +131,18 @@
   transform-box: view-box;
   transform-origin: 50% 50%;
 }
-[data-stage-part='door'] {
-  backface-visibility: hidden;
+/* the scene's timing: where in its pass across the screen (cover) each part plays */
+[data-stage] {
+  --turn-a: 16%;
+  --turn-b: 30%;
+  --open-a: 28%;
+  --open-b: 46%;
+  --glow-a: 34%;
+  --glow-b: 50%;
+  --say1-a: 34%;
+  --say1-b: 42%;
+  --say2-a: 42%;
+  --say2-b: 52%;
 }
 [data-caret] {
   display: none;
@@ -206,46 +203,39 @@
     [data-stage-part='vault'] {
       animation-name: k-grow;
       animation-timing-function: linear;
-      animation-range: entry 20% contain 0%;
+      animation-range: entry 20% cover var(--turn-a);
     }
     [data-stage-part='bolts'] {
       animation-name: k-quarter;
       animation-timing-function: linear;
-      animation-range: contain 0% contain 34%;
+      animation-range: cover var(--turn-a) cover var(--turn-b);
     }
     [data-stage-part='door'] {
       animation-name: k-open;
       animation-timing-function: var(--k-ease-inout);
-      animation-range: contain 30% contain 78%;
-    }
-    [data-stage-part='shade'] {
-      animation-name: k-shade;
-      animation-timing-function: linear;
-      animation-range: contain 30% contain 78%;
+      animation-range: cover var(--open-a) cover var(--open-b);
     }
     [data-stage-part='glow'] {
       animation-name: k-show;
       animation-timing-function: linear;
-      animation-range: contain 45% contain 85%;
+      animation-range: cover var(--glow-a) cover var(--glow-b);
     }
     [data-stage-part='first'] {
       animation-name: k-hide;
       animation-timing-function: linear;
-      animation-range: contain 26% contain 40%;
+      animation-range: cover var(--say1-a) cover var(--say1-b);
     }
     [data-stage-part='second'] {
       animation-name: k-show;
       animation-timing-function: linear;
-      animation-range: contain 62% contain 80%;
+      animation-range: cover var(--say2-a) cover var(--say2-b);
     }
 
-    [data-step-caption] {
-      view-timeline-axis: block;
-    }
+    /* a caption's headline brightens as its step arrives and stays bright once passed */
     [data-focus] {
-      animation: k-focus linear both;
+      animation: k-dim linear both;
       animation-timeline: var(--cap);
-      animation-range: cover 10% cover 90%;
+      animation-range: cover 8% cover 38%;
     }
     [data-line] {
       animation: k-show linear both;
@@ -317,9 +307,11 @@
     transition: transform 1s var(--k-ease);
   }
   [data-motion='io'] [data-stage-part='door'] {
-    transition: transform 1.4s var(--k-ease-inout) 0.7s;
+    transition:
+      transform 1.2s var(--k-ease-inout) 0.7s,
+      opacity 1.2s ease 0.7s;
   }
-  [data-motion='io'] :is([data-stage-part='shade'], [data-stage-part='glow']) {
+  [data-motion='io'] [data-stage-part='glow'] {
     transition: opacity 1.2s ease 0.9s;
   }
   [data-motion='io'] :is([data-stage-part='first'], [data-stage-part='second']) {
@@ -329,10 +321,8 @@
     transform: rotate(90deg);
   }
   [data-motion='io'] [data-stage][data-in] [data-stage-part='door'] {
-    transform: rotateY(-70deg);
-  }
-  [data-motion='io'] [data-stage][data-in] [data-stage-part='shade'] {
-    opacity: 0.55;
+    opacity: 0;
+    transform: scale(1.14);
   }
   [data-motion='io'] [data-stage][data-in] :is([data-stage-part='glow'], [data-stage-part='second']) {
     opacity: 1;
@@ -361,6 +351,18 @@
   }
   [data-motion='io'] [data-draw-root][data-in] [data-draw='fade'] {
     opacity: 1;
+  }
+
+  /* under 900px the sequence is shown whole, whichever way the page is animated */
+  @media (max-width: 900px) {
+    [data-steps] :is([data-line], [data-focus]) {
+      animation: none !important;
+      transition: none !important;
+      opacity: 1 !important;
+    }
+    [data-steps] [data-caret] {
+      display: none !important;
+    }
   }
 }
 

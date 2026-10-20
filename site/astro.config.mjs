@@ -31,6 +31,7 @@ export default defineConfig({
       customCss: ['./src/styles/tokens.css', './src/styles/starlight.css'],
       components: {
         SiteTitle: './src/components/starlight/SiteTitle.astro',
+        SocialIcons: './src/components/starlight/SocialIcons.astro',
       },
       head: [
         { tag: 'meta', attrs: { property: 'og:image', content: `${SITE}/brand/social-preview.png` } },

@@ -1,11 +1,13 @@
 ---
 // A real session, typed as you scroll: each caption drives its lines. Commands and output are the CLI's own
 // (cmd/ku); the URL and names are the docs' fake examples, and the value never appears: the prompt echoes bullets.
+// On phones nothing is pinned: the terminal is whole, then the four steps.
 import Section from '../ui/Section.astro';
 import Heading from '../ui/Heading.astro';
-import Window from '../ui/Window.astro';
+import Terminal from '../ui/Terminal.astro';
+import type { TermLine } from '../ui/Terminal.astro';
 
-type Line = { k: 'cmd' | 'cont' | 'ok' | 'out'; text: string };
+type Line = Omit<TermLine, 'step' | 'style'>;
 const steps: { title: string; body: string; lines: Line[] }[] = [
   {
     title: 'Point it at your server.',
@@ -50,29 +52,35 @@ const steps: { title: string; body: string; lines: Line[] }[] = [
   },
 ];
 
-// Each step's lines are spread over the middle of its caption's pass through the viewport, weighted by length.
-const START = 38;
-const END = 58;
-const lines = steps.flatMap((step, si) => {
-  const typed = (l: Line) => l.k === 'cmd' || l.k === 'cont';
+// Each step's lines are spread over the middle of its caption's pass through the viewport, weighted by length. The
+// first command is always on screen, so the terminal is never blank.
+const FROM = 30;
+const TO = 55;
+const typed = (l: Line) => l.k === 'cmd' || l.k === 'cont';
+const lines: TermLine[] = steps.flatMap((step, si) => {
   const weight = step.lines.map((l) => (typed(l) ? l.text.length : 6));
   const total = weight.reduce((a, b) => a + b, 0);
-  let at = START;
-  return step.lines.map((l, i) => {
+  let at = FROM;
+  return step.lines.map((l, i): TermLine => {
+    if (si === 0 && typed(l)) return l;
     const r0 = at;
-    at += ((END - START) * (weight[i] ?? 0)) / total;
-    return { ...l, typed: typed(l), style: `--tl: --s${si + 1}; --r0: ${r0.toFixed(2)}%; --r1: ${at.toFixed(2)}%; --n: ${l.text.length}`, step: si + 1 };
+    at += ((TO - FROM) * (weight[i] ?? 0)) / total;
+    return { ...l, step: si + 1, style: `--tl: --s${si + 1}; --r0: ${r0.toFixed(2)}%; --r1: ${at.toFixed(2)}%; --n: ${l.text.length}` };
   });
 });
+lines.push({ k: 'end', text: '', step: 4, style: '--tl: --s4; --r0: 60%' });
 ---
 
-<Section class="session" aria-labelledby="session-title">
-  <Heading id="session-title" eyebrow="Five commands">Hand a secret to a program without handing it to a person.</Heading>
+<Section id="session" class="session" aria-labelledby="session-title">
+  <Heading id="session-title" eyebrow="Four steps">Hand a secret to a program without handing it to a person.</Heading>
   <div class="scene" data-steps>
-    <div class="captions">
+    <div class="term">
+      <Terminal title="~/shop" label="A terminal session: add a profile, sign in, save a secret, run an app" lines={lines} />
+    </div>
+    <ol class="captions">
       {
         steps.map((s, i) => (
-          <div class="caption" data-step-caption={i + 1} style={`view-timeline-name: --s${i + 1}; --cap: --s${i + 1}`}>
+          <li class="caption" data-step-caption={i + 1} style={`view-timeline-name: --s${i + 1}; --cap: --s${i + 1}`}>
             <p class="n">
               <span class="sr-only">Step </span>
               {`${i + 1}`}
@@ -80,51 +88,47 @@ const lines = steps.flatMap((step, si) => {
             </p>
             <h3 data-focus>{s.title}</h3>
             <p>{s.body}</p>
-          </div>
+          </li>
         ))
       }
-    </div>
-    <div class="term">
-      <Window title="~/shop" aria-label="A terminal session: add a profile, sign in, save a secret, run an app">
-        <pre><code>{lines.map((l) => (
-          <span class:list={['ln', l.k]} data-line data-step={l.step} data-command={l.k === 'cmd' ? '' : undefined} style={l.style}>{l.k === 'cmd' ? <span class="ps">$ </span> : null}{l.k === 'ok' ? <span class="check">✓ </span> : null}<span class="tx">{l.text}{l.typed ? <span data-caret aria-hidden="true" /> : null}</span>{'\n'}</span>
-        ))}<span class="ln end" data-line data-step="4" style="--tl: --s4; --r0: 59%"><span class="ps">$ </span><span class="cursor" data-blink aria-hidden="true"></span></span></code></pre>
-      </Window>
-    </div>
+    </ol>
   </div>
 </Section>
 
 <style>
-  .session {
-    padding-bottom: calc(var(--k-section) * 0.6);
-  }
   .scene {
     display: grid;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
     timeline-scope: --s1, --s2, --s3, --s4;
   }
+  /* the terminal stays while the captions pass; it sits on the left, the captions on the right */
+  .term {
+    position: sticky;
+    top: max(5rem, calc(50vh - 11rem));
+  }
   .captions {
-    padding-block: 4vh 12vh;
+    list-style: none;
+    margin: 0;
+    padding: 0 0 8vh;
   }
   .caption {
-    min-height: 72vh;
+    min-height: 40vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     max-width: 26rem;
+    view-timeline-axis: block;
   }
   .n {
     margin: 0 0 var(--k-space-3);
     font: 600 var(--k-text-sm) / 1 var(--k-mono);
     color: var(--k-muted);
   }
-  .n span[aria-hidden] {
-    color: var(--k-ink-2);
-  }
   h3 {
     margin: 0;
-    font-size: clamp(1.625rem, 1.1rem + 1.6vw, 2.5rem);
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.25rem);
     line-height: 1.1;
     letter-spacing: -0.035em;
     text-wrap: balance;
@@ -133,98 +137,22 @@ const lines = steps.flatMap((step, si) => {
     margin: var(--k-space-4) 0 0;
     color: var(--k-muted);
   }
-  .term > :global(figure) {
-    position: sticky;
-    top: max(5rem, calc(50vh - 16.5rem));
-    margin-top: 4vh;
-  }
-  /* the terminal's text */
-  pre {
-    margin: 0;
-    padding: 1.25rem 1.4rem 1.5rem;
-    font: 400 clamp(0.72rem, 0.55rem + 0.55vw, 0.95rem) / 1.75 var(--k-mono);
-    color: var(--k-ink);
-    white-space: pre;
-    overflow: hidden;
-  }
-  .ln {
-    display: block;
-  }
-  .ln.cmd:not(:first-child),
-  .ln.end {
-    margin-top: 0.7em;
-  }
-  .ps {
-    color: var(--k-amber);
-  }
-  .check {
-    color: var(--k-acc);
-  }
-  .ln.out {
-    color: var(--k-muted);
-  }
-  .tx {
-    position: relative;
-  }
-  .cursor {
-    display: inline-block;
-    width: 0.6em;
-    height: 1.15em;
-    vertical-align: -0.2em;
-    background: var(--k-ink);
-    opacity: 0.85;
-  }
+  /* tablet and phone: no pinning. The terminal is whole, then the four steps one under the other */
   @media (max-width: 900px) {
     .scene {
       grid-template-columns: minmax(0, 1fr);
-      gap: 0;
     }
     .term {
-      order: -1;
-      position: sticky;
-      top: 4.25rem;
-      z-index: 2;
-    }
-    .term > :global(figure) {
       position: static;
-      margin-top: 0;
-    }
-    /* the captions scroll under the terminal: a solid band above it, a fade below it */
-    .term::before {
-      content: '';
-      position: absolute;
-      inset: -4.25rem 0 0;
-      z-index: -1;
-      background: var(--k-bg);
-    }
-    .term::after {
-      content: '';
-      position: absolute;
-      inset: auto 0 -2.5rem;
-      height: 2.5rem;
-      background: linear-gradient(var(--k-bg), transparent);
     }
     .captions {
-      padding-block: 2rem 20vh;
+      display: grid;
+      gap: var(--k-space-6);
+      padding: var(--k-space-6) 0 0;
     }
-    .caption {
-      min-height: 58vh;
-      justify-content: flex-start;
-      padding-top: 2rem;
-      view-timeline-inset: 45vh 0;
-    }
-    pre {
-      line-height: 1.6;
-      padding: 1rem 1rem 1.1rem;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
     .caption {
       min-height: 0;
-      padding-block: 2rem;
-    }
-    .captions {
-      padding-block: 0;
+      max-width: none;
     }
   }
 </style>

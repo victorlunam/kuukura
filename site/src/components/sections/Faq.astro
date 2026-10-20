@@ -1,15 +1,12 @@
 ---
 // README "FAQ". Native <details>: keyboard and screen readers work without script.
 import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
 
 const faq = [
   {
-    q: 'Why not Vault or OpenBao?',
-    a: 'They do more, including dynamic secrets, and cost more to run. kuukura trades breadth for a small system you can understand and operate, with no unseal ceremony. If you need their features, use them.',
-  },
-  {
-    q: 'What if I lose my passkey?',
-    a: 'Use a recovery code (you get ten at enrollment). If you lost those too, someone with a shell on the server runs <code>ku-server user reset-factors you@example.com</code> and you enroll again through a 15-minute link.',
+    q: 'What does it cost?',
+    a: 'Nothing. kuukura is free and MIT licensed, and there is no hosted version, so there is no subscription: you pay only for the server you run it on.',
   },
   {
     q: 'How do I back up?',
@@ -20,11 +17,17 @@ const faq = [
     a: 'Not through the commands it is taught: <code>ku run</code> injects them, and reveals need your passkey or code. But a command it runs can print its own environment. Treat that as accepted risk and use low-value secrets (<a href="/docs/agents/">details</a>).',
   },
   {
+    q: 'What if I lose my passkey?',
+    a: 'Use a recovery code (you get ten at enrollment). If you lost those too, someone with a shell on the server runs <code>ku-server user reset-factors you@example.com</code> and you enroll again through a 15-minute link.',
+  },
+  {
     q: 'What if the server is down?',
     a: '<code>ku run</code> cannot fetch secrets until it is back, because values are decrypted only on the server. The server restarts by reading the key again; there is nothing to unseal. Run it as a restartable container with its volumes backed up.',
   },
-  { q: 'Is there a hosted version?', a: 'No. You run it yourself.' },
-  { q: 'Can several organizations share one instance?', a: 'No. It is one instance per organization.' },
+  {
+    q: 'Why not Vault or OpenBao?',
+    a: 'They do more, including dynamic secrets (short-lived credentials generated on demand), and cost more to run. kuukura trades breadth for a small system you can understand and operate, with no unseal ceremony (the manual key entry some vaults need at every start). If you need their features, use them.',
+  },
   {
     q: 'Can I use Postgres?',
     a: 'Yes: set <code>VAULT_STORAGE=postgres</code>. The audit log is insert-only, enforced with database grants (<a href="/docs/deploy/#3-database">setup</a>). SQLite is the default.',
@@ -32,12 +35,12 @@ const faq = [
 ];
 ---
 
-<Section aria-labelledby="faq-title" inner="faq-grid">
-  <h2 id="faq-title">Questions</h2>
+<Section id="faq" aria-labelledby="faq-title">
+  <Heading id="faq-title">Questions</Heading>
   <div class="list">
     {
-      faq.map((f) => (
-        <details>
+      faq.map((f, i) => (
+        <details open={i === 0}>
           <summary>
             <span>{f.q}</span>
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -52,19 +55,8 @@ const faq = [
 </Section>
 
 <style>
-  :global(.faq-grid) {
-    display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-    gap: clamp(2rem, 5vw, 5rem);
-    align-items: start;
-  }
-  h2 {
-    margin: 0;
-    font-size: var(--k-text-h2);
-    line-height: var(--k-leading-tight);
-    letter-spacing: var(--k-tracking-tight);
-  }
   .list {
+    max-width: 52rem;
     border-top: 1px solid var(--k-line);
   }
   details {
@@ -75,7 +67,7 @@ const faq = [
     justify-content: space-between;
     align-items: center;
     gap: var(--k-space-4);
-    padding: 1.35rem 0;
+    padding: 1.1rem 0;
     cursor: pointer;
     list-style: none;
     font-size: clamp(1.0625rem, 0.98rem + 0.4vw, 1.3125rem);
@@ -102,10 +94,5 @@ const faq = [
     max-width: 44rem;
     color: var(--k-muted);
     line-height: 1.6;
-  }
-  @media (max-width: 900px) {
-    :global(.faq-grid) {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 </style>
