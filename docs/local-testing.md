@@ -7,12 +7,13 @@ WebAuthn works on `localhost` without HTTPS, so you can exercise the full login 
    `http://localhost:8080/auth/callback`. (The OAuth consent screen can stay in "Testing" with your own account as a test user.)
 2. Master key and server:
    ```sh
-   mkdir -p /tmp/kk && ku-server init --key-file /tmp/kk/master_key --export /tmp/kk/master_key.age
+   mkdir -p /tmp/kk
    export VAULT_DOMAIN=localhost VAULT_DEV_HTTP=true VAULT_ADDR=:8080
    export VAULT_STORAGE=sqlite VAULT_SQLITE_PATH=/tmp/kk/kuukura.db VAULT_MASTER_KEY_FILE=/tmp/kk/master_key
    export VAULT_OIDC_CLIENT_ID=... VAULT_OIDC_CLIENT_SECRET=...
-   ku-server admin invite --email you@gmail.com      # open the printed link, sign in with that Google account
-   ku-server serve
+   ku-server key init                                # writes /tmp/kk/master_key (a throwaway key: no need to back it up)
+   ku-server user invite you@gmail.com --admin       # open the printed link, sign in with that Google account
+   ku-server serve                                   # warns that the key was never shown: ignore it locally
    ```
 3. Register a passkey in the browser (Touch ID on macOS), then in a terminal:
    ```sh
