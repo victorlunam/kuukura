@@ -77,9 +77,9 @@ glyph is the one full-color symbol.
 
 - Colors come only from the tokens above. No gradients in the mark; the banner may use one soft teal glow.
 - No external references, scripts, raster images or fonts inside any SVG.
-- The mark's geometry is pinned in `apps/ku-server/api/art_test.go` and, for the CLI's "signed in" page, in `apps/ku/signedin_test.go`
-  (it must match `mark.svg` exactly). Change the file and both tests together, then copy the mark to
-  `deploy/dokploy/kuukura.svg` and update `signedin.go`.
+- The mark's geometry is pinned in `packages/brand/brand_test.go`, in `apps/ku-server/api/art_test.go` (the pages) and,
+  for the CLI's "signed in" page, in `apps/ku/login_pages_test.go` (it must match `mark.svg` exactly). Change the file
+  and the tests together, then copy the mark to `deploy/dokploy/kuukura.svg` and update `login_pages.go`.
 - After changing the banner, render `docs/social-preview.png` again at exactly 1280x640 (it stays under 1 MB):
   `chrome --headless --screenshot=docs/social-preview.png --window-size=1280,640 packages/brand/assets/banner.svg`.
 

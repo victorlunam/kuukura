@@ -9,6 +9,7 @@ A release is a tag: its section is copied into the GitHub release notes.
 ### Changed
 
 - Repository layout: apps/ (ku, ku-server, web), internal/ (shared Go code), packages/ (brand, shared across languages); conventions in CONTRIBUTING.md and AGENTS.md.
+- Code organized by capability: one concern per file; key rotation and start-up key checks live in internal/masterkey.
 
 ## [2026.10.2] - 2026-10-20
 
