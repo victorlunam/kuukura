@@ -12,8 +12,6 @@ import (
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-var ctx = context.Background()
-
 func person(t *testing.T, p storage.Provider, role string) (Actor, string) {
 	id := uuid.New()
 	name := id.String()[:8] + "@example.test"
@@ -24,7 +22,7 @@ func person(t *testing.T, p storage.Provider, role string) (Actor, string) {
 }
 
 func allows(t *testing.T, p storage.Provider, a Actor, perm string, tags ...string) bool {
-	perms, err := For(ctx, p, p.DB(), a, perm)
+	perms, err := For(t.Context(), p, p.DB(), a, perm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,6 +31,7 @@ func allows(t *testing.T, p storage.Provider, a Actor, perm string, tags ...stri
 
 func TestGrantsGroupsAndAdminOnly(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		log := audit.New(p)
 		ad := NewAdmin(p, log)
 		admin, _ := person(t, p, "admin")
@@ -112,9 +111,33 @@ func TestGrantsGroupsAndAdminOnly(t *testing.T) {
 			t.Fatal(err)
 		}
 		var n int
-		_ = p.DB().QueryRow(p.Rebind(`SELECT COUNT(*) FROM audit_log WHERE principal_id = ? AND result = 'denied'`), user.ID).Scan(&n)
-		if n != 1 {
-			t.Fatalf("grant denial must be audited, got %d", n)
+		if err := p.DB().QueryRow(p.Rebind(`SELECT COUNT(*) FROM audit_log WHERE principal_id = ? AND result = 'denied'`), user.ID).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("grant denial must be audited, got %d (%v)", n, err)
+		}
+	})
+}
+
+// Only an answer about the person is a denial; a database failure must surface as the failure it is.
+func TestRequireAdminSeparatesDenialFromDatabaseError(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		ctx := t.Context()
+		admin, _ := person(t, p, "admin")
+		member, _ := person(t, p, "member")
+		if err := requireAdmin(ctx, p, p.DB(), admin.ID); err != nil {
+			t.Fatalf("an active admin passes: %v", err)
+		}
+		for name, id := range map[string]uuid.UUID{"member": member.ID, "unknown": uuid.New()} {
+			var de *Error
+			if err := requireAdmin(ctx, p, p.DB(), id); !errors.As(err, &de) || de.Code != CodeDenied {
+				t.Fatalf("%s: want a denial, got %v", name, err)
+			}
+		}
+		gone, cancel := context.WithCancel(ctx)
+		cancel()
+		err := requireAdmin(gone, p, p.DB(), admin.ID)
+		var de *Error
+		if err == nil || errors.As(err, &de) {
+			t.Fatalf("a database error must not become a denial: %v", err)
 		}
 	})
 }

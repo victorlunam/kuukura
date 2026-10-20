@@ -22,20 +22,24 @@ func NewAdmin(p storage.Provider, log *audit.Log) *Admin { return &Admin{p, log}
 
 var groupRE = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)
 
-// RequireAdmin fails unless id is an active human admin. The denial is audited by the caller's own tx.
-func RequireAdmin(ctx context.Context, p storage.Provider, q storage.Querier, id uuid.UUID) error {
+// requireAdmin fails with a denial unless id is an active human admin. A database error is returned as it is:
+// it is not an answer about the person.
+func requireAdmin(ctx context.Context, p storage.Provider, q storage.Querier, id uuid.UUID) error {
 	var role, status string
 	err := q.QueryRowContext(ctx, p.Rebind(`SELECT COALESCE(role, ''), status FROM principals WHERE id = ?`), id).Scan(&role, &status)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
 	if err != nil || role != "admin" || status != "active" {
 		return Fail(CodeDenied, "not permitted")
 	}
 	return nil
 }
 
-// adminTx runs fn after an admin check; a failed check is recorded as a denial.
-func adminTx(ctx context.Context, p storage.Provider, log *audit.Log, a Actor, action string, fn func(tx *sql.Tx) error) error {
+// AdminTx runs fn after an admin check; a failed check is recorded as a denial.
+func AdminTx(ctx context.Context, p storage.Provider, log *audit.Log, a Actor, action string, fn func(tx *sql.Tx) error) error {
 	err := storage.InTx(ctx, p, func(tx *sql.Tx) error {
-		if err := RequireAdmin(ctx, p, tx, a.ID); err != nil {
+		if err := requireAdmin(ctx, p, tx, a.ID); err != nil {
 			return err
 		}
 		return fn(tx)
@@ -45,11 +49,6 @@ func adminTx(ctx context.Context, p storage.Provider, log *audit.Log, a Actor, a
 		_ = log.Record(ctx, audit.Entry{Principal: a.ID, Action: action, Result: audit.ResultDenied, IP: a.IP})
 	}
 	return err
-}
-
-// AdminTx is adminTx for other domain packages (identity).
-func AdminTx(ctx context.Context, p storage.Provider, log *audit.Log, a Actor, action string, fn func(tx *sql.Tx) error) error {
-	return adminTx(ctx, p, log, a, action, fn)
 }
 
 type subject struct {
@@ -83,7 +82,7 @@ func (ad *Admin) Grant(ctx context.Context, a Actor, who, perm string, tags []st
 	if err != nil {
 		return err
 	}
-	return adminTx(ctx, ad.p, ad.log, a, "grant", func(tx *sql.Tx) error {
+	return AdminTx(ctx, ad.p, ad.log, a, "grant", func(tx *sql.Tx) error {
 		sub, err := resolveSubject(ctx, ad.p, tx, who)
 		if err != nil {
 			return err
@@ -94,7 +93,7 @@ func (ad *Admin) Grant(ctx context.Context, a Actor, who, perm string, tags []st
 			return err
 		}
 		return ad.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "grant", IP: a.IP, TargetType: "grant", TargetID: &id,
-			Metadata: map[string]any{"subject": who, "permission": perm, "tags": anyStrings(sel)}})
+			Metadata: map[string]any{"subject": who, "permission": perm, "tags": sel}})
 	})
 }
 
@@ -104,7 +103,7 @@ func (ad *Admin) Ungrant(ctx context.Context, a Actor, who string, tags []string
 	if err != nil {
 		return err
 	}
-	return adminTx(ctx, ad.p, ad.log, a, "revoke_grant", func(tx *sql.Tx) error {
+	return AdminTx(ctx, ad.p, ad.log, a, "revoke_grant", func(tx *sql.Tx) error {
 		sub, err := resolveSubject(ctx, ad.p, tx, who)
 		if err != nil {
 			return err
@@ -131,7 +130,7 @@ func (ad *Admin) Ungrant(ctx context.Context, a Actor, who string, tags []string
 				return err
 			}
 			if err := ad.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "revoke_grant", IP: a.IP, TargetType: "grant", TargetID: &id,
-				Metadata: map[string]any{"subject": who, "tags": anyStrings(sel)}}); err != nil {
+				Metadata: map[string]any{"subject": who, "tags": sel}}); err != nil {
 				return err
 			}
 		}
@@ -144,7 +143,7 @@ func (ad *Admin) SetMembers(ctx context.Context, a Actor, group string, add, rem
 	if !groupRE.MatchString(group) {
 		return Fail(CodeInvalid, "invalid group name")
 	}
-	return adminTx(ctx, ad.p, ad.log, a, "group_add", func(tx *sql.Tx) error {
+	return AdminTx(ctx, ad.p, ad.log, a, "group_add", func(tx *sql.Tx) error {
 		var gid uuid.UUID
 		err := tx.QueryRowContext(ctx, ad.p.Rebind(`SELECT id FROM groups WHERE name = ?`), group).Scan(&gid)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -202,12 +201,4 @@ func normalizeSelector(perm string, tags []string) (storage.Tags, error) {
 		return nil, Fail(CodeInvalid, "at least one tag is required")
 	}
 	return sel, nil
-}
-
-func anyStrings(s []string) []any {
-	out := make([]any, len(s))
-	for i, v := range s {
-		out[i] = v
-	}
-	return out
 }
