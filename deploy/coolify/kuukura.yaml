@@ -23,7 +23,8 @@ services:
       - VAULT_MASTER_KEY_GENERATE=true
       - VAULT_OIDC_CLIENT_ID=${VAULT_OIDC_CLIENT_ID:?}
       - VAULT_OIDC_CLIENT_SECRET=${VAULT_OIDC_CLIENT_SECRET:?}
-      # - VAULT_TRUSTED_PROXIES=cloudflare  # behind Cloudflare's proxy: real client IP in the audit log (docs/deploy.md)
+      # `cloudflare` behind Cloudflare's proxy: real client IP in the audit log (docs/deploy.md)
+      - VAULT_TRUSTED_PROXIES=${VAULT_TRUSTED_PROXIES:-}
     volumes:
       - kuukura-data:/data
       - kuukura-keys:/keys

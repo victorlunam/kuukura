@@ -19,7 +19,8 @@ services:
       VAULT_MASTER_KEY_FILE: /run/secrets/master_key
       VAULT_OIDC_CLIENT_ID: ${VAULT_OIDC_CLIENT_ID}
       VAULT_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
-      # VAULT_TRUSTED_PROXIES: cloudflare  # only if Cloudflare's proxy (orange cloud) is in front of Caddy: see docs/deploy.md
+      # `cloudflare` only if Cloudflare's proxy (orange cloud) is in front of Caddy: see docs/deploy.md (.env)
+      VAULT_TRUSTED_PROXIES: ${VAULT_TRUSTED_PROXIES:-}
     secrets: [master_key, oidc_client_secret]
     volumes: [kuukura-data:/data]
     expose: ["8080"]
