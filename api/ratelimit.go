@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"math"
-	"net/http"
 	"sync"
 	"time"
 
@@ -65,11 +64,13 @@ func (s *Server) limit(l *limiter, keyFn func(echo.Context) string) echo.Middlew
 				return next(c)
 			}
 			secs := int(math.Ceil(wait.Seconds()))
-			return &apiError{http.StatusTooManyRequests, "quota-exceeded", "Too many requests", "Slow down and try again shortly.", nil, map[string]string{
+			e := newError("quota-exceeded", "Slow down and try again shortly.")
+			e.header = map[string]string{
 				"Retry-After":      fmt.Sprint(secs),
 				"RateLimit":        fmt.Sprintf("limit=%d, remaining=0, reset=%d", l.perMin, secs),
 				"RateLimit-Policy": fmt.Sprintf("%d;w=60", l.perMin),
-			}}
+			}
+			return e
 		}
 	}
 }

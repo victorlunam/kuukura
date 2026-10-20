@@ -84,7 +84,7 @@
   </div>
 
   {{else if eq .Mode "addask"}}
-  <h1>Add a second step</h1>
+  <h1>Add a passkey or authenticator app</h1>
   <p class="lead">You asked from your terminal to add a passkey or an authenticator app to your account. Continue to register it.</p>
   <a class="btn primary" href="{{.Link}}">Continue</a>
   <p class="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>This link works once. If you did not ask for this, close the tab.</span></p>
@@ -110,7 +110,7 @@
 
   {{else if eq .Mode "added"}}
   <h1>Added</h1>
-  <p class="lead"><span class="ok-badge"><svg aria-hidden="true"><use href="#i-check"/></svg>Done.</span> The new second step is on your account. You can close this tab and go back to your terminal.</p>
+  <p class="lead"><span class="ok-badge"><svg aria-hidden="true"><use href="#i-check"/></svg>Done.</span> Your account now has it. You can close this tab and go back to your terminal.</p>
 
   {{else if eq .Mode "stepup"}}
   <div id="ask">

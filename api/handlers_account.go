@@ -85,7 +85,7 @@ func (s *Server) removeFactor(c echo.Context) error {
 	case errors.Is(err, auth.ErrNoSuchFactor):
 		return access.Fail(access.CodeNotFound, "no such factor")
 	case errors.Is(err, auth.ErrLastFactor):
-		return access.Fail(access.CodeLastFactor, "this is your only second step; add another one first")
+		return access.Fail(access.CodeLastFactor, "this is your only passkey or authenticator app; add another one first")
 	case err != nil:
 		return err
 	}
@@ -100,7 +100,7 @@ func (s *Server) addFactorPage(c echo.Context) error {
 		if p := auth.CleanLabel(c.QueryParam("profile")); p != "" {
 			link += "&profile=" + p
 		}
-		return s.page(c, http.StatusOK, pageData{Title: "Add a second step", Mode: "addask", Link: link, Art: art("passkey"), Label: auth.CleanLabel(c.QueryParam("profile"))})
+		return s.page(c, http.StatusOK, pageData{Title: "Add a passkey or authenticator app", Mode: "addask", Link: link, Art: art("passkey"), Label: auth.CleanLabel(c.QueryParam("profile"))})
 	}
 	p, err := s.Auth.OpenAddFactor(c.Request().Context(), c.QueryParam("id"))
 	if err != nil {
@@ -112,7 +112,7 @@ func (s *Server) addFactorPage(c echo.Context) error {
 			Detail: "It works once and expires after 10 minutes. Run the command in your terminal again to get a new one.",
 		})
 	}
-	return s.page(c, http.StatusOK, pageData{Title: "Add a second step", Mode: "add", Token: p.Token, Add: p.Add, Art: art("passkey"),
+	return s.page(c, http.StatusOK, pageData{Title: "Add a passkey or authenticator app", Mode: "add", Token: p.Token, Add: p.Add, Art: art("passkey"),
 		Label: auth.CleanLabel(c.QueryParam("profile"))})
 }
 

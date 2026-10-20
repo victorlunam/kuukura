@@ -105,7 +105,7 @@ func (s *Service) InviteByHost(ctx context.Context, email string, admin bool) (I
 		case cur.String != role:
 			return access.Fail(access.CodeConflict, "that person exists as a "+cur.String+", not a "+role)
 		case status.String != "invited":
-			return access.Fail(access.CodeConflict, "that person is already enrolled: use `ku-server user reset-factors` if they lost their second factor")
+			return access.Fail(access.CodeConflict, "that person is already enrolled: use `ku-server user reset-factors` if they lost their passkey and recovery codes")
 		}
 		iss, err := s.tokens.Issue(ctx, tx, id, auth.KindInvite, nil, auth.AdminInviteTTL)
 		if err != nil {
@@ -201,7 +201,7 @@ func (s *Service) ResetFactorsByHost(ctx context.Context, email string) (Invite,
 		}
 		switch {
 		case role == "":
-			return access.Fail(access.CodeInvalid, "machines have no second factors")
+			return access.Fail(access.CodeInvalid, "machines have no passkeys or authenticator apps")
 		case status == "disabled":
 			return access.Fail(access.CodeConflict, "that person is disabled: enable them first")
 		case status == "invited":

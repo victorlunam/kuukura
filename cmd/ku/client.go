@@ -97,7 +97,7 @@ func plain(err error) string {
 		if p.Detail != "" {
 			return strings.ToUpper(p.Detail[:1]) + p.Detail[1:] + "."
 		}
-	case "second-factor-required":
+	case "factor-required":
 		return "Your account has no passkey or authenticator app to confirm with. Ask your admin for a new invite."
 	case "https-required":
 		return "The server must be reached over https."

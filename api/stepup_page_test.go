@@ -33,7 +33,7 @@ func TestConfirmationPageSaysWhatItConfirms(t *testing.T) {
 			{"authorize_off", "STRIPE_KEY env:prod", "Turn off confirmation for STRIPE_KEY env:prod"},
 			{"factor_add", "passkey", "Add a passkey"},
 			{"factor_add", "totp", "Add an authenticator app"},
-			{"factor_remove", "8f14e45f-ceea-467a-9575-0cb1c3e0f4f0", "Remove a second step"},
+			{"factor_remove", "8f14e45f-ceea-467a-9575-0cb1c3e0f4f0", "Remove a passkey or authenticator app"},
 		} {
 			if b := page(c.purpose, c.subject); !strings.Contains(b, c.want) {
 				t.Fatalf("%s page must say %q", c.purpose, c.want)

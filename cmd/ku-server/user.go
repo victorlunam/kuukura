@@ -112,7 +112,7 @@ func runUserResetFactors(args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Removed the second factors and recovery codes of %s and ended their sessions.\n", pos[0])
+		fmt.Printf("Removed the passkeys, authenticator apps and recovery codes of %s and ended their sessions.\n", pos[0])
 		printLink(a.c, inv)
 		return nil
 	})

@@ -210,8 +210,7 @@ func (s *Server) stepUpStart(c echo.Context) error {
 	}
 	id, m, err := s.Auth.StartStepUp(c.Request().Context(), info(c), r.Purpose, r.Subject)
 	if errors.Is(err, auth.ErrNoFactor) {
-		return &apiError{http.StatusForbidden, "second-factor-required", "No way to confirm",
-			"This account has no passkey or authenticator app set up.", nil, nil}
+		return newError("factor-required", "This account has no passkey or authenticator app set up.")
 	}
 	if err != nil {
 		if !errors.Is(err, auth.ErrLogin) {
@@ -235,8 +234,7 @@ func (s *Server) stepUpStatus(c echo.Context) error {
 // can explain ("run the command again"); every other failure stays the generic 401.
 func (s *Server) stepUpErr(c echo.Context, err error) error {
 	if errors.Is(err, auth.ErrStepUpGone) {
-		return &apiError{http.StatusNotFound, "confirmation-expired", "This confirmation expired",
-			"Run the command in your terminal again to get a new one.", nil, nil}
+		return newError("confirmation-expired", "Run the command in your terminal again to get a new one.")
 	}
 	return s.denied(c, err)
 }

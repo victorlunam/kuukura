@@ -166,7 +166,7 @@ func stepUpAsk(purpose, subject string) string {
 		}
 		return "Add a passkey"
 	case purposeFactorRemove:
-		return "Remove a second step"
+		return "Remove a passkey or authenticator app"
 	}
 	return ""
 }
@@ -215,7 +215,7 @@ func (s *Server) asset(c echo.Context) error {
 		name = "favicon.svg"
 	}
 	if !assetNames[name] {
-		return &apiError{404, "not-found", "Not found", "", nil, nil}
+		return newError("not-found", "")
 	}
 	h := c.Response().Header()
 	h.Set("Cache-Control", "public, max-age=86400")

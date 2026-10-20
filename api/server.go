@@ -158,7 +158,7 @@ func (s *Server) recoverNoValues(next echo.HandlerFunc) echo.HandlerFunc {
 		defer func() {
 			if r := recover(); r != nil {
 				s.Log.Error("panic", "id", requestID(c), "path", c.Path())
-				err = &apiError{500, "internal", "Something went wrong", "", nil, nil}
+				err = newError("internal", "")
 			}
 		}()
 		return next(c)
@@ -193,7 +193,7 @@ func (s *Server) accessLog(next echo.HandlerFunc) echo.HandlerFunc {
 func (s *Server) httpsOnly(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if c.Scheme() != "https" && !s.AllowHTTP {
-			return &apiError{http.StatusBadRequest, "https-required", "HTTPS required", "", nil, nil}
+			return newError("https-required", "")
 		}
 		return next(c)
 	}
