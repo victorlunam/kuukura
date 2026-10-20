@@ -6,6 +6,13 @@
 # redirect URI https://<your domain>/auth/callback, then fill VAULT_OIDC_CLIENT_ID and VAULT_OIDC_CLIENT_SECRET in the
 # Environment tab before the first deploy, and set the domain you actually use in the Domains tab.
 
+# Pinning: this repository keeps KUUKURA_VERSION = "latest" and meta.json "version": "latest". Dokploy/templates wants
+# a pinned image, so in the pull request set both to the current release tag (YEAR.MONTH.N) and the image in
+# docker-compose.yml follows through ${KUUKURA_VERSION}.
+#
+# Dokploy creates the template's domain with certificateType "none" and a generated host: after deploying, open the
+# Domains tab, set your real domain, turn HTTPS on (Let's Encrypt), and set VAULT_DOMAIN to the same domain.
+
 [variables]
 main_domain = "${domain}"
 

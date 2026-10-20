@@ -28,16 +28,24 @@ How to use each template:
   `KUUKURA_VERSION` in the Environment tab, add the domain (service `kuukura`, port 8080, HTTPS) in the Domains tab.
 - **Dokploy, template**: `template.toml`, `docker-compose.yml`, `kuukura.svg` and the entry in `meta.json` are the
   blueprint for a pull request to `Dokploy/templates` (`blueprints/kuukura/`). Once merged, pick "kuukura" in the
-  template list, fill the two `VAULT_OIDC_*` values in the Environment tab and put your real domain in the Domains tab.
+  template list, fill the two `VAULT_OIDC_*` values in the Environment tab before the first deploy (the server stops
+  with "VAULT_OIDC_CLIENT_ID and VAULT_OIDC_CLIENT_SECRET are required" while they are empty). Dokploy creates the
+  template's domain as a generated host without a certificate: in the Domains tab set your real domain and turn HTTPS
+  on (Let's Encrypt), and set `VAULT_DOMAIN` in the Environment tab to the same domain. The Dokploy repository wants
+  a pinned image, so the pull request sets `KUUKURA_VERSION` and `meta.json` `version` to a release tag; here they stay
+  `latest`.
 - **Coolify**: add `deploy/coolify/kuukura.yaml` as a Docker Compose service (or submit it to Coolify's service
   templates), fill `VAULT_OIDC_CLIENT_ID` and `VAULT_OIDC_CLIENT_SECRET` when asked. Coolify assigns the domain
-  (`VAULT_DOMAIN` takes it with its `https://`, which kuukura accepts).
+  (`VAULT_DOMAIN` is set from `SERVICE_FQDN_KUUKURA`, the domain without a scheme). Open the service's terminal once
+  and run `/ku-server key show`.
 - **Render**: "New Blueprint Instance" from this repository's `render.yaml`. Render asks for the `sync: false`
   values (`VAULT_DOMAIN`, the two OIDC values); everything else is set. **On Render the key lives in Render's
   environment** (`VAULT_MASTER_KEY`, generated once as a bare key): read it from the Environment tab and store a copy
   in your password manager; anyone with access to the service's settings can read it. Render has one persistent
-  disk, so one instance only. `image.url` ends in `latest`; replace it with a release tag to pin one.
-- **Compose + Caddy, Swarm**: see the comments at the top of each file.
+  disk, so one instance only, on a paid plan (`0.5c-512mb`; a disk is not available on `free`). The server listens on
+  Render's default port 10000 (`VAULT_ADDR=:10000`). `image.url` ends in `latest`; replace it with a release tag to pin one.
+- **Compose + Caddy, Swarm**: see the comments at the top of each file. The Swarm stack needs the external overlay
+  network `proxy` (and the two secrets) to exist before `docker stack deploy`.
 
 For every target, `VAULT_DOMAIN` must be the domain the people use (it is also the passkey RP ID), and the Google
 redirect URI is `https://<domain>/auth/callback`.

@@ -14,6 +14,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 - Install scripts are tested on macOS, Linux and Windows (PowerShell 7 and 5.1) on every change and weekly.
 
+### Fixed
+
+- Deploy templates, checked by running them: render.yaml uses the current plan id `0.5c-512mb` and Render's port 10000; the Swarm stack documents the `proxy` network it requires; the Dokploy and Coolify docs say what the platform leaves to you (HTTPS and `VAULT_DOMAIN` on Dokploy, a bare domain on Coolify).
+
 ## [2026.10.3] - 2026-10-20
 
 ### Added
