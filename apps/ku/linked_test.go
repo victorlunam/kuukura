@@ -67,7 +67,8 @@ func TestSecretCommandsUseTheLinkedApp(t *testing.T) {
 func TestDeniedWriteSaysWhichTagsAndHowToGetAccess(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		w, admin := userWorld(t, p) // dev can write app:shop only
-		if code, _ := w.api(admin, "POST", "/apps", map[string]string{"name": "darwin-cloud"}); code != 201 { // an existing app
+		// the admin creates darwin-cloud first, so dev meets an existing app
+		if code, _ := w.api(admin, "POST", "/apps", map[string]string{"name": "darwin-cloud"}); code != 201 {
 			t.Fatalf("create: %d", code)
 		}
 		env := map[string]string{"CWD": t.TempDir()}
