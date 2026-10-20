@@ -1,10 +1,12 @@
 # Plain Docker Compose with automatic HTTPS (Caddy). Uses the published image; nothing is built from source.
 #
-#   1. Create the master key once (see docs/deploy.md), so that ./secrets/master_key exists.
+#   1. Create the master key once, so that ./secrets/master_key exists (see docs/deploy.md):
+#        docker run --rm -v "$PWD/secrets:/s" ghcr.io/victorlunam/kuukura key init --key-file /s/master_key
 #   2. printf '%s' 'your-google-oauth-client-secret' > secrets/oidc_client_secret
 #   3. cp .env.example .env   and edit it
 #   4. docker compose up -d
-#   5. docker compose exec kuukura /ku-server admin invite --email you@example.com
+#   5. docker compose exec kuukura /ku-server user invite you@example.com --admin
+#   6. docker compose exec -it kuukura /ku-server key show      (once: store the key in your password manager)
 services:
   kuukura:
     image: ghcr.io/victorlunam/kuukura:${KUUKURA_VERSION:-latest}

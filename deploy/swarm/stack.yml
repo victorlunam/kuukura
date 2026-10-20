@@ -2,7 +2,8 @@
 # login state in memory and SQLite has a single writer.
 #
 #   printf '1:%s\n' "$(head -c 32 /dev/urandom | base64)" | docker secret create kuukura_master_key -
-#       (better: create it with `ku-server init` and keep the offline copy, see docs/deploy.md)
+#       (then run `ku-server key show` once in a terminal in the container and store the key in your password
+#       manager, see docs/deploy.md)
 #   printf '%s' 'google-oauth-client-secret' | docker secret create kuukura_oidc_secret -
 #   VAULT_DOMAIN=vault.example.com VAULT_OIDC_CLIENT_ID=... docker stack deploy -c stack.yml kuukura
 #
