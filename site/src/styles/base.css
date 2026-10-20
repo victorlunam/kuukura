@@ -48,10 +48,16 @@ code {
   font-size: 0.86em;
   white-space: nowrap;
 }
+/* on a phone a long command in running text may break rather than push the page sideways */
+@media (max-width: 480px) {
+  :where(p, li, figcaption, td, b) > code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 :focus-visible {
-  outline: 3px solid var(--k-ring);
+  outline: 2px solid var(--k-acc);
   outline-offset: 3px;
-  border-radius: 6px;
 }
 main:focus {
   outline: none;
