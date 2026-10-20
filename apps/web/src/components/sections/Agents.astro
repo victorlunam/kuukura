@@ -1,0 +1,133 @@
+---
+// AI coding agents: SKILL.md and its honest limit (docs/agents.md). The excerpt quotes SKILL.md.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Window from '../ui/Window.astro';
+import Icon from '../ui/Icon.astro';
+---
+
+<Section id="agents" aria-labelledby="agents-title" inner="agents-grid">
+  <div>
+    <Heading id="agents-title" eyebrow="Built for AI coding agents" gap={false}>
+      Let agents use secrets without handing them over.
+      <Fragment slot="lede">
+        Add <code>SKILL.md</code> to your agent. It teaches <code>ku run</code> and <code>ku secret list</code>, and what
+        never to do: no reveals, no printing values, no values in commands or files.
+      </Fragment>
+    </Heading>
+    <aside class="note" aria-label="Accepted risk">
+      <Icon name="info" size={20} />
+      <p>
+        <b>The honest limit.</b> A command an agent runs can print its own environment. Give agents low-value development
+        secrets, mark sensitive ones <code>requires_authorize</code>, and rotate on leak.{' '}
+        <a href="/docs/agents/">Read the agent guide</a>
+      </p>
+    </aside>
+  </div>
+  <Window title="SKILL.md" chrome="file" data-reveal aria-label="An excerpt of SKILL.md">
+    <div class="skill">
+      <p class="quote">Secrets live in a vault. You run commands <em>with</em> them; you never read them.</p>
+      <p class="h do">Do</p>
+      <ul>
+        <li><code>ku secret list app:shop env:dev</code><span>names, versions and tags, never values</span></li>
+        <li><code>ku run env:dev -- npm run dev</code><span>secrets injected as env vars</span></li>
+        <li><span>If a secret is blocked or you are not permitted, stop and tell the user.</span></li>
+      </ul>
+      <p class="h never">Never</p>
+      <ul>
+        <li><code>ku secret get --reveal</code><span>or <code>--out</code>: they need the user’s own confirmation</span></li>
+        <li><span>Print, echo, log or paste a secret value anywhere.</span></li>
+        <li><span>Put a value in a command line, a URL, a config file or a test fixture.</span></li>
+      </ul>
+    </div>
+    <a slot="footer" href="/docs/skill/">The full skill</a>
+  </Window>
+</Section>
+
+<style>
+  :global(.agents-grid) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(2.5rem, 6vw, 6rem);
+    align-items: center;
+  }
+  .note {
+    display: flex;
+    gap: 0.85rem;
+    margin-top: var(--k-space-6);
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--k-line);
+    border-radius: 16px;
+    background: rgba(12, 29, 34, 0.6);
+    color: var(--k-muted);
+    font-size: var(--k-text-md);
+  }
+  .note :global(svg) {
+    flex: none;
+    color: var(--k-amber);
+    margin-top: 0.15rem;
+  }
+  .note p {
+    margin: 0;
+  }
+  .note a {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  /* the file's text */
+  .skill {
+    padding: 1.5rem 1.5rem 0.25rem;
+  }
+  .quote {
+    margin: 0 0 1.5rem;
+    font-size: 1.125rem;
+    line-height: 1.45;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  em {
+    font-style: normal;
+    color: var(--k-acc);
+  }
+  .h {
+    margin: 0 0 0.6rem;
+    font: 600 0.8125rem/1 var(--k-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .do {
+    color: var(--k-acc);
+  }
+  .never {
+    color: var(--k-ink);
+    margin-top: 1.5rem;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+  li {
+    display: grid;
+    gap: 0.2rem;
+    font-size: 0.9375rem;
+    color: var(--k-muted);
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--k-line);
+  }
+  li > code {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--k-ink);
+    font-size: var(--k-text-sm);
+    white-space: normal;
+  }
+  @media (max-width: 900px) {
+    :global(.agents-grid) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

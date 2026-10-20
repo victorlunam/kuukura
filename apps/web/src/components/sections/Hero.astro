@@ -1,0 +1,76 @@
+---
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Button from '../ui/Button.astro';
+import InstallCommands from '../InstallCommands.astro';
+import { REPO_URL } from '../../../site.config.mjs';
+---
+
+<Section class="hero" aria-labelledby="hero-title">
+  <div class="stack" data-intro>
+    <Heading id="hero-title" level={1} size="display" align="center" eyebrow="Free · Open source (MIT) · Self-hosted" gap={false}>
+      <span class="line">Your team’s secrets.</span>
+      <span class="line">Decrypted only on your server.</span>
+      <Fragment slot="lede">
+        An open-source vault you run yourself: values are decrypted only on your server, every reveal needs your passkey
+        or authenticator app, and every read is logged.
+      </Fragment>
+    </Heading>
+    <div class="install">
+      <InstallCommands id="hero" />
+      <p class="k-fine">
+        Installs <code>ku</code> and <code>kuukura</code> (the same program). Then:{' '}
+        <a href="/docs/deploy/">deploy the server</a>.
+      </p>
+    </div>
+    <div class="ctas">
+      <Button href="/docs/install/">Get started</Button>
+      <Button href={REPO_URL} variant="ghost">View on GitHub</Button>
+    </div>
+  </div>
+</Section>
+
+<style>
+  .hero {
+    padding-block: clamp(2.5rem, 5vw, 4.5rem) clamp(2rem, 4vw, 3rem);
+    text-align: center;
+    isolation: isolate;
+  }
+  /* the product page's background: a soft teal glow over a dot grid (internal/api/web/style.css), reaching down
+     behind the install box */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: -3.5rem 0 0;
+    z-index: -1;
+    background-image:
+      radial-gradient(60rem 30rem at 50% 0%, rgba(45, 212, 191, 0.13), transparent 65%),
+      radial-gradient(42rem 14rem at 50% 78%, rgba(45, 212, 191, 0.08), transparent 70%),
+      radial-gradient(rgba(233, 243, 242, 0.055) 1.2px, transparent 1.2px);
+    background-size:
+      auto,
+      auto,
+      26px 26px;
+    mask-image: linear-gradient(#000 70%, transparent);
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .line {
+    display: block;
+  }
+  .install {
+    width: 100%;
+    max-width: 41rem;
+    margin-top: var(--k-space-6);
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--k-space-3);
+    margin-top: var(--k-space-5);
+  }
+</style>

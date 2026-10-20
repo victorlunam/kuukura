@@ -1,0 +1,68 @@
+---
+// A section's header: eyebrow, headline and an optional lede (named slot "lede", may hold <b> and <code>).
+import Eyebrow from './Eyebrow.astro';
+import Lede from './Lede.astro';
+
+interface Props {
+  id: string;
+  eyebrow?: string;
+  level?: 1 | 2;
+  size?: 'display' | 'h2';
+  align?: 'start' | 'center';
+  /** space below the header, before the section's content */
+  gap?: boolean;
+  /** a limit on the headline's own line length, in em (so it follows the headline's size, not the body's) */
+  maxWidth?: `${number}em`;
+}
+const { id, eyebrow, level = 2, size = 'h2', align = 'start', gap = true, maxWidth } = Astro.props;
+const Tag = `h${level}` as 'h1' | 'h2';
+---
+
+<header class:list={['k-head', `k-head-${align}`, `k-head-${size}`, gap && 'k-head-gap']}>
+  {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+  <Tag id={id} class:list={['k-title', `k-title-${size}`]} style={maxWidth ? `max-width: ${maxWidth}` : undefined}><slot /></Tag>
+  {
+    Astro.slots.has('lede') && (
+      <Lede class={align === 'center' ? 'k-center' : undefined}>
+        <slot name="lede" />
+      </Lede>
+    )
+  }
+</header>
+
+<style>
+  .k-head {
+    max-width: 52rem;
+  }
+  .k-head-display {
+    max-width: none;
+  }
+  .k-head-gap {
+    margin-bottom: var(--k-space-8);
+  }
+  .k-head-center {
+    margin-inline: auto;
+    text-align: center;
+  }
+  .k-title {
+    margin: 0;
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  .k-title-h2 {
+    font-size: var(--k-text-h2);
+    line-height: var(--k-leading-tight);
+    letter-spacing: var(--k-tracking-tight);
+  }
+  .k-title-display {
+    font-size: var(--k-text-display);
+    line-height: 0.98;
+    letter-spacing: var(--k-tracking-display);
+  }
+  .k-head-center .k-title {
+    margin-inline: auto;
+  }
+  .k-head :global(.k-center) {
+    margin-inline: auto;
+  }
+</style>

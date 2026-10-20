@@ -17,7 +17,7 @@ apps/
   ku/               the CLI client
   ku-server/        the server and the operator CLI
     api/            HTTP layer: handlers, problem+json, rate limit, the server's pages (page.html, style.css, app.js)
-  web/              the website (Astro)
+  web/              the website and docs site (Astro + Starlight, a pnpm workspace package)
 internal/           Go code shared by the Go apps
   access/ audit/ auth/ identity/ keys/ masterkey/ secrets/   domain packages
   storage/          the only code with SQL, and the migrations (migrations/{sqlite,postgres})
@@ -69,12 +69,19 @@ deploy/ docs/ scripts/ .github/
 
 ## Setup
 
-Tools are pinned with [mise](https://mise.jdx.dev/) (`mise.toml` selects the Go version):
+Tools are pinned with [mise](https://mise.jdx.dev/) (`mise.toml` selects the Go, Node and pnpm versions):
 
 ```sh
 mise install
 go build ./...
+pnpm install          # the pnpm workspace: apps/web and packages/brand
+pnpm web:dev          # the website, with live reload
+pnpm web:build        # the static site into apps/web/dist
 ```
+
+`pnpm web:check` type-checks the site; CI also runs `pnpm --filter web linkcheck`. The site builds its docs pages from
+`docs/` and the other Markdown files at the root, and its brand files from `packages/brand`
+(`apps/web/scripts/sync.mjs`); edit those sources, never the generated copies.
 
 ## Tests and checks
 

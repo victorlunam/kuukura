@@ -1,0 +1,98 @@
+---
+// README "FAQ". Native <details>: keyboard and screen readers work without script.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+
+const faq = [
+  {
+    q: 'What does it cost?',
+    a: 'Nothing. kuukura is free and MIT licensed, and there is no hosted version, so there is no subscription: you pay only for the server you run it on.',
+  },
+  {
+    q: 'How do I back up?',
+    a: 'Back up the database (the <code>/data</code> volume or Postgres) and the master key as two different things in two different places. Run <code>ku-server key show</code> once per key version and keep the text in a password manager; the key file lives in its own <code>/keys</code> volume.',
+  },
+  {
+    q: 'Can an AI agent see values?',
+    a: 'Not through the commands it is taught: <code>ku run</code> injects them, and reveals need your passkey or code. But a command it runs can print its own environment. Treat that as accepted risk and use low-value secrets (<a href="/docs/agents/">details</a>).',
+  },
+  {
+    q: 'What if I lose my passkey?',
+    a: 'Use a recovery code (you get ten at enrollment). If you lost those too, someone with a shell on the server runs <code>ku-server user reset-factors you@example.com</code> and you enroll again through a 15-minute link.',
+  },
+  {
+    q: 'What if the server is down?',
+    a: '<code>ku run</code> cannot fetch secrets until it is back, because values are decrypted only on the server. The server restarts by reading the key again; there is nothing to unseal. Run it as a restartable container with its volumes backed up.',
+  },
+  {
+    q: 'Why not Vault or OpenBao?',
+    a: 'They do more, including dynamic secrets (short-lived credentials generated on demand), and cost more to run. kuukura trades breadth for a small system you can understand and operate, with no unseal ceremony (the manual key entry some vaults need at every start). If you need their features, use them.',
+  },
+  {
+    q: 'Can I use Postgres?',
+    a: 'Yes: set <code>VAULT_STORAGE=postgres</code>. The audit log is insert-only, enforced with database grants (<a href="/docs/deploy/#3-database">setup</a>). SQLite is the default.',
+  },
+];
+---
+
+<Section id="faq" aria-labelledby="faq-title">
+  <Heading id="faq-title">Questions</Heading>
+  <div class="list">
+    {
+      faq.map((f, i) => (
+        <details open={i === 0}>
+          <summary>
+            <span>{f.q}</span>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M6 9.5 12 15.5 18 9.5" />
+            </svg>
+          </summary>
+          <p set:html={f.a} />
+        </details>
+      ))
+    }
+  </div>
+</Section>
+
+<style>
+  .list {
+    max-width: 52rem;
+    border-top: 1px solid var(--k-line);
+  }
+  details {
+    border-bottom: 1px solid var(--k-line);
+  }
+  summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--k-space-4);
+    padding: 1.1rem 0;
+    cursor: pointer;
+    list-style: none;
+    font-size: clamp(1.0625rem, 0.98rem + 0.4vw, 1.3125rem);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  svg {
+    flex: none;
+    fill: none;
+    stroke: var(--k-muted);
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.3s var(--k-ease);
+  }
+  details[open] svg {
+    transform: rotate(180deg);
+  }
+  p {
+    margin: 0 0 var(--k-space-5);
+    max-width: 44rem;
+    color: var(--k-muted);
+    line-height: 1.6;
+  }
+</style>

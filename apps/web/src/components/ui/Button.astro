@@ -1,0 +1,59 @@
+---
+// A link that looks like a button: every button on the marketing pages navigates.
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'a'> {
+  href: string;
+  variant?: 'primary' | 'ghost';
+  size?: 'md' | 'sm';
+}
+const { variant = 'primary', size = 'md', class: className, ...rest } = Astro.props;
+---
+
+<a class:list={['k-btn', `k-btn-${variant}`, size === 'sm' && 'k-btn-sm', className]} {...rest}><slot /></a>
+
+<style>
+  .k-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--k-space-2);
+    min-height: 3rem;
+    padding: 0.75rem 1.375rem;
+    border-radius: var(--k-radius-pill);
+    border: 1px solid transparent;
+    font: 600 var(--k-text-base) / 1.2 var(--k-font);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    transition:
+      transform var(--k-dur-fast) var(--k-ease),
+      background-color var(--k-dur) ease,
+      border-color var(--k-dur) ease,
+      box-shadow var(--k-dur) ease;
+  }
+  .k-btn:active {
+    transform: translateY(1px);
+  }
+  .k-btn-primary {
+    background: var(--k-ink);
+    color: var(--k-tile-ink);
+  }
+  .k-btn-primary:hover {
+    background: #fff;
+    box-shadow: 0 8px 30px rgba(45, 212, 191, 0.16);
+  }
+  .k-btn-ghost {
+    color: var(--k-ink);
+    border-color: var(--k-line-2);
+    background: rgba(233, 243, 242, 0.02);
+  }
+  .k-btn-ghost:hover {
+    border-color: var(--k-line-3);
+    background: rgba(233, 243, 242, 0.06);
+  }
+  .k-btn-sm {
+    min-height: 2.125rem;
+    padding: 0.4rem 0.95rem;
+    font-size: var(--k-text-sm);
+  }
+</style>

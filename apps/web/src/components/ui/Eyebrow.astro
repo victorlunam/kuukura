@@ -1,0 +1,19 @@
+---
+// The small line above a headline that names the topic.
+interface Props {
+  id?: string;
+}
+const { id } = Astro.props;
+---
+
+<p class="k-eyebrow" id={id}><slot /></p>
+
+<style>
+  .k-eyebrow {
+    margin: 0 0 var(--k-space-4);
+    font-size: clamp(0.9375rem, 0.85rem + 0.3vw, var(--k-text-base));
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--k-muted);
+  }
+</style>

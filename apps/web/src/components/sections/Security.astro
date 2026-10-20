@@ -1,0 +1,122 @@
+---
+// README "Security": each claim with where to check it, release verification, and what is not protected.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import ArrowLink from '../ui/ArrowLink.astro';
+import CodeBlock from '../ui/CodeBlock.astro';
+import IconList from '../ui/IconList.astro';
+import Window from '../ui/Window.astro';
+import { REPO_URL } from '../../../site.config.mjs';
+
+const claims = [
+  { claim: 'Threats, controls and what is not defended', where: 'Threat model', href: '/docs/threat-model/' },
+  {
+    claim: 'A self-review against OWASP ASVS Level 2 (a checklist of application-security requirements), with its open items listed',
+    where: 'ASVS L2 self-review',
+    href: '/docs/asvs-l2/',
+  },
+  {
+    claim: 'Nothing is readable by default, and admins have no secret access by role',
+    where: 'Grants',
+    href: '/docs/#the-ideas-in-one-minute',
+  },
+  {
+    claim: 'An audit log you can check: each entry carries a fingerprint of the one before it (hash-chained), so edits show',
+    where: 'ku-server audit verify',
+    href: '/docs/cli/#ku-server',
+    code: true,
+  },
+  {
+    claim: 'Static analysis and dependency checks in CI (staticcheck, gosec, govulncheck)',
+    where: 'ci.yml',
+    href: `${REPO_URL}/blob/main/.github/workflows/ci.yml`,
+    code: true,
+  },
+];
+
+const notProtected = [
+  '<b>Someone with both the database and the master key</b> reads everything. That is why the key lives outside the database and <code>/data</code>.',
+  '<b>A compromised server host.</b> Root access, a debugger or a memory dump exposes keys and plaintext while the server runs.',
+  '<b>A malicious admin with host or database access,</b> who can mint invites, replace the binary or rewrite the audit chain.',
+  '<b>A stolen session on an unlocked laptop</b> can <code>ku run</code> plain secrets until it expires (8 hours, 1 hour idle). Reveals still need your second factor.',
+  '<b>Phishing of authenticator codes and recovery codes,</b> which passkeys resist and these do not.',
+].map((html) => ({ icon: 'x' as const, html }));
+
+const verify = `v=YEAR.MONTH.N
+gh attestation verify oci://ghcr.io/victorlunam/kuukura:$v --repo victorlunam/kuukura
+cosign verify ghcr.io/victorlunam/kuukura:$v \\
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\
+  --certificate-identity https://github.com/victorlunam/kuukura/.github/workflows/release.yml@refs/tags/v$v`;
+---
+
+<Section id="security" aria-labelledby="security-title">
+  <Heading id="security-title" eyebrow="Security, honestly">
+    Every claim comes with a place to check it.
+    <Fragment slot="lede">
+      Things you can verify, not take on trust. These are self-reviews and published evidence, not third-party
+      certifications.
+    </Fragment>
+  </Heading>
+  <ul class="claims">
+    {
+      claims.map((c) => (
+        <li data-reveal>
+          <span>{c.claim}</span>
+          <ArrowLink href={c.href}>{c.code ? <code>{c.where}</code> : c.where}</ArrowLink>
+        </li>
+      ))
+    }
+  </ul>
+  <div class="verify">
+    <Window title="Check what you pull: set v to the release you run" chrome="code" data-reveal>
+      <CodeBlock code={verify} label="Release verification commands" size="sm" />
+      <Fragment slot="footer">
+        These prove an artifact came from this repository’s workflow at that tag; they do not prove the source has no bugs.
+      </Fragment>
+    </Window>
+  </div>
+  <h3 class="nope">What kuukura does not protect against</h3>
+  <IconList items={notProtected} tone="muted" columns={2} />
+  <p class="k-fine">Agents that print what <code>ku run</code> injects are covered in <a href="/docs/agents/">the agent guide</a>.</p>
+</Section>
+
+<style>
+  .claims {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--k-line);
+  }
+  .claims li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--k-space-5);
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--k-line);
+  }
+  .claims span {
+    font-size: clamp(1.0625rem, 0.95rem + 0.4vw, 1.25rem);
+    letter-spacing: -0.015em;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .claims :global(a) {
+    white-space: nowrap;
+  }
+  .verify {
+    margin-top: var(--k-space-8);
+  }
+  .nope {
+    margin: var(--k-space-8) 0 0;
+    font-size: var(--k-text-h3);
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+  }
+  @media (max-width: 720px) {
+    .claims li {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--k-space-2);
+    }
+  }
+</style>

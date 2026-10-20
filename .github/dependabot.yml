@@ -9,6 +9,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # The pnpm workspace (apps/web, packages/brand); one lockfile at the root.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
   # Base images are pinned by digest; Dependabot bumps the digest with the tag.
   - package-ecosystem: docker
     directory: /

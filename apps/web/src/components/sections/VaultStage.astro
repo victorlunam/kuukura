@@ -1,0 +1,86 @@
+---
+// The brand mark at 6x (mark.svg on a 64 grid: tile, ring, eight bolts, amber hub), turning as it crosses the screen:
+// the bolts make a quarter turn, then the hub lights up. The door never goes away; the line under it changes.
+const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
+  .map((a) => {
+    const r = (a * Math.PI) / 180;
+    return `M${+(192 + 69 * Math.sin(r)).toFixed(2)} ${+(192 - 69 * Math.cos(r)).toFixed(2)}h0`;
+  })
+  .join('');
+---
+
+<section class="stage" aria-label="The vault" data-stage>
+  <div class="scene">
+    <div class="vault" aria-hidden="true" data-stage-part="vault">
+      <svg viewBox="0 0 384 384" fill="none">
+        <defs>
+          <radialGradient id="vault-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#F5A524" stop-opacity=".5"></stop>
+            <stop offset=".5" stop-color="#F5A524" stop-opacity=".14"></stop>
+            <stop offset="1" stop-color="#F5A524" stop-opacity="0"></stop>
+          </radialGradient>
+        </defs>
+        <rect width="384" height="384" rx="84" fill="var(--k-tile-raised)"></rect>
+        <rect x="1.5" y="1.5" width="381" height="381" rx="82.5" stroke="var(--k-fg)" stroke-opacity=".14" stroke-width="3"></rect>
+        <circle cx="192" cy="192" r="104" fill="url(#vault-glow)" data-stage-part="glow"></circle>
+        <circle cx="192" cy="192" r="120" stroke="var(--k-fg)" stroke-width="27"></circle>
+        <path d={bolts} stroke="var(--k-fg)" stroke-width="25.2" stroke-linecap="round" data-stage-part="bolts"></path>
+        <circle cx="192" cy="192" r="27.6" fill="var(--k-hub)"></circle>
+      </svg>
+    </div>
+    <div class="copy">
+      <p data-stage-part="first">Every secret is sealed with its own key.</p>
+      <p data-stage-part="second">Opened only on your server, and only for who you grant.</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* a compact band: the scene plays while it crosses the page, nothing is pinned */
+  .stage {
+    position: relative;
+    padding-bottom: var(--k-section);
+    overflow: hidden;
+  }
+  .scene {
+    display: grid;
+    justify-items: center;
+    gap: var(--k-space-6);
+    padding-inline: var(--k-gutter);
+  }
+  .vault {
+    width: min(16rem, 56vw);
+    aspect-ratio: 1;
+  }
+  .vault svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  /* the two lines share one place: the first gives way to the second */
+  .copy {
+    display: grid;
+    width: 100%;
+    max-width: 44rem;
+    text-align: center;
+  }
+  .copy p {
+    grid-area: 1 / 1;
+    margin: 0;
+    font-size: clamp(1.375rem, 0.9rem + 1.8vw, 2.25rem);
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  /* reduced motion: the mark with both lines under it, at full contrast */
+  @media (prefers-reduced-motion: reduce) {
+    .copy p {
+      grid-area: auto;
+    }
+    .copy p + p {
+      margin-top: 0.5rem;
+    }
+  }
+</style>

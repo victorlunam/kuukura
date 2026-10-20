@@ -1,0 +1,12 @@
+{
+  "name": "kuukura",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "web:dev": "pnpm --filter web dev",
+    "web:build": "pnpm --filter web build",
+    "web:check": "pnpm --filter web check",
+    "web:preview": "pnpm --filter web preview"
+  }
+}

@@ -1,0 +1,70 @@
+---
+// A dark window with a title bar: the terminal, a file, a code sample. Slot "footer" sits under the body.
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+
+interface Props extends HTMLAttributes<'figure'> {
+  title: string;
+  /** the bar shows three window dots and a centered title instead of an icon */
+  chrome?: 'terminal' | 'file' | 'code';
+}
+const { title, chrome = 'terminal', class: className, ...rest } = Astro.props;
+---
+
+<figure class:list={['k-window', className]} {...rest}>
+  <div class:list={['k-bar', chrome === 'terminal' && 'k-bar-center']} aria-hidden="true">
+    {chrome === 'terminal' ? <><i /><i /><i /></> : <Icon name={chrome === 'file' ? 'doc' : 'terminal'} size={16} />}
+    <span>{title}</span>
+  </div>
+  <slot />
+  {
+    Astro.slots.has('footer') && (
+      <figcaption class="k-foot">
+        <slot name="footer" />
+      </figcaption>
+    )
+  }
+</figure>
+
+<style>
+  .k-window {
+    margin: 0;
+    background: var(--k-tile-ink);
+    border: 1px solid #16303a;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 rgba(233, 243, 242, 0.05) inset,
+      var(--k-shadow);
+  }
+  .k-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    height: 2.75rem;
+    padding: 0 1.1rem;
+    border-bottom: 1px solid rgba(233, 243, 242, 0.06);
+    background: rgba(233, 243, 242, 0.02);
+    font: 500 var(--k-text-xs) / 1 var(--k-mono);
+    color: var(--k-muted);
+  }
+  .k-bar i {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: #1f3a41;
+  }
+  .k-bar-center span {
+    flex: 1;
+    text-align: center;
+    margin-right: 2.4rem;
+  }
+  .k-foot {
+    padding: 1.1rem var(--k-space-5) 1.4rem;
+    font-size: var(--k-text-sm);
+    color: var(--k-muted);
+  }
+  .k-foot :global(a) {
+    font-weight: 600;
+  }
+</style>

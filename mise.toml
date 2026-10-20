@@ -1,5 +1,7 @@
 [tools]
 go = "1.26.9"
+node = "24.21.0"
+pnpm = "11.24.0"
 
 # dbmate has no config file and defaults to ./db/migrations, so a plain `dbmate new` would write to the wrong place
 # and only one dialect. This writes the sqlite + postgres pair with dbmate's timestamp (UTC, YYYYMMDDHHMMSS).

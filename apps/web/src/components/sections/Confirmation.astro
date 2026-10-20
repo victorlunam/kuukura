@@ -1,0 +1,115 @@
+---
+// The confirmation moment, and the four pages a new team member sees. All are the server's real pages
+// (scripts/screens.mjs), dark.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import DeviceFrame from '../ui/DeviceFrame.astro';
+import IconList from '../ui/IconList.astro';
+import stepup from '~/assets/screens/stepup-dark.webp';
+import invite from '~/assets/screens/invite-dark.webp';
+import enroll from '~/assets/screens/enroll-dark.webp';
+import done from '~/assets/screens/done-dark.webp';
+
+const checks = [
+  { icon: 'fingerprint', html: '<b>Passkeys with user verification,</b> or an authenticator app.' },
+  { icon: 'check', html: '<b>Single use and 60 seconds,</b> bound to you, the action and the secrets.' },
+  { icon: 'machine', html: '<b>Machines never confirm.</b> A CI token can never reveal a value, and an agent cannot give your passkey.' },
+  { icon: 'key', html: '<b>Mark a secret <code>requires_authorize</code></b> and even <code>ku run</code> asks first.' },
+] as const;
+const flow = [
+  { img: invite, t: 'The invitation', alt: "The invitation page: You're invited. Continue with Google." },
+  { img: enroll, t: 'Add a passkey', alt: 'Secure your account: add a passkey, or use an authenticator app.' },
+  { img: stepup, t: 'Confirm', alt: "Confirm it's you: Reveal STRIPE_KEY app:shop env:prod." },
+  { img: done, t: 'All set', alt: "You're all set: your account is ready. In your terminal, add this server and sign in." },
+];
+---
+
+<Section id="confirm" aria-labelledby="confirm-title" inner="confirm-grid">
+  <Heading id="confirm-title" eyebrow="The confirmation moment" gap={false}>
+    A reveal needs you. Not just your session.
+    <Fragment slot="lede">
+      Revealing a value, saving it to a file or turning confirmation off opens a page on your own server. It shows
+      exactly what you are confirming, then asks for your passkey or a code from your authenticator app.
+    </Fragment>
+  </Heading>
+  <IconList items={checks} />
+  <div class="flow">
+    <p class="flow-title">What your team sees, from invite to done</p>
+    <ol tabindex="0" aria-label="The four pages, in order">
+      {
+        flow.map((s, i) => (
+          <li data-reveal style={`--i: ${i}`}>
+            <DeviceFrame src={s.img} alt={s.alt} size="sm" />
+            <span>
+              <b>{i + 1}</b>{' '}{s.t}
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</Section>
+
+<style>
+  :global(.confirm-grid) {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: var(--k-space-6) clamp(2.5rem, 7vw, 6rem);
+    align-items: start;
+  }
+  :global(.confirm-grid > .k-icons) {
+    margin-top: 0;
+    align-self: center;
+  }
+  .flow {
+    grid-column: 1 / -1;
+    margin-top: var(--k-space-6);
+  }
+  .flow-title {
+    margin: 0 0 var(--k-space-5);
+    font-weight: 600;
+    color: var(--k-muted);
+  }
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(0.75rem, 2.2vw, 1.75rem);
+    max-width: 44rem;
+  }
+  ol span {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    margin-top: var(--k-space-4);
+    font-weight: 600;
+    font-size: 0.9375rem;
+  }
+  ol b {
+    font: 600 0.8125rem/1 var(--k-mono);
+    color: var(--k-muted);
+  }
+  @media (max-width: 900px) {
+    :global(.confirm-grid) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 640px) {
+    ol {
+      grid-template-columns: none;
+      grid-auto-flow: column;
+      grid-auto-columns: 64%;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      margin-inline: calc(-1 * var(--k-gutter));
+      padding: 0 var(--k-gutter) 1rem;
+      scroll-padding-inline: var(--k-gutter);
+      scrollbar-width: none;
+    }
+    ol li {
+      scroll-snap-align: start;
+    }
+  }
+</style>

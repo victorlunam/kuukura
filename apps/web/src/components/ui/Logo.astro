@@ -1,0 +1,32 @@
+---
+// The product logo (mark + outlined wordmark), drawn from the server's own logo.svg so the two cannot drift.
+// The tile follows --k-tile and the wordmark follows currentColor, so it works in both docs themes.
+import logo from '~/generated/brand/logo.svg?raw';
+
+interface Props {
+  class?: string;
+  height?: number;
+}
+const { class: className, height = 28 } = Astro.props;
+
+const word = logo.match(/<path class="word"([^>]*)\/>/)?.[1];
+const mark = logo
+  .replace(/^[\s\S]*?<\/style>/, '')
+  .replace(/<path class="word"[^>]*\/>[\s\S]*$/, '')
+  .replace('class="tile"', 'fill="var(--k-tile, #071519)"');
+if (!word) throw new Error('logo.svg: wordmark path not found');
+const svg = `${mark}<path stroke="currentColor"${word}/>`;
+const width = Math.round((height * 247) / 64);
+---
+
+<svg
+  class={className}
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 247 64"
+  width={width}
+  height={height}
+  fill="none"
+  role="img"
+  aria-label="kuukura"
+  set:html={svg}
+/>

@@ -1,0 +1,25 @@
+---
+// The docs header's right side: a way back to the landing page and the same "Get started" as the landing nav,
+// then Starlight's own social icons (GitHub).
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+import Button from '../ui/Button.astro';
+---
+
+<a class="k-back" href="/">Home</a>
+<Button href="/docs/install/" size="sm">Get started</Button>
+<Default />
+
+<style>
+  .k-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    color: var(--sl-color-gray-3);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .k-back:hover {
+    color: var(--sl-color-white);
+  }
+</style>

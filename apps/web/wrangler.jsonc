@@ -1,0 +1,11 @@
+// The website: a Worker that serves only static assets (no script). The account comes from
+// CLOUDFLARE_ACCOUNT_ID or `wrangler login`, never from this file.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kuukura-main-landing",
+  "compatibility_date": "2026-10-20",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

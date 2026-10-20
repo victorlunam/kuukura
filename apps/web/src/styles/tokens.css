@@ -1,0 +1,96 @@
+/* Site tokens. The brand palette and type come from @kuukura/brand/tokens.css (the server's names: --bg, --ink,
+   --acc, --font...). That file switches by prefers-color-scheme, but the site switches by [data-theme] and is dark
+   by default, so scripts/sync.mjs also writes both palettes of the same file as --brand-light-* / --brand-dark-*
+   (src/generated/brand-themes.css, never edited). This file maps them to the site's semantic tokens and adds what
+   only the site needs: the mark's fixed colors, type scale, spacing, radii, motion.
+   Dark is the default (the landing page is dark only); the docs switch with Starlight's [data-theme='light']. */
+@import '@kuukura/brand/tokens.css';
+@import '../generated/brand-themes.css';
+
+:root {
+  /* ---- color (brand.md "Palette") ---- */
+  --k-bg: var(--brand-dark-bg);
+  --k-card: var(--brand-dark-card);
+  --k-ink: var(--brand-dark-ink);
+  --k-muted: var(--brand-dark-muted);
+  --k-line: var(--brand-dark-line);
+  --k-soft: var(--brand-dark-soft);
+  --k-hollow: var(--brand-dark-hollow);
+  --k-soft-2: var(--brand-dark-soft-2);
+  --k-acc: var(--brand-dark-acc); /* teal: state only */
+  --k-acc-ink: var(--brand-dark-acc-ink); /* teal text: links */
+  --k-amber: var(--brand-dark-amber); /* the one accent, sparingly */
+  --k-ring: var(--brand-dark-ring);
+  /* the mark's fixed colors (they do not change with the theme; same values as assets/mark.svg and brand.md) */
+  --k-tile: #16373d; /* tab icon and logo tile in dark mode */
+  --k-tile-ink: #071519; /* the mark's tile; also the terminal background */
+  --k-tile-raised: #0e2a30; /* the banner's lockup tile */
+  --k-fg: #eaf4f2; /* the mark's foreground */
+  --k-hub: #f5a524; /* the mark's hub */
+  /* site-only, for the dark page: a quieter ink for second lines (5:1 on the page) and stronger lines for hover */
+  --k-ink-2: #6f8a90;
+  --k-line-2: #2a454c;
+  --k-line-3: #46666e;
+
+  /* ---- type (brand.md "Type": system stacks) ---- */
+  --k-font: var(--font);
+  --k-mono: var(--mono);
+  --k-text-xs: 0.8125rem;
+  --k-text-sm: 0.875rem;
+  --k-text-md: 0.96875rem;
+  --k-text-base: 1.0625rem;
+  --k-text-lg: 1.1875rem;
+  --k-text-lede: clamp(1.125rem, 0.98rem + 0.62vw, 1.5rem);
+  --k-text-h3: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+  --k-text-h2: clamp(2rem, 1rem + 3.6vw, 3.75rem);
+  --k-text-display: clamp(2.4rem, 1rem + 4vw, 4.75rem);
+  --k-leading-tight: 1.03;
+  --k-leading: 1.55;
+  --k-tracking-tight: -0.042em;
+  --k-tracking-display: -0.048em;
+
+  /* ---- space ---- */
+  --k-space-1: 0.25rem;
+  --k-space-2: 0.5rem;
+  --k-space-3: 0.75rem;
+  --k-space-4: 1rem;
+  --k-space-5: 1.5rem;
+  --k-space-6: 2.25rem;
+  --k-space-7: clamp(2.5rem, 6vw, 4rem);
+  --k-space-8: clamp(2rem, 4vw, 3rem);
+  --k-section: clamp(3.5rem, 6vw, 5.5rem);
+  --k-gutter: clamp(1rem, 4.5vw, 3rem);
+  --k-maxw: 75rem;
+
+  /* ---- radii: the product's card 22, panel 14, small 10 (style.css); the tile is 22% (brand.md) ---- */
+  --k-radius-sm: 10px;
+  --k-radius-md: 14px;
+  --k-radius-lg: 22px;
+  --k-radius-pill: 999px;
+  --k-radius-tile: 22%;
+
+  /* ---- motion ---- */
+  --k-dur-fast: 150ms;
+  --k-dur: 250ms;
+  --k-dur-slow: 900ms;
+  --k-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --k-ease-inout: cubic-bezier(0.45, 0, 0.3, 1);
+
+  --k-shadow: 0 40px 100px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme='light'] {
+  --k-bg: var(--brand-light-bg);
+  --k-card: var(--brand-light-card);
+  --k-ink: var(--brand-light-ink);
+  --k-muted: var(--brand-light-muted);
+  --k-line: var(--brand-light-line);
+  --k-soft: var(--brand-light-soft);
+  --k-hollow: var(--brand-light-hollow);
+  --k-soft-2: var(--brand-light-soft-2);
+  --k-acc: var(--brand-light-acc);
+  --k-acc-ink: var(--brand-light-acc-ink);
+  --k-amber: var(--brand-light-amber);
+  --k-ring: var(--brand-light-ring);
+  --k-tile: #071519;
+}

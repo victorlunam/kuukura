@@ -6,6 +6,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Added
+
+- Website and docs site (apps/web, Astro + Starlight), deployed to Cloudflare Workers.
+
 ### Changed
 
 - Repository layout: apps/ (ku, ku-server, web), internal/ (shared Go code), packages/ (brand, shared across languages); conventions in CONTRIBUTING.md and AGENTS.md.

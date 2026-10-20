@@ -1,0 +1,9 @@
+packages:
+  - apps/web
+  - packages/brand
+
+# Install scripts run only for these packages (pnpm 11 setting; it replaces onlyBuiltDependencies).
+# esbuild and workerd download their platform binary in postinstall. Nothing else may run scripts.
+allowBuilds:
+  esbuild: true
+  workerd: true

@@ -1,0 +1,18 @@
+---
+// README "How it works": the picture, and the two terms it uses, in plain words.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Diagram from '../Diagram.astro';
+---
+
+<Section id="how" aria-labelledby="how-title">
+  <Heading id="how-title" eyebrow="How it works">
+    The CLI is a channel.<br />The server holds the keys.
+    <Fragment slot="lede">
+      Your server checks the grant, decrypts, and writes the decision to the audit log. The database only ever holds
+      ciphertext (the encrypted values) and wrapped keys: each secret version gets its own key, locked by your master key
+      (envelope encryption).
+    </Fragment>
+  </Heading>
+  <Diagram />
+</Section>

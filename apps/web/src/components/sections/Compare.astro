@@ -1,0 +1,156 @@
+---
+// The README's comparison table, with its sources and "last checked" date. Rows become a stacked list on phones.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import { REPO_URL } from '../../../site.config.mjs';
+
+const rows = [
+  {
+    name: 'kuukura',
+    hosting: 'Self-hosted, one organization. MIT.',
+    when: 'You are one small team and want a vault you can operate in an afternoon',
+  },
+  {
+    name: 'Infisical',
+    href: 'https://github.com/Infisical/infisical',
+    hosting: 'Self-hosted or cloud. MIT core, paid enterprise edition under ee.',
+    when: 'You want a broader platform (dynamic secrets are among its features) and can use its enterprise tier where needed',
+  },
+  {
+    name: 'OpenBao',
+    href: 'https://github.com/openbao/openbao',
+    hosting: 'Self-hosted. MPL-2.0.',
+    when: 'You need dynamic credentials with leases and revocation, many backends or large-scale policy',
+  },
+  {
+    name: 'SOPS',
+    href: 'https://github.com/getsops/sops',
+    hosting: 'A file tool, no server. MPL-2.0.',
+    when: 'Your secrets live in Git and you do not need access logs or per-person grants',
+  },
+  { name: '.env files', hosting: 'None', when: 'Throwaway local work with nothing worth protecting' },
+];
+---
+
+<Section id="compare" aria-labelledby="compare-title">
+  <Heading id="compare-title" eyebrow="How it compares">Choose the right tool. Even if it isn’t this one.</Heading>
+  <div class="frame">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col"><span class="sr-only">Tool</span></th>
+          <th scope="col">Hosting and license</th>
+          <th scope="col">Choose it if</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          rows.map((r) => (
+            <tr class:list={{ self: r.name === 'kuukura' }}>
+              <th scope="row">{r.href ? <a href={r.href}>{r.name}</a> : r.name}</th>
+              <td data-label="Hosting and license">{r.hosting}</td>
+              <td data-label="Choose it if" class="when">{r.when}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="k-fine sources">
+    Sources, last checked 2026-10-19: the repository pages linked above (licenses and feature lists as stated by each
+    project). <a href={`${REPO_URL}/issues`}>Open an issue</a> if a row is out of date.
+  </p>
+</Section>
+
+<style>
+  .frame {
+    border: 1px solid var(--k-line);
+    border-radius: var(--k-radius-lg);
+    overflow: hidden;
+    background: rgba(12, 29, 34, 0.5);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--k-text-md);
+  }
+  th,
+  td {
+    text-align: left;
+    vertical-align: top;
+    padding: 1.1rem 1.25rem;
+    border-bottom: 1px solid var(--k-line);
+  }
+  thead th {
+    font-size: var(--k-text-sm);
+    font-weight: 600;
+    color: var(--k-muted);
+    padding-block: 0.9rem;
+  }
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  tbody th {
+    font-weight: 650;
+    white-space: nowrap;
+    font-size: var(--k-text-base);
+    letter-spacing: -0.015em;
+  }
+  td {
+    color: var(--k-muted);
+    line-height: 1.5;
+  }
+  /* what to choose it for is the answer: full ink */
+  td.when {
+    color: var(--k-ink);
+  }
+  .self {
+    background: rgba(45, 212, 191, 0.045);
+  }
+  .sources {
+    max-width: 52rem;
+    margin-top: 1.25rem;
+  }
+  @media (max-width: 720px) {
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    table,
+    tbody,
+    tr,
+    th,
+    td {
+      display: block;
+    }
+    tr {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--k-line);
+    }
+    tbody tr:last-child {
+      border-bottom: 0;
+    }
+    th,
+    td {
+      padding: 0;
+      border: 0;
+    }
+    tbody th {
+      margin-bottom: 0.75rem;
+    }
+    td + td {
+      margin-top: 0.6rem;
+    }
+    td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: var(--k-text-xs);
+      font-weight: 600;
+      color: var(--k-muted);
+      margin-bottom: 0.1rem;
+    }
+  }
+</style>

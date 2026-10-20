@@ -1,0 +1,41 @@
+---
+// The landing page. Every claim in the sections is checked against the repository (README, docs/, SECURITY.md,
+// the CLI help); each section says where its content comes from.
+import Marketing from '~/layouts/Marketing.astro';
+import Hero from '~/components/sections/Hero.astro';
+import Proof from '~/components/sections/Proof.astro';
+import Fit from '~/components/sections/Fit.astro';
+import VaultStage from '~/components/sections/VaultStage.astro';
+import Problem from '~/components/sections/Problem.astro';
+import Session from '~/components/sections/Session.astro';
+import Deploy from '~/components/sections/Deploy.astro';
+import Confirmation from '~/components/sections/Confirmation.astro';
+import HowItWorks from '~/components/sections/HowItWorks.astro';
+import Agents from '~/components/sections/Agents.astro';
+import Security from '~/components/sections/Security.astro';
+import Compare from '~/components/sections/Compare.astro';
+import OpenSource from '~/components/sections/OpenSource.astro';
+import Faq from '~/components/sections/Faq.astro';
+import FinalCta from '~/components/sections/FinalCta.astro';
+---
+
+<Marketing
+  title="kuukura: a self-hosted secrets vault for small teams"
+  description="kuukura is an open-source, self-hosted secrets vault for small teams. Values are decrypted only on your server, reveals are confirmed with your passkey or authenticator app, and every read is audited."
+>
+  <Hero />
+  <Proof />
+  <Fit />
+  <VaultStage />
+  <Problem />
+  <Session />
+  <Deploy />
+  <Confirmation />
+  <HowItWorks />
+  <Agents />
+  <Security />
+  <Compare />
+  <OpenSource />
+  <Faq />
+  <FinalCta />
+</Marketing>

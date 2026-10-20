@@ -1,0 +1,47 @@
+---
+// The problem in a few big lines (README "Why kuukura"), then the answer and its three ideas.
+import Section from '../ui/Section.astro';
+import Eyebrow from '../ui/Eyebrow.astro';
+import Lede from '../ui/Lede.astro';
+---
+
+<Section id="why" aria-labelledby="problem-eyebrow">
+  <Eyebrow id="problem-eyebrow">Why kuukura</Eyebrow>
+  <h2 class="lines">
+    <span data-dim><code>.env</code> files passed around in chat.</span>
+    <span data-dim>API keys in a shared password manager.</span>
+    <span data-dim>A heavyweight vault with seal, unseal and a policy language.</span>
+    <span data-dim>And nobody can say who read what last week.</span>
+  </h2>
+  <h2 class="answer" data-reveal>
+    <span class="k-quiet">One server. One database. Three ideas you can learn in a minute:</span>{' '}
+    <span>tags, grants, people.</span>
+  </h2>
+  <Lede data-reveal>
+    A tag labels a secret; a grant gives a person or a CI token read or write access to the secrets with those tags.
+  </Lede>
+</Section>
+
+<style>
+  .lines,
+  .answer {
+    margin: 0;
+    font-size: clamp(1.625rem, 0.9rem + 2.6vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: var(--k-tracking-tight);
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  .lines {
+    display: grid;
+    gap: 0.15em;
+  }
+  .lines code {
+    font: inherit;
+    color: var(--k-amber);
+  }
+  .answer {
+    margin-top: clamp(2.5rem, 5vw, 4rem);
+    max-width: 54rem;
+  }
+</style>

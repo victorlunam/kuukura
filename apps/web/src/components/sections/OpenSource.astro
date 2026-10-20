@@ -1,0 +1,99 @@
+---
+// README "Status", "Contributing" and "License".
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import ArrowLink from '../ui/ArrowLink.astro';
+import { REPO_URL } from '../../../site.config.mjs';
+
+const items = [
+  {
+    title: 'MIT license',
+    body: 'Free to use, read and change. There is no hosted version: you run it yourself.',
+    link: 'License',
+    href: `${REPO_URL}/blob/main/LICENSE`,
+  },
+  {
+    title: 'Calendar versions',
+    body: 'Releases are <code>YEAR.MONTH.N</code>. Pin one in production and read the notes before upgrading.',
+    link: 'Changelog',
+    href: '/docs/changelog/',
+  },
+  {
+    title: 'Contributions welcome',
+    body: 'Issues and pull requests are welcome. A short issue before a large change saves everyone time.',
+    link: 'Contributing',
+    href: `${REPO_URL}/blob/main/CONTRIBUTING.md`,
+  },
+  {
+    title: 'Report privately',
+    body: 'Found a vulnerability? Use GitHub’s private vulnerability reporting, not a public issue.',
+    link: 'Security policy',
+    href: '/docs/security/',
+  },
+];
+---
+
+<Section id="open-source" aria-labelledby="oss-title">
+  <Heading id="oss-title" eyebrow="Open source">MIT licensed. One maintainer. No surprises.</Heading>
+  <ul class="grid">
+    {
+      items.map((it, i) => (
+        <li data-reveal style={`--i: ${i}`}>
+          <h3>{it.title}</h3>
+          <p set:html={it.body} />
+          <ArrowLink href={it.href}>{it.link}</ArrowLink>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="k-fine status">
+    Not yet: a third-party security audit, and a requirement-by-requirement mapping to the ASVS checklist.
+  </p>
+</Section>
+
+<style>
+  .grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--k-space-5) clamp(1.25rem, 3vw, 2.5rem);
+  }
+  .grid li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border-top: 1px solid var(--k-line);
+    padding-top: var(--k-space-5);
+  }
+  h3 {
+    margin: 0 0 0.6rem;
+    font-size: var(--k-text-lg);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+  p {
+    margin: 0 0 var(--k-space-4);
+    flex: 1;
+    color: var(--k-muted);
+    font-size: var(--k-text-md);
+  }
+  .grid :global(code) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .status {
+    margin-top: var(--k-space-6);
+  }
+  @media (max-width: 1080px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 560px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

@@ -1,0 +1,86 @@
+/* Base for the marketing pages: reset, page, text defaults, focus. Everything else lives in a component. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  color-scheme: dark;
+  background: var(--k-bg);
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 4.5rem;
+}
+body {
+  margin: 0;
+  background: var(--k-bg);
+  color: var(--k-ink);
+  font: 400 var(--k-text-base) / var(--k-leading) var(--k-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+a {
+  color: var(--k-acc-ink);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+b {
+  font-weight: 600;
+  color: var(--k-ink);
+}
+code {
+  font-family: var(--k-mono);
+  font-size: 0.9em;
+}
+:where(p, li, figcaption, td, b) > code {
+  background: var(--k-soft-2);
+  border: 1px solid var(--k-line);
+  border-radius: 7px;
+  padding: 0.05em 0.35em;
+  font-size: 0.86em;
+  white-space: nowrap;
+}
+/* on a phone a long command in running text may break rather than push the page sideways */
+@media (max-width: 480px) {
+  :where(p, li, figcaption, td, b) > code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+:focus-visible {
+  outline: 2px solid var(--k-acc);
+  outline-offset: 3px;
+}
+main:focus {
+  outline: none;
+}
+/* fine print: notes under a block, sources */
+.k-fine {
+  margin: 0.9rem 0 0;
+  font-size: var(--k-text-sm);
+  line-height: 1.5;
+  color: var(--k-muted);
+}
+/* the second, quieter line of a headline */
+.k-quiet {
+  color: var(--k-ink-2);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

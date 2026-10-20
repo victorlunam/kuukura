@@ -1,0 +1,41 @@
+---
+// Icons in the product sprite's style (internal/api/web/sprite.svg): 24 grid, 2 px margin, stroke 1.75, round caps
+// and joins, containers rx 3, currentColor. key, shield, terminal, fingerprint and check are the sprite's own.
+const icons = {
+  key: '<circle cx="7.5" cy="16.5" r="4.5"/><path d="M10.7 13.3 21 3m-4 4 3 3m-5.5-.5 2 2"/>',
+  shield: '<path d="M12 2.5 4.5 5.5v6c0 4.7 3.2 8.4 7.5 10 4.3-1.6 7.5-5.3 7.5-10v-6z"/><path d="m8.75 12 2.25 2.25 4.25-4.5"/>',
+  terminal: '<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="m7 9.5 3 2.5-3 2.5m5.5 0H17"/>',
+  fingerprint:
+    '<path d="M3 14v-3a9 9 0 0 1 18 0v3"/><path d="M6.5 20v-9a5.5 5.5 0 0 1 11 0v3.5"/><path d="M10 21.5V11a2 2 0 0 1 4 0v6.5"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+  people:
+    '<circle cx="9" cy="8.5" r="3.25"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M15.5 5.6a3.25 3.25 0 0 1 0 5.8M17.5 14.2a6 6 0 0 1 3.5 5.3"/>',
+  machine:
+    '<rect x="4" y="6" width="16" height="12" rx="3"/><path d="M9 2.5V6m6-3.5V6M9 18v3.5m6-3.5v3.5M2.5 10H4m-1.5 4H4m16-4h1.5M20 14h1.5"/><path d="M9.5 12h5"/>',
+  x: '<path d="m7 7 10 10M17 7 7 17"/>',
+  arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+  doc: '<path d="M6 2.5h8l4.5 4.5v11.5a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-13a3 3 0 0 1 3-3z"/><path d="M13.5 2.5V7h5M7.5 12.5h7m-7 4h5"/>',
+  info: '<circle cx="12" cy="12" r="9.25"/><path d="M12 11v5.5"/><circle cx="12" cy="7.75" r="0.6"/>',
+} as const;
+
+interface Props {
+  name: keyof typeof icons;
+  size?: number;
+  class?: string;
+}
+const { name, size = 24, class: className } = Astro.props;
+---
+
+<svg
+  class={className}
+  viewBox="0 0 24 24"
+  width={size}
+  height={size}
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  set:html={icons[name]}
+/>

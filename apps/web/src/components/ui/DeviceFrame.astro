@@ -1,0 +1,48 @@
+---
+// A phone around a screenshot of the product (390x844 captures from scripts/screens.mjs).
+import { Picture } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  size?: 'lg' | 'sm';
+}
+const { src, alt, size = 'lg' } = Astro.props;
+const sizes = size === 'lg' ? '(min-width: 960px) 360px, 72vw' : '(min-width: 960px) 240px, 60vw';
+const widths = size === 'lg' ? [390, 780] : [260, 520];
+---
+
+<div class:list={['k-device', `k-device-${size}`]}>
+  <Picture src={src} formats={['avif', 'webp']} widths={widths} sizes={sizes} alt={alt} loading="lazy" />
+</div>
+
+<style>
+  .k-device {
+    background: linear-gradient(160deg, #1d3b42, #0b1c21 40%, #0e2328);
+    box-shadow:
+      0 0 0 1px rgba(233, 243, 242, 0.1) inset,
+      0 50px 120px rgba(0, 0, 0, 0.6),
+      0 0 0 1px #020809;
+  }
+  .k-device-lg {
+    width: min(22.5rem, 72vw);
+    padding: 0.7rem;
+    border-radius: 3.1rem;
+  }
+  .k-device-sm {
+    width: 100%;
+    padding: 0.4rem;
+    border-radius: 1.9rem;
+  }
+  .k-device :global(img) {
+    width: 100%;
+    height: auto;
+  }
+  .k-device-lg :global(img) {
+    border-radius: 2.45rem;
+  }
+  .k-device-sm :global(img) {
+    border-radius: 1.55rem;
+  }
+</style>

@@ -4,6 +4,8 @@
 
 <h3 align="center">A self-hosted secrets vault for small teams. Values are decrypted only on your server.</h3>
 
+<p align="center">Website and docs: <a href="https://kuukura-main-landing.workers.dev">kuukura-main-landing.workers.dev</a></p>
+
 <p align="center">
   <a href="#install-the-cli">Install</a> ·
   <a href="#quickstart-deploy-it">Deploy</a> ·
