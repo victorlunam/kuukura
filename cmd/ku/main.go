@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 )
@@ -141,9 +142,10 @@ type parsed struct {
 	flags map[string]string
 }
 
-// parseArgs separates positionals from --flags. valued lists flags that take a value; anything else
-// starting with "--" is a boolean. Tokens like +env:qa and -env:prod are positional (tag changes).
-func parseArgs(args []string, valued ...string) (parsed, error) {
+// parseArgs separates positionals from --flags. valued are the flags that take a value, bools the ones that do not;
+// any other --flag is an error, so a typo such as --profle never runs against the default profile. Tokens like
+// +env:qa and -env:prod are positional (tag changes).
+func parseArgs(args []string, valued []string, bools ...string) (parsed, error) {
 	p := parsed{flags: map[string]string{}}
 	for i := 0; i < len(args); i++ {
 		t := args[i]
@@ -152,20 +154,18 @@ func parseArgs(args []string, valued ...string) (parsed, error) {
 			continue
 		}
 		name, val, hasVal := strings.Cut(strings.TrimPrefix(t, "--"), "=")
-		isValued := false
-		for _, v := range valued {
-			isValued = isValued || v == name
-		}
 		switch {
-		case isValued && hasVal:
+		case slices.Contains(valued, name) && hasVal:
 			p.flags[name] = val
-		case isValued && i+1 < len(args):
+		case slices.Contains(valued, name) && i+1 < len(args):
 			i++
 			p.flags[name] = args[i]
-		case isValued:
+		case slices.Contains(valued, name):
 			return p, fmt.Errorf("--%s needs a value", name)
-		default:
+		case slices.Contains(bools, name) && !hasVal:
 			p.flags[name] = "true"
+		default:
+			return p, fmt.Errorf("unknown flag --%s", name)
 		}
 	}
 	return p, nil
@@ -173,19 +173,32 @@ func parseArgs(args []string, valued ...string) (parsed, error) {
 
 func (p parsed) has(name string) bool { _, ok := p.flags[name]; return ok }
 
-// selectorFrom turns positionals into a name (first, no colon) and tags (key:value).
+// tagRE is the server's tag shape: key:value, each part lowercase letters, digits, dot, dash or underscore.
+var tagRE = regexp.MustCompile(`^[a-z0-9._-]{1,64}:[a-z0-9._-]{1,64}$`)
+
+// tagPartRE is one part of it, also the shape of an app name.
+var tagPartRE = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)
+
+// notATag is the error for the n-th argument (1-based) that is not a tag. It never repeats the argument: a
+// secret value typed by mistake would otherwise land in the terminal, its scrollback and logs.
+func notATag(n int) error { return fmt.Errorf("argument %d is not a tag (key:value)", n) }
+
+// selectorFrom turns positionals into a name (first, no colon) and tags (key:value). Everything with a colon must
+// be a valid tag: a value such as postgres://user:pw@host/db is rejected here, before it can be sent anywhere.
 func selectorFrom(pos []string) (name string, tags []string, err error) {
 	for i, t := range pos {
 		switch {
 		case strings.Contains(t, ":"):
-			tags = append(tags, strings.ToLower(t))
+			t = strings.ToLower(t)
+			if !tagRE.MatchString(t) {
+				return "", nil, notATag(i + 1)
+			}
+			tags = append(tags, t)
 		case i == 0:
 			name = strings.ToUpper(t)
 		default:
-			return "", nil, fmt.Errorf("%q is not a tag. Tags look like key:value", t)
+			return "", nil, notATag(i + 1)
 		}
 	}
 	return name, tags, nil
 }
-
-var tagPartRE = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)

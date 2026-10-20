@@ -50,7 +50,7 @@ func TestDefaultFactor(t *testing.T) {
 				app = l[1]
 			}
 		}
-		r :=mustOK(t, w.ku("", false, nil, "account", "factor", "default", app))
+		r := mustOK(t, w.ku("", false, nil, "account", "factor", "default", app))
 		if !strings.Contains(r.out, "default") {
 			t.Fatalf("default: %q", r.out)
 		}

@@ -26,8 +26,11 @@ func (a *app) cmdProfile(args []string) int {
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "add":
-		p, err := parseArgs(rest, "url")
-		if err != nil || len(p.pos) != 1 || p.flags["url"] == "" {
+		p, err := parseArgs(rest, []string{"url"})
+		if err != nil {
+			return a.fail("%v", err)
+		}
+		if len(p.pos) != 1 || p.flags["url"] == "" {
 			return a.fail("Use: ku profile add <name> --url <url>")
 		}
 		name := p.pos[0]
@@ -96,8 +99,11 @@ func (a *app) cmdProfile(args []string) int {
 
 // cmdLink links the current folder to an app (local alias only; nothing in the repo or on the server).
 func (a *app) cmdLink(args []string) int {
-	p, err := parseArgs(args, "profile")
-	if err != nil || len(p.pos) > 1 {
+	p, err := parseArgs(args, []string{"profile"})
+	if err != nil {
+		return a.fail("%v", err)
+	}
+	if len(p.pos) > 1 {
 		return a.fail("Use: ku link <app> [--profile <name>]")
 	}
 	if len(p.pos) == 0 {
@@ -139,8 +145,11 @@ func (a *app) cmdLink(args []string) int {
 
 // cmdLogin signs in through the browser with a localhost PKCE callback and stores the token in the Keychain.
 func (a *app) cmdLogin(args []string) int {
-	p, err := parseArgs(args, "profile")
-	if err != nil || len(p.pos) != 0 {
+	p, err := parseArgs(args, []string{"profile"})
+	if err != nil {
+		return a.fail("%v", err)
+	}
+	if len(p.pos) != 0 {
 		return a.fail("Use: ku login")
 	}
 	if a.getenv("KU_URL") != "" || a.getenv("KU_TOKEN") != "" {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,19 +58,19 @@ func (a *app) cmdSecret(args []string) int {
 }
 
 func (a *app) listSecrets(c *client, name string, tags []string) ([]secretRow, error) {
-	path := "/secrets?tags=" + strings.Join(tags, ",")
+	q := url.Values{"tags": {strings.Join(tags, ",")}}
 	if name != "" {
-		path += "&name=" + name
+		q.Set("name", name)
 	}
 	var r struct {
 		Secrets []secretRow `json:"secrets"`
 	}
-	return r.Secrets, c.call("GET", path, nil, &r)
+	return r.Secrets, c.call("GET", "/secrets?"+q.Encode(), nil, &r)
 }
 
 // secretList shows name, version and tags. Never a value, not even masked.
 func (a *app) secretList(args []string) int {
-	p, err := parseArgs(args, "profile")
+	p, err := parseArgs(args, []string{"profile"})
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -102,12 +103,15 @@ func (a *app) secretList(args []string) int {
 
 // secretSet reads the value from a hidden prompt, stdin (no terminal), --generate or --file. Never an argument.
 func (a *app) secretSet(args []string) int {
-	p, err := parseArgs(args, "file", "profile")
+	p, err := parseArgs(args, []string{"file", "profile"}, "generate", "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}
 	name, tags, err := selectorFrom(p.pos)
-	if err != nil || name == "" {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" {
 		return a.fail("Use: ku secret set <name> [tags] [--generate | --file <path>]")
 	}
 	if p.has("generate") && p.has("file") {
@@ -203,12 +207,15 @@ func (a *app) readValue() (string, error) {
 
 // secretGet needs --reveal or --out, and always a Touch ID confirmation.
 func (a *app) secretGet(args []string) int {
-	p, err := parseArgs(args, "out", "profile")
+	p, err := parseArgs(args, []string{"out", "profile"}, "reveal")
 	if err != nil {
 		return a.fail("%v", err)
 	}
 	name, tags, err := selectorFrom(p.pos)
-	if err != nil || name == "" && len(tags) == 0 {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" && len(tags) == 0 {
 		return a.fail("Use: ku secret get <name> [tags] --reveal | --out <path>")
 	}
 	if !p.has("reveal") && !p.has("out") {
@@ -250,26 +257,27 @@ func (a *app) secretGet(args []string) int {
 
 // splitUpdateArgs separates the selector from +tag / -tag changes.
 func splitUpdateArgs(pos []string) (sel, add, rem []string, err error) {
-	for _, t := range pos {
+	for i, t := range pos {
 		switch {
-		case strings.HasPrefix(t, "+"):
-			add = append(add, strings.ToLower(t[1:]))
-		case strings.HasPrefix(t, "-"):
-			rem = append(rem, strings.ToLower(t[1:]))
+		case strings.HasPrefix(t, "+"), strings.HasPrefix(t, "-"):
+			tag := strings.ToLower(t[1:])
+			if !tagRE.MatchString(tag) {
+				return nil, nil, nil, notATag(i + 1)
+			}
+			if t[0] == '+' {
+				add = append(add, tag)
+			} else {
+				rem = append(rem, tag)
+			}
 		default:
 			sel = append(sel, t)
-		}
-	}
-	for _, t := range append(append([]string{}, add...), rem...) {
-		if !strings.Contains(t, ":") {
-			return nil, nil, nil, fmt.Errorf("%q is not a tag. Tags look like key:value", t)
 		}
 	}
 	return
 }
 
 func (a *app) secretUpdate(args []string) int {
-	p, err := parseArgs(args, "name", "authorize", "profile")
+	p, err := parseArgs(args, []string{"name", "authorize", "profile"}, "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -278,7 +286,10 @@ func (a *app) secretUpdate(args []string) int {
 		return a.fail("%v.", err)
 	}
 	name, tags, err := selectorFrom(selPos)
-	if err != nil || name == "" && len(tags) == 0 {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" && len(tags) == 0 {
 		return a.fail("Use: ku secret update <name|tags> [--name <new>] [+tag -tag] [--authorize on|off]")
 	}
 	body := map[string]any{"selector": selReq{name, nonNilTags(tags)}}
@@ -370,12 +381,15 @@ func (a *app) secretUpdate(args []string) int {
 
 // secretBulk is revoke and archive: preview the list and confirm when several secrets are selected.
 func (a *app) secretBulk(args []string, verb string) int {
-	p, err := parseArgs(args, "profile")
+	p, err := parseArgs(args, []string{"profile"}, "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}
 	name, tags, err := selectorFrom(p.pos)
-	if err != nil || name == "" && len(tags) == 0 {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" && len(tags) == 0 {
 		return a.fail("Use: ku secret %s <name|tags>", verb)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)

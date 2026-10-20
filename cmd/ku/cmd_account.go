@@ -20,7 +20,7 @@ func (a *app) cmdAccount(args []string) int {
 	if len(args) == 0 || args[0] != "factor" {
 		return a.fail("%s", factorUsage)
 	}
-	p, err := parseArgs(args[1:], "profile")
+	p, err := parseArgs(args[1:], []string{"profile"}, "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}

@@ -12,7 +12,7 @@ func (a *app) cmdWorkspace(args []string) int {
 		return a.fail("Use: ku workspace invite|group|grant|ungrant|remove|audit")
 	}
 	sub := args[0]
-	p, err := parseArgs(args[1:], "profile")
+	p, err := parseArgs(args[1:], []string{"profile"}, "machine")
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -21,6 +21,9 @@ func (a *app) cmdWorkspace(args []string) int {
 	case "invite", "group", "grant", "ungrant", "remove", "audit":
 	default:
 		return a.fail("Use: ku workspace invite|group|grant|ungrant|remove|audit")
+	}
+	if p.has("machine") && sub != "invite" {
+		return a.fail("unknown flag --machine")
 	}
 	if sub == "audit" {
 		return a.workspaceAudit(p)
@@ -77,6 +80,9 @@ func (a *app) cmdWorkspace(args []string) int {
 		if len(pos) < 3 {
 			return a.fail("Use: ku workspace grant <identity|group> <read|write> <tags>")
 		}
+		if err := checkTags(pos, 2); err != nil {
+			return a.fail("%v.", err)
+		}
 		if err := c.call("POST", "/workspace/grants", map[string]any{"subject": pos[0], "permission": pos[1], "tags": pos[2:]}, nil); err != nil {
 			return report(err)
 		}
@@ -84,6 +90,9 @@ func (a *app) cmdWorkspace(args []string) int {
 	case "ungrant":
 		if len(pos) < 2 {
 			return a.fail("Use: ku workspace ungrant <identity|group> <tags>")
+		}
+		if err := checkTags(pos, 1); err != nil {
+			return a.fail("%v.", err)
 		}
 		if err := c.call("DELETE", "/workspace/grants", map[string]any{"subject": pos[0], "tags": pos[1:]}, nil); err != nil {
 			return report(err)
@@ -103,6 +112,16 @@ func (a *app) cmdWorkspace(args []string) int {
 		fmt.Fprintf(a.out, "✓ Removed %s. Their sessions have ended.\n", pos[0])
 	}
 	return 0
+}
+
+// checkTags rejects any argument from index first on that is not a tag, without echoing it.
+func checkTags(pos []string, first int) error {
+	for i := first; i < len(pos); i++ {
+		if !tagRE.MatchString(strings.ToLower(pos[i])) {
+			return notATag(i + 1)
+		}
+	}
+	return nil
 }
 
 func (a *app) workspaceAudit(p parsed) int {

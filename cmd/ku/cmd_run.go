@@ -21,10 +21,10 @@ func (a *app) cmdRun(args []string) int {
 			break
 		}
 	}
-	if command == nil && !contains(args, "--") || len(command) == 0 {
+	if len(command) == 0 {
 		return a.fail("Use: ku run [name] [tags] -- <command>")
 	}
-	p, err := parseArgs(before, "profile")
+	p, err := parseArgs(before, []string{"profile"})
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -118,15 +118,6 @@ func (a *app) exec(command, env []string) int {
 			return 1
 		}
 	}
-}
-
-func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }
 
 func hasKey(tags []string, key string) bool {
