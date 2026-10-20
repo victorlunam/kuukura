@@ -15,6 +15,7 @@ const (
 	CodeLastAdmin    = "last_admin"
 	CodeConflict     = "conflict"
 	CodeLastFactor   = "last_factor"
+	CodeAppExists    = "app_exists"
 )
 
 // Error is a domain error. Items lists the things involved ("NAME tag tag"); never values.

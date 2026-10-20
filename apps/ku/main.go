@@ -54,7 +54,7 @@ const usage = `Usage: ku <command> [options]
   profile list                               list servers
   profile remove <name>                      forget a server and its session
   login                                      sign in to the active server
-  link [<app>]                               link this folder to an app
+  link [<app>]                               link this folder to an app (--create: a new one)
   run [name] [tags] -- <command>             run a command with secrets
   secret list [name] [tags]                  list secrets, never their values
   secret set <name> [tags]                   save a value

@@ -12,7 +12,7 @@ import (
 	"github.com/victorlunam/kuukura/internal/storage"
 )
 
-// Admin manages groups and grants. Callers must be admins; being admin never grants secret access.
+// Admin manages groups and grants. Callers must be admins (except CreateApp); being admin never grants secret access.
 type Admin struct {
 	p   storage.Provider
 	log *audit.Log

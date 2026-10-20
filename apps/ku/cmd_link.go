@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -10,8 +11,8 @@ import (
 
 // cmdLink links the current folder to an app (local alias only; nothing in the repo or on the server).
 func (a *app) cmdLink(args []string) int {
-	const linkUsage = "ku link [<app>] [--profile <name>]"
-	p, ok := a.parse(linkUsage, args, []string{"profile"})
+	const linkUsage = "ku link [<app>] [--create] [--profile <name>]"
+	p, ok := a.parse(linkUsage, args, []string{"profile"}, "create")
 	if !ok {
 		return cli.ExitUsage
 	}
@@ -52,5 +53,44 @@ func (a *app) cmdLink(args []string) int {
 		return a.fail("%v", err)
 	}
 	a.say("✓ Linked this folder to %s", app)
+	return a.createApp(app, p)
+}
+
+// createApp offers to create the app the folder was just linked to. It asks the server only when the person said
+// so (--create or a yes on a terminal): the server gives write access when the app is new, and says so when not.
+// The link is already saved, so a refusal here never undoes it. Machines never create apps.
+func (a *app) createApp(name string, p parsed) int {
+	explicit := p.has("create")
+	if !explicit && !a.isTTY {
+		return 0
+	}
+	c, pr, err := a.withProfile(p.flags["profile"], true)
+	if err != nil { // not signed in: linking works offline, creating does not
+		if explicit {
+			return a.fail("%v", err)
+		}
+		return 0
+	}
+	if pr.ephemeral {
+		if explicit {
+			return a.fail("A machine token cannot create apps")
+		}
+		return 0
+	}
+	if !explicit {
+		if ok, _ := a.confirm("Create app "+name+" and give you write access if it is new?", false); !ok {
+			return 0
+		}
+	}
+	err = c.call("POST", "/apps", map[string]string{"name": name}, nil)
+	var pb *problem
+	switch {
+	case err == nil:
+		a.say("✓ Created app %s; you can write its secrets", name)
+	case errors.As(err, &pb) && pb.Code == "app-exists":
+		a.say("  %s already exists. To get access, ask an admin: ku workspace grant <you> write app:%s", name, name)
+	default:
+		return a.fail("%s", plain(err))
+	}
 	return 0
 }

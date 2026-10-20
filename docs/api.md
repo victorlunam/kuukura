@@ -165,6 +165,11 @@ Adding `k:v` replaces an existing value for key `k`. `rename` needs exactly one 
 
 Being admin does not grant secret access.
 
+- `POST /apps` `{ "name": "darwin-cloud" }` -> 201 `{ "app": "darwin-cloud", "granted": "write" }`. Any active person
+  (scope `write`) may create an app that does not exist yet: it gives the caller `write` on `app:<name>`, audited as a
+  `grant` whose metadata has `app`. 409 `app-exists` when a grant or a live secret already carries `app:<name>`
+  (an admin must grant access); 400 `invalid-request` for a name outside `a-z 0-9 . _ -` (1 to 64); 403 `forbidden`
+  for a machine.
 - `POST /workspace/invites` `{ "email": "dev@example.com", "profile": "work" }` -> 201 `{ "link": "https://.../invite?token=ku_...&profile=work", "expires_at": "..." }`
   (`profile` is optional and display-only: the inviter's CLI profile name, offered to the invitee as the suggested name in
   `ku profile add <name> --url ...` on the final page. The invitee can name theirs anything; the URL is what matters.)

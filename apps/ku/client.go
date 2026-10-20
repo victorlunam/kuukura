@@ -114,6 +114,8 @@ func plain(err error) string {
 		return detail("Pick exactly one secret.")
 	case "conflict":
 		return detail("That already exists.")
+	case "app-exists":
+		return detail("That app already exists.")
 	case "last-admin":
 		return detail("That is the last admin.")
 	case "last-factor":

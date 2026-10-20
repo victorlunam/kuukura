@@ -49,6 +49,7 @@ var problems = map[string]struct {
 	"last-admin":           {http.StatusConflict, "Last admin"},
 	"last-factor":          {http.StatusConflict, "Last factor"},
 	"conflict":             {http.StatusConflict, "Already exists"},
+	"app-exists":           {http.StatusConflict, "App already exists"},
 	"step-up-required":     {http.StatusForbidden, "Confirmation required"},
 	"factor-required":      {http.StatusForbidden, "No way to confirm"},
 	"confirmation-expired": {http.StatusNotFound, "This confirmation expired"},
@@ -103,6 +104,7 @@ var domainCodes = map[string]string{
 	access.CodeLastAdmin:    "last-admin",
 	access.CodeConflict:     "conflict",
 	access.CodeLastFactor:   "last-factor",
+	access.CodeAppExists:    "app-exists",
 }
 
 func toAPIError(err error) *apiError {

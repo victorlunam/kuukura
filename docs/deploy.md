@@ -247,6 +247,11 @@ In a linked folder every `ku secret` and `ku run` command uses `app:<app>` unles
 prints `app: <app> (linked folder)` on stderr when it does. `ku secret set NAME` there saves a secret tagged
 `app:<app>`; outside a linked folder, `ku secret set` needs at least one tag.
 
+Creating an app: `ku link darwin-cloud --create` (or answering yes when `ku link` asks on a terminal) links the folder
+and, when no grant or secret mentions `app:darwin-cloud` yet, gives you `write` on it in one step. An app that already
+exists still needs an admin's grant (`ku workspace grant`); `ku link` says so and the link still works. Machines can
+never create apps.
+
 CI: create a machine token with `ku workspace invite ci-deploy --machine` (shown once), grant it `read` on the tags it
 needs, and store it as `KU_TOKEN` next to `KU_URL`. A machine can do only what both its own grants and its owner's
 grants allow, and can never reveal a value.

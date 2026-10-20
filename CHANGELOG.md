@@ -6,6 +6,11 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Added
+
+- `ku link <app> --create` (or answering yes) creates a new app and gives you write access; an existing app still
+  needs an admin's grant.
+
 ## [2026.10.9] - 2026-10-20
 
 ### Fixed

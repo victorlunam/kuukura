@@ -63,6 +63,8 @@ func (s *Server) routes() {
 	api.POST("/secrets/revoke", s.revokeSecrets, write)
 	api.POST("/run", s.runSecrets, read)
 
+	api.POST("/apps", s.createApp, write)
+
 	api.POST("/workspace/invites", s.invite, write)
 	api.PATCH("/workspace/groups/:group", s.group, write)
 	api.POST("/workspace/grants", s.grant, write)
