@@ -1,0 +1,116 @@
+---
+// WAI-ARIA tabs (automatic activation; arrows, Home and End move between tabs). Each tab's panel is the slot
+// named by its key.
+interface Props {
+  /** unique on the page */
+  id: string;
+  label: string;
+  tabs: { key: string; label: string }[];
+}
+const { id, label, tabs } = Astro.props;
+const panels = await Promise.all(tabs.map((t) => Astro.slots.render(t.key)));
+---
+
+<div class="k-tabs" data-tabs>
+  <div class="k-tablist" role="tablist" aria-label={label}>
+    {
+      tabs.map((t, i) => (
+        <button
+          type="button"
+          role="tab"
+          id={`${id}-tab-${t.key}`}
+          aria-controls={`${id}-panel-${t.key}`}
+          aria-selected={i === 0 ? 'true' : 'false'}
+          tabindex={i === 0 ? 0 : -1}
+        >
+          {t.label}
+        </button>
+      ))
+    }
+  </div>
+  {
+    tabs.map((t, i) => (
+      <div class="k-panel" role="tabpanel" id={`${id}-panel-${t.key}`} aria-labelledby={`${id}-tab-${t.key}`} hidden={i !== 0}>
+        <Fragment set:html={panels[i]} />
+      </div>
+    ))
+  }
+</div>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-tabs]')) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const select = (tab: HTMLButtonElement, focus: boolean) => {
+      for (const t of tabs) {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        const panel = document.getElementById(t.getAttribute('aria-controls') ?? '');
+        if (panel) panel.hidden = !on;
+      }
+      if (focus) tab.focus();
+    };
+    for (const t of tabs) t.addEventListener('click', () => select(t, false));
+    root.addEventListener('keydown', (e) => {
+      const i = tabs.indexOf(document.activeElement as HTMLButtonElement);
+      if (i < 0) return;
+      const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (next === undefined) return;
+      e.preventDefault();
+      const tab = tabs[(next + tabs.length) % tabs.length];
+      if (tab) select(tab, true);
+    });
+  }
+</script>
+
+<style>
+  .k-tabs {
+    text-align: left;
+    background: rgba(12, 29, 34, 0.78);
+    border: 1px solid var(--k-line);
+    border-radius: 20px;
+    padding: 0.375rem;
+    box-shadow:
+      0 1px 0 rgba(233, 243, 242, 0.04) inset,
+      0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  .k-tablist {
+    display: flex;
+    gap: var(--k-space-1);
+    padding: 0.125rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  button {
+    flex: 0 0 auto;
+    border: 0;
+    background: transparent;
+    color: var(--k-muted);
+    font: 600 var(--k-text-sm) / 1 var(--k-font);
+    padding: 0.6rem 0.85rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition:
+      color var(--k-dur-fast) ease,
+      background-color var(--k-dur-fast) ease;
+  }
+  button:hover {
+    color: var(--k-ink);
+  }
+  button[aria-selected='true'] {
+    background: var(--k-soft-2);
+    color: var(--k-ink);
+    box-shadow: 0 0 0 1px var(--k-line) inset;
+  }
+  .k-panel {
+    margin-top: 0.375rem;
+  }
+  .k-panel[hidden] {
+    display: none;
+  }
+  @media (max-width: 560px) {
+    button {
+      padding-inline: 0.7rem;
+    }
+  }
+</style>

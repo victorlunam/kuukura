@@ -1,0 +1,131 @@
+---
+// The mark at 6x, pinned while it opens: the bolts turn, the door swings, the empty doorway lights up.
+// Two layers so the door can rotate in 3D: the tile and doorway behind, the door (ring, eight bolts, hub) in front.
+// Closed, it is exactly mark.svg on a 64 grid times 6.
+const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
+  .map((a) => {
+    const r = (a * Math.PI) / 180;
+    return `M${+(192 + 69 * Math.sin(r)).toFixed(2)} ${+(192 - 69 * Math.cos(r)).toFixed(2)}h0`;
+  })
+  .join('');
+---
+
+<section class="stage" aria-label="The vault" data-stage>
+  <div class="pin">
+    <div class="copy">
+      <p data-stage-part="first">Every secret is sealed with its own key.</p>
+      <p class="second" data-stage-part="second">Opened only on your server, and only for who you grant.</p>
+    </div>
+    <div class="vault" aria-hidden="true" data-stage-part="vault">
+      <svg viewBox="0 0 384 384" fill="none">
+        <defs>
+          <radialGradient id="vault-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#2DD4BF" stop-opacity=".34"></stop>
+            <stop offset=".6" stop-color="#2DD4BF" stop-opacity=".08"></stop>
+            <stop offset="1" stop-color="#2DD4BF" stop-opacity="0"></stop>
+          </radialGradient>
+        </defs>
+        <rect width="384" height="384" rx="84" fill="var(--k-tile-raised)"></rect>
+        <rect x="1.5" y="1.5" width="381" height="381" rx="82.5" stroke="var(--k-fg)" stroke-opacity=".14" stroke-width="3"></rect>
+        <!-- the empty doorway: rings getting lighter toward the middle read as depth (art/vault-empty.svg) -->
+        <circle cx="192" cy="192" r="133.5" fill="var(--k-hollow)"></circle>
+        <circle cx="192" cy="192" r="100" fill="var(--k-fg)" fill-opacity=".05"></circle>
+        <circle cx="192" cy="192" r="64" fill="var(--k-fg)" fill-opacity=".06"></circle>
+        <circle cx="192" cy="192" r="28" fill="var(--k-fg)" fill-opacity=".08"></circle>
+        <g data-stage-part="glow">
+          <circle cx="192" cy="192" r="133.5" fill="url(#vault-glow)"></circle>
+          <path fill="var(--k-amber)" d="M330 40l4.8 11.7 11.7 4.8-11.7 4.8-4.8 11.7-4.8-11.7-11.7-4.8 11.7-4.8z"></path>
+        </g>
+        <circle cx="192" cy="192" r="133.5" stroke="var(--k-fg)" stroke-opacity=".22" stroke-width="3"></circle>
+      </svg>
+      <svg class="door" viewBox="0 0 384 384" fill="none" data-stage-part="door">
+        <circle cx="192" cy="192" r="133.5" fill="var(--k-tile-raised)"></circle>
+        <circle cx="192" cy="192" r="120" stroke="var(--k-fg)" stroke-width="27"></circle>
+        <path d={bolts} stroke="var(--k-fg)" stroke-width="25.2" stroke-linecap="round" data-stage-part="bolts"></path>
+        <circle cx="192" cy="192" r="27.6" fill="var(--k-hub)"></circle>
+        <circle cx="192" cy="192" r="134" fill="var(--k-bg)" data-stage-part="shade"></circle>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<style>
+  .stage {
+    position: relative;
+    height: 230vh;
+  }
+  .pin {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .vault {
+    grid-area: 1 / 1;
+    position: relative;
+    width: min(30rem, 74vw, 56svh);
+    aspect-ratio: 1;
+    perspective: 1600px;
+  }
+  .vault svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .door {
+    transform-origin: 15.23% 50%; /* the door's left edge: (192 - 133.5) / 384 */
+  }
+  .copy {
+    grid-area: 1 / 1;
+    align-self: end;
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 44rem;
+    padding: 0 var(--k-gutter) clamp(2rem, 7vh, 4.5rem);
+    text-align: center;
+  }
+  .copy p {
+    margin: 0;
+    font-size: clamp(1.5rem, 0.9rem + 2.4vw, 2.75rem);
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+    font-weight: 700;
+    text-wrap: balance;
+  }
+  .second {
+    position: absolute;
+    inset-inline: var(--k-gutter);
+    bottom: clamp(2rem, 7vh, 4.5rem);
+  }
+  @media (max-width: 560px) {
+    .stage {
+      height: 200vh;
+    }
+  }
+  /* reduced motion: no pinning; the closed door with both lines under it */
+  @media (prefers-reduced-motion: reduce) {
+    .stage {
+      height: auto;
+      padding-block: 2rem 4rem;
+    }
+    .pin {
+      position: relative;
+      height: auto;
+      gap: 2.5rem;
+    }
+    .copy {
+      grid-area: 2 / 1;
+      padding-bottom: 0;
+    }
+    .second {
+      position: static;
+      margin-top: 0.5rem;
+      color: var(--k-muted);
+    }
+  }
+</style>

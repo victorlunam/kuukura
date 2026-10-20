@@ -12,8 +12,8 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import sharp from 'sharp';
 import { launch } from './cdp.mjs';
+import { REPO_ROOT_ABS as ROOT } from './sync.mjs';
 
-const ROOT = resolve(import.meta.dirname, '../..');
 const OUT = resolve(import.meta.dirname, '../src/assets/screens');
 const PAGES = ['invite', 'enroll', 'stepup', 'done'];
 const ASK = 'Reveal STRIPE_KEY app:shop env:prod';

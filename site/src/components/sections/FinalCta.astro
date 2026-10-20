@@ -1,0 +1,69 @@
+---
+// The last call: the mark (its bolts give a quarter turn as it arrives), the README's own promise, install.
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Button from '../ui/Button.astro';
+import InstallCommands from '../InstallCommands.astro';
+---
+
+<Section class="final" aria-labelledby="final-title">
+  <div class="stack">
+    <svg class="mark" viewBox="0 0 64 64" width="88" height="88" fill="none" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="var(--k-tile-raised)"></rect>
+      <rect x=".5" y=".5" width="63" height="63" rx="13.5" stroke="var(--k-fg)" stroke-opacity=".14"></rect>
+      <circle cx="32" cy="32" r="20" stroke="var(--k-fg)" stroke-width="4.5"></circle>
+      <path
+        data-turn
+        d="M32 20.5h0M32 43.5h0M20.5 32h0M43.5 32h0M23.87 23.87h0M40.13 23.87h0M23.87 40.13h0M40.13 40.13h0"
+        stroke="var(--k-fg)"
+        stroke-width="4.2"
+        stroke-linecap="round"></path>
+      <circle cx="32" cy="32" r="4.6" fill="var(--k-hub)"></circle>
+    </svg>
+    <Heading id="final-title" size="display" align="center" gap={false}>A vault you can operate in an afternoon.</Heading>
+    <div class="ctas">
+      <Button href="/docs/install/">Get started</Button>
+      <Button href="/docs/" variant="ghost">Read the docs</Button>
+    </div>
+    <div class="install"><InstallCommands id="final" /></div>
+  </div>
+</Section>
+
+<style>
+  .final {
+    text-align: center;
+    isolation: isolate;
+  }
+  .final::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(50rem 28rem at 50% 60%, rgba(45, 212, 191, 0.1), transparent 70%);
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .stack > :global(header) {
+    max-width: 14ch;
+  }
+  .mark {
+    border-radius: var(--k-radius-tile);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+    margin-bottom: 2.5rem;
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--k-space-3);
+    margin-top: var(--k-space-6);
+  }
+  .install {
+    width: 100%;
+    max-width: 41rem;
+    margin-top: 3rem;
+  }
+</style>

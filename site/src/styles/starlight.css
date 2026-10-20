@@ -1,49 +1,50 @@
-/* Starlight, in the product's palette: teal-ink grays, teal for links and state, amber only in the mark. */
+/* Starlight in the product's palette (tokens.css, from the brand): teal-ink grays, teal for links and state, amber
+   only in the mark. The few in-between grays are blends of brand colors for Starlight's seven-step scale. */
 :root {
   --sl-font: var(--k-font);
   --sl-font-mono: var(--k-mono);
 
   --sl-color-white: #f4faf9;
-  --sl-color-gray-1: #e9f3f2;
+  --sl-color-gray-1: var(--brand-dark-ink);
   --sl-color-gray-2: #c6d6d8;
-  --sl-color-gray-3: #8fa5aa;
+  --sl-color-gray-3: var(--brand-dark-muted);
   --sl-color-gray-4: #4d666d;
-  --sl-color-gray-5: #1a3036;
-  --sl-color-gray-6: #0c1d22;
-  --sl-color-black: #061215;
+  --sl-color-gray-5: var(--brand-dark-line);
+  --sl-color-gray-6: var(--brand-dark-card);
+  --sl-color-black: var(--brand-dark-bg);
 
-  --sl-color-accent-low: #0f2e2e;
-  --sl-color-accent: #2dd4bf;
-  --sl-color-accent-high: #5eead4;
+  --sl-color-accent-low: var(--brand-dark-soft);
+  --sl-color-accent: var(--brand-dark-acc);
+  --sl-color-accent-high: var(--brand-dark-acc-ink);
 
   --sl-color-bg-nav: rgba(6, 18, 21, 0.82);
-  --sl-color-bg-sidebar: #061215;
-  --sl-color-bg-inline-code: #112429;
-  --sl-color-hairline-light: #1a3036;
+  --sl-color-bg-sidebar: var(--brand-dark-bg);
+  --sl-color-bg-inline-code: var(--brand-dark-soft-2);
+  --sl-color-hairline-light: var(--brand-dark-line);
   --sl-color-hairline: #13272c;
   --sl-color-backdrop-overlay: rgba(6, 18, 21, 0.7);
 }
 
 :root[data-theme='light'] {
-  --sl-color-white: #0a1b20;
+  --sl-color-white: var(--brand-light-ink);
   --sl-color-gray-1: #102a30;
   --sl-color-gray-2: #26393f;
-  --sl-color-gray-3: #566870;
+  --sl-color-gray-3: var(--brand-light-muted);
   --sl-color-gray-4: #8a9ca2;
   --sl-color-gray-5: #c9d6d8;
   --sl-color-gray-6: #e6eeee;
-  --sl-color-gray-7: #f1f5f5;
-  --sl-color-black: #ffffff;
+  --sl-color-gray-7: var(--brand-light-bg);
+  --sl-color-black: var(--brand-light-card);
 
-  --sl-color-accent-low: #e3f1ee;
-  --sl-color-accent: #0e9384;
-  --sl-color-accent-high: #0a6b61;
-  --sl-color-text-accent: #0a6b61;
+  --sl-color-accent-low: var(--brand-light-soft);
+  --sl-color-accent: var(--brand-light-acc);
+  --sl-color-accent-high: var(--brand-light-acc-ink);
+  --sl-color-text-accent: var(--brand-light-acc-ink);
 
   --sl-color-bg-nav: rgba(255, 255, 255, 0.85);
-  --sl-color-bg-sidebar: #ffffff;
-  --sl-color-bg-inline-code: #eef3f3;
-  --sl-color-hairline-light: #dce5e6;
+  --sl-color-bg-sidebar: var(--brand-light-card);
+  --sl-color-bg-inline-code: var(--brand-light-soft-2);
+  --sl-color-hairline-light: var(--brand-light-line);
   --sl-color-hairline: #e6eeee;
   --sl-color-backdrop-overlay: rgba(241, 245, 245, 0.7);
 }
@@ -53,9 +54,7 @@ header.header {
   -webkit-backdrop-filter: saturate(1.4) blur(14px);
 }
 
-.sl-markdown-content h1,
-.sl-markdown-content h2,
-.sl-markdown-content h3,
+.sl-markdown-content :is(h1, h2, h3),
 h1#_top {
   letter-spacing: -0.022em;
 }
@@ -89,7 +88,7 @@ nav.sidebar a[aria-current='page']:focus {
   outline-offset: 2px;
 }
 
-/* screenshots that follow the docs theme */
+/* the overview's screenshots, which follow the docs theme */
 .k-shots {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));

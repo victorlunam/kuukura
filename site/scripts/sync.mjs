@@ -5,36 +5,72 @@
 // - The first `# H1` becomes the page title and is removed from the body.
 // - Links between synced files become site routes; links to other repository files become GitHub URLs.
 // - The deploy templates and the CLI command reference are generated from the files that define them.
+//
+// This is the only file that knows where the app sits in the repository. Paths below are relative to the app
+// folder (the one holding package.json); moving the app means updating REPO_ROOT and nothing else.
 import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, posix, relative, resolve } from 'node:path';
-import { REPO, SECTIONS, TEMPLATES } from '../docs.config.mjs';
+import { REPO_URL, SIDEBAR } from '../site.config.mjs';
 
-/** The server's brand assets (mark, logo, favicon, banner). The art lives next to it in ../art. */
+// ---- repository paths (relative to the app folder) ----
+const REPO_ROOT = '..';
+const DOCS_DIR = `${REPO_ROOT}/docs`;
+/** The server's brand assets (mark, logo, favicon, banner); the illustrations sit next to it. */
 const BRAND_DIR = '../internal/api/web/assets';
+const ART_DIR = `${BRAND_DIR}/../art`;
+const SOCIAL_PREVIEW = `${DOCS_DIR}/social-preview.png`;
 
-const SITE_DIR = resolve(import.meta.dirname, '..');
-const ROOT = resolve(SITE_DIR, '..');
-const OUT_DOCS = join(SITE_DIR, 'src/content/docs/docs');
-const OUT_GEN = join(SITE_DIR, 'src/generated');
-const OUT_PUBLIC = join(SITE_DIR, 'public/brand');
-const LOCAL_DOCS = join(SITE_DIR, 'src/docs');
-const BLOB = `${REPO}/blob/main/`;
-const TREE = `${REPO}/tree/main/`;
+/** Doc pages synced from repository files, by slug. Paths are relative to REPO_ROOT. */
+const SOURCES = {
+  install: 'docs/install.md',
+  'local-testing': 'docs/local-testing.md',
+  deploy: 'docs/deploy.md',
+  agents: 'docs/agents.md',
+  skill: 'SKILL.md',
+  security: 'SECURITY.md',
+  'threat-model': 'docs/threat-model.md',
+  'asvs-l2': 'docs/asvs-l2.md',
+  'runbook-key-rotation-drill': 'docs/runbook-key-rotation-drill.md',
+  api: 'docs/api.md',
+  brand: 'docs/brand.md',
+  changelog: 'CHANGELOG.md',
+};
 
-const pages = SECTIONS.flatMap((s) => s.pages);
-/** repository path (posix) -> site route */
-const routes = new Map(pages.filter((p) => p.from).map((p) => [p.from, `/docs/${p.slug}/`]));
+/** The deploy templates shown on /docs/templates/, in order. Paths are relative to REPO_ROOT. */
+const TEMPLATES = [
+  { title: 'Docker Compose + Caddy (any VPS)', files: ['deploy/docker/docker-compose.yml', 'deploy/docker/.env.example'] },
+  { title: 'Dokploy (Compose)', files: ['deploy/dokploy/docker-compose.yml'] },
+  { title: 'Dokploy (template)', files: ['deploy/dokploy/template.toml', 'deploy/dokploy/meta.json'] },
+  { title: 'Coolify', files: ['deploy/coolify/kuukura.yaml'] },
+  { title: 'Render', files: ['render.yaml'] },
+  { title: 'Docker Swarm / Portainer stack', files: ['deploy/swarm/stack.yml'] },
+];
+
+/** Where the two programs keep their help text (Go raw-string constants). Relative to REPO_ROOT. */
+const HELP = {
+  ku: { file: 'cmd/ku/main.go', name: 'usage' },
+  server: { file: 'cmd/ku-server/main.go', name: 'helpText' },
+};
+
+// ---- app paths ----
+const APP = resolve(import.meta.dirname, '..');
+const ROOT = resolve(APP, REPO_ROOT);
+const OUT_DOCS = join(APP, 'src/content/docs/docs');
+const OUT_GEN = join(APP, 'src/generated');
+const OUT_PUBLIC = join(APP, 'public/brand');
+const LOCAL_INDEX = join(APP, 'src/docs/index.mdx');
+const GENERATED = new Set(['templates', 'cli']);
+
+export { ROOT as REPO_ROOT_ABS };
+
+const BLOB = `${REPO_URL}/blob/main/`;
+const TREE = `${REPO_URL}/tree/main/`;
 
 const fail = (msg) => {
   console.error(`sync: ${msg}`);
   process.exit(1);
 };
-
-// Every doc must have a place on the site.
-for (const f of await readdir(join(ROOT, 'docs'))) {
-  if (f.endsWith('.md') && !routes.has(`docs/${f}`)) fail(`docs/${f} is not placed in site/docs.config.mjs`);
-}
 
 const yaml = (s) => JSON.stringify(s); // a JSON string is a valid YAML scalar
 
@@ -78,6 +114,8 @@ async function isDir(p) {
   }
 }
 
+const routes = new Map(Object.entries(SOURCES).map(([slug, file]) => [file, `/docs/${slug}/`]));
+
 /** Rewrites one link target found in `from` (a repository path). */
 async function rewrite(target, from) {
   if (/^([a-z][a-z0-9+.-]*:|#|\/\/)/i.test(target)) return target;
@@ -117,19 +155,15 @@ async function rewriteLinks(md, from) {
   return out.join('\n');
 }
 
-async function syncFile(page) {
-  let md = await readFile(join(ROOT, page.from), 'utf8');
+async function syncFile(from) {
+  let md = await readFile(join(ROOT, from), 'utf8');
   md = md.replace(/^---\n[\s\S]*?\n---\n/, ''); // SKILL.md carries its own frontmatter for agents
   const h1 = md.match(/^# (.+)$/m);
-  if (!h1) fail(`${page.from} has no "# Title" line`);
+  if (!h1) fail(`${from} has no "# Title" line`);
   md = md.replace(h1[0], '').replace(/^\s+/, '');
-  md = await rewriteLinks(md, page.from);
-  const head = frontmatter({
-    title: h1[1].trim(),
-    description: describe(md),
-    editUrl: `${REPO}/edit/main/${page.from}`,
-  });
-  return `${head}\n<!-- Generated from ${page.from} by site/scripts/sync.mjs. Edit that file, not this one. -->\n\n${md}`;
+  md = await rewriteLinks(md, from);
+  const head = frontmatter({ title: h1[1].trim(), description: describe(md), editUrl: `${REPO_URL}/edit/main/${from}` });
+  return `${head}\n<!-- Generated from ${from} by scripts/sync.mjs. Edit that file, not this one. -->\n\n${md}`;
 }
 
 const LANG = { '.yml': 'yaml', '.yaml': 'yaml', '.toml': 'toml', '.json': 'json', '.example': 'sh' };
@@ -158,7 +192,7 @@ production.
 }
 
 /** Reads a Go raw-string constant (the help text) from a source file. */
-async function goConst(file, name) {
+async function goConst({ file, name }) {
   const src = await readFile(join(ROOT, file), 'utf8');
   const m = src.match(new RegExp(`const ${name} = \`([^\`]*)\``));
   if (!m) fail(`${file}: const ${name} not found`);
@@ -176,8 +210,8 @@ function helpTable(text) {
 }
 
 async function cliPage() {
-  const ku = await goConst('cmd/ku/main.go', 'usage');
-  const srv = await goConst('cmd/ku-server/main.go', 'helpText');
+  const ku = await goConst(HELP.ku);
+  const srv = await goConst(HELP.server);
   const kuNote = ku
     .split('\n')
     .filter((l) => l && !l.startsWith(' ') && !l.startsWith('Usage:'))
@@ -221,31 +255,40 @@ audited under the reserved \`ku-server\` principal. See [People from the host](/
 `;
 }
 
-// ---- write ----
-await rm(OUT_DOCS, { recursive: true, force: true });
-await mkdir(OUT_DOCS, { recursive: true });
-for (const page of pages) {
-  if (page.local) {
-    await cp(join(LOCAL_DOCS, page.local), join(OUT_DOCS, page.slug ? `${page.slug}.mdx` : page.local));
-    continue;
+async function main() {
+  // Every doc must have a place, and every place a source.
+  for (const f of await readdir(resolve(APP, DOCS_DIR))) {
+    if (f.endsWith('.md') && !routes.has(`docs/${f}`)) fail(`docs/${f} has no slug in SOURCES`);
   }
-  const content = page.from ? await syncFile(page) : page.generated === 'templates' ? await templatesPage() : await cliPage();
-  await writeFile(join(OUT_DOCS, `${page.slug}.md`), content);
+  const pages = SIDEBAR.flatMap((s) => s.pages);
+  for (const { slug } of pages) {
+    if (slug && !(slug in SOURCES) && !GENERATED.has(slug)) fail(`sidebar page "${slug}" has no source`);
+  }
+  for (const slug of Object.keys(SOURCES)) {
+    if (!pages.some((p) => p.slug === slug)) fail(`${SOURCES[slug]} is not in the sidebar (site.config.mjs)`);
+  }
+
+  await rm(OUT_DOCS, { recursive: true, force: true });
+  await mkdir(OUT_DOCS, { recursive: true });
+  for (const { slug } of pages) {
+    if (!slug) await cp(LOCAL_INDEX, join(OUT_DOCS, 'index.mdx'));
+    else if (slug === 'templates') await writeFile(join(OUT_DOCS, 'templates.md'), await templatesPage());
+    else if (slug === 'cli') await writeFile(join(OUT_DOCS, 'cli.md'), await cliPage());
+    else await writeFile(join(OUT_DOCS, `${slug}.md`), await syncFile(SOURCES[slug]));
+  }
+
+  // Brand: the server's own files, so the site and the product cannot drift apart.
+  const brand = resolve(APP, BRAND_DIR);
+  await rm(OUT_GEN, { recursive: true, force: true });
+  await rm(OUT_PUBLIC, { recursive: true, force: true });
+  await mkdir(OUT_PUBLIC, { recursive: true });
+  await cp(brand, join(OUT_GEN, 'brand'), { recursive: true });
+  await cp(resolve(APP, ART_DIR), join(OUT_GEN, 'art'), { recursive: true });
+  for (const f of await readdir(brand)) await cp(join(brand, f), join(OUT_PUBLIC, f));
+  await cp(join(brand, 'favicon.svg'), join(APP, 'public/favicon.svg'));
+  await cp(resolve(APP, SOCIAL_PREVIEW), join(OUT_PUBLIC, 'social-preview.png'));
+
+  console.log(`sync: ${pages.length} doc pages, brand from ${relative(APP, brand)} (${(await readdir(brand)).length} files)`);
 }
 
-// Brand: the server's own files, so the site and the product cannot drift apart.
-const brand = resolve(SITE_DIR, BRAND_DIR);
-const art = resolve(brand, '../art');
-await rm(OUT_GEN, { recursive: true, force: true });
-await rm(OUT_PUBLIC, { recursive: true, force: true });
-await mkdir(OUT_PUBLIC, { recursive: true });
-await cp(brand, join(OUT_GEN, 'brand'), { recursive: true });
-await cp(art, join(OUT_GEN, 'art'), { recursive: true });
-await cp(resolve(brand, '../sprite.svg'), join(OUT_GEN, 'sprite.svg'));
-for (const f of await readdir(brand)) await cp(join(brand, f), join(OUT_PUBLIC, f));
-await cp(join(brand, 'favicon.svg'), join(SITE_DIR, 'public/favicon.svg'));
-await cp(join(ROOT, 'docs/social-preview.png'), join(OUT_PUBLIC, 'social-preview.png'));
-
-console.log(
-  `sync: ${pages.length} doc pages, brand from ${relative(SITE_DIR, brand)} (${(await readdir(brand)).length} files)`,
-);
+if (import.meta.main) await main();

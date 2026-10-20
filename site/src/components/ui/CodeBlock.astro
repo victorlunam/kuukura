@@ -1,0 +1,146 @@
+---
+// Code to copy. Lines starting with "#" are comments and render quietly. With `prompt`, a one-line command shows
+// the prompt (not copied) and wraps instead of scrolling.
+interface Props {
+  code: string;
+  /** what the code is, for screen readers and the copy button */
+  label: string;
+  prompt?: '$' | '>';
+  size?: 'sm' | 'md';
+}
+const { code, label, prompt, size = 'md' } = Astro.props;
+const lines = code.split('\n');
+---
+
+<div class:list={['k-code', prompt ? 'k-code-line' : 'k-code-block', `k-code-${size}`]}>
+  <pre tabindex={prompt ? undefined : 0} aria-label={label}><code>{prompt && <span class="k-ps" aria-hidden="true">{prompt} </span>}{lines.map((l, i) => <>{l.startsWith('#') ? <span class="k-cm">{l}</span> : l}{i < lines.length - 1 ? '\n' : ''}</>)}</code></pre>
+  <button type="button" class="k-copy" data-copy={code} aria-label={`Copy: ${label}`}>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" class="k-i-copy">
+      <rect x="9" y="9" width="12" height="12" rx="3"></rect>
+      <path d="M5 15V7a3 3 0 0 1 3-3h7"></path>
+    </svg>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" class="k-i-done">
+      <path d="m5 12.5 4.5 4.5L19 7"></path>
+    </svg>
+  </button>
+</div>
+
+<script>
+  const live = document.createElement('div');
+  live.className = 'sr-only';
+  live.setAttribute('role', 'status');
+  document.body.append(live);
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.k-copy')) {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset['copy'] ?? '');
+        btn.classList.add('done');
+        live.textContent = 'Copied to the clipboard';
+        setTimeout(() => {
+          btn.classList.remove('done');
+          live.textContent = '';
+        }, 1600);
+      } catch {
+        live.textContent = 'Could not copy. Select the text instead.';
+      }
+    });
+  }
+</script>
+
+<style>
+  .k-code {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--k-space-3);
+    background: var(--k-tile-ink);
+    color: var(--k-ink);
+  }
+  pre {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font: 400 0.84rem/1.75 var(--k-mono);
+  }
+  .k-code-sm pre {
+    font-size: 0.8rem;
+  }
+  .k-code-block pre {
+    white-space: pre;
+    overflow-x: auto;
+    padding: 1.25rem 0 1rem 1.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--k-line-2) transparent;
+  }
+  .k-code-line {
+    align-items: center;
+    padding: 0.85rem 0.6rem 0.85rem 1rem;
+    border-radius: var(--k-radius-md);
+    border: 1px solid rgba(233, 243, 242, 0.05);
+  }
+  .k-code-line pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .k-ps {
+    color: var(--k-amber);
+    user-select: none;
+  }
+  .k-cm {
+    color: var(--k-muted);
+  }
+  .k-copy {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin: 0.6rem 0.6rem 0 0;
+    border-radius: var(--k-radius-sm);
+    border: 0;
+    background: transparent;
+    color: var(--k-muted);
+    cursor: pointer;
+    transition:
+      color var(--k-dur-fast) ease,
+      background-color var(--k-dur-fast) ease;
+  }
+  .k-code-line .k-copy {
+    margin: 0;
+  }
+  .k-copy:hover {
+    color: var(--k-ink);
+    background: rgba(233, 243, 242, 0.06);
+  }
+  .k-copy svg {
+    grid-area: 1 / 1;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition:
+      opacity var(--k-dur) ease,
+      transform var(--k-dur) var(--k-ease);
+  }
+  .k-i-done {
+    opacity: 0;
+    transform: scale(0.6);
+    color: var(--k-acc);
+  }
+  :global(.done) > .k-i-copy {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  :global(.done) > .k-i-done {
+    opacity: 1;
+    transform: none;
+  }
+  @media (max-width: 560px) {
+    .k-code-line pre {
+      font-size: var(--k-text-xs);
+    }
+  }
+</style>

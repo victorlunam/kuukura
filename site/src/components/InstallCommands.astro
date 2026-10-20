@@ -1,0 +1,25 @@
+---
+// The three install commands, exactly as in docs/install.md and the README. Used by the hero and the final call.
+import Tabs from './ui/Tabs.astro';
+import CodeBlock from './ui/CodeBlock.astro';
+
+interface Props {
+  id: string;
+}
+const { id } = Astro.props;
+const base = 'https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts';
+---
+
+<Tabs
+  id={id}
+  label="Install the CLI with"
+  tabs={[
+    { key: 'brew', label: 'Homebrew' },
+    { key: 'sh', label: 'macOS & Linux' },
+    { key: 'ps', label: 'Windows' },
+  ]}
+>
+  <CodeBlock slot="brew" prompt="$" label="the Homebrew install command" code="brew install victorlunam/tap/kuukura" />
+  <CodeBlock slot="sh" prompt="$" label="the macOS and Linux install command" code={`curl -fsSL ${base}/install.sh | sh`} />
+  <CodeBlock slot="ps" prompt=">" label="the Windows PowerShell install command" code={`irm ${base}/install.ps1 | iex`} />
+</Tabs>

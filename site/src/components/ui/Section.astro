@@ -1,0 +1,27 @@
+---
+// The shell of every landing section: vertical rhythm and the centered, gutter-padded container.
+import type { HTMLAttributes } from 'astro/types';
+
+interface Props extends HTMLAttributes<'section'> {
+  /** extra class on the inner container, for the section's own layout */
+  inner?: string;
+}
+const { class: className, inner, ...rest } = Astro.props;
+---
+
+<section class:list={['k-section', className]} {...rest}>
+  <div class:list={['k-container', inner]}><slot /></div>
+</section>
+
+<style>
+  .k-section {
+    position: relative;
+    padding-block: var(--k-section);
+  }
+  .k-container {
+    width: 100%;
+    max-width: calc(var(--k-maxw) + 2 * var(--k-gutter));
+    margin-inline: auto;
+    padding-inline: var(--k-gutter);
+  }
+</style>

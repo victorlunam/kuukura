@@ -1,0 +1,72 @@
+---
+// A list item card: optional icon tile, title, body. The body slot may hold <code> and a link.
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+
+type IconName = Parameters<typeof Icon>[0]['name'];
+interface Props extends HTMLAttributes<'li'> {
+  title: string;
+  icon?: IconName;
+}
+const { title, icon, class: className, ...rest } = Astro.props;
+---
+
+<li class:list={['k-card', className]} {...rest}>
+  {
+    icon && (
+      <span class="k-card-icon">
+        <Icon name={icon} size={22} />
+      </span>
+    )
+  }
+  <h3>{title}</h3>
+  <div class="k-card-body"><slot /></div>
+</li>
+
+<style>
+  .k-card {
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, rgba(233, 243, 242, 0.025), transparent 40%), var(--k-card);
+    border: 1px solid var(--k-line);
+    border-radius: var(--k-radius-lg);
+    padding: 1.75rem var(--k-space-5);
+    transition: border-color var(--k-dur) ease;
+  }
+  .k-card:hover {
+    border-color: var(--k-line-2);
+  }
+  .k-card-icon {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    background: var(--k-soft);
+    color: var(--k-ink);
+    margin-bottom: var(--k-space-5);
+  }
+  h3 {
+    margin: 0 0 0.6rem;
+    font-size: var(--k-text-lg);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+  .k-card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--k-space-4);
+    color: var(--k-muted);
+    font-size: var(--k-text-md);
+    line-height: var(--k-leading);
+  }
+  .k-card-body :global(p) {
+    margin: 0;
+    flex: 1;
+  }
+  .k-card-body :global(code) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+</style>

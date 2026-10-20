@@ -1,68 +1,74 @@
 ---
-import Landing from '~/layouts/Landing.astro';
+import Marketing from '~/layouts/Marketing.astro';
+import Section from '~/components/ui/Section.astro';
+import Heading from '~/components/ui/Heading.astro';
+import Button from '~/components/ui/Button.astro';
 import emptyVault from '~/generated/art/vault-empty.svg?raw';
 
-// The empty-vault illustration from the product, without its own <style>; the page CSS themes its classes.
-const art = emptyVault.replace(/<style>[\s\S]*?<\/style>/, '').replace(/role="img"[^>]*?aria-label="[^"]*"/, 'aria-hidden="true"');
+// The product's empty-vault illustration without its own <style>: the page themes its classes with the tokens.
+const art = emptyVault
+  .replace(/<style>[\s\S]*?<\/style>/, '')
+  .replace(/role="img"[^>]*?aria-label="[^"]*"/, 'aria-hidden="true"');
 ---
 
-<Landing title="Page not found · kuukura" description="This page does not exist." noindex>
-  <section class="section nf">
-    <div class="wrap nf-in">
-      <div class="nf-art" set:html={art} />
-      <p class="eyebrow">404</p>
-      <h1 class="h2">This vault is empty.</h1>
-      <p class="lede">The page you asked for is not here. It may have moved when the docs were reorganized.</p>
-      <div class="cta-row center">
-        <a class="btn btn-primary" href="/">Go to the home page</a>
-        <a class="btn btn-ghost" href="/docs/">Open the docs</a>
+<Marketing title="Page not found · kuukura" description="This page does not exist." noindex>
+  <Section class="nf">
+    <div class="stack">
+      <div class="art" set:html={art} />
+      <Heading id="nf-title" level={1} eyebrow="404" align="center" gap={false}>
+        This vault is empty.
+        <Fragment slot="lede">The page you asked for is not here. It may have moved when the docs were reorganized.</Fragment>
+      </Heading>
+      <div class="ctas">
+        <Button href="/">Go to the home page</Button>
+        <Button href="/docs/" variant="ghost">Open the docs</Button>
       </div>
     </div>
-  </section>
-</Landing>
+  </Section>
+</Marketing>
 
 <style>
-  .nf {
-    min-height: calc(100svh - 3.5rem - 10rem);
-    display: grid;
-    align-items: center;
-    text-align: center;
-  }
-  .nf-in {
+  .stack {
     display: flex;
     flex-direction: column;
     align-items: center;
+    text-align: center;
   }
-  .nf .lede {
-    margin-inline: auto;
-  }
-  .nf-art {
+  .art {
     width: min(22rem, 80vw);
     margin-bottom: 2rem;
   }
-  .nf-art :global(svg) {
+  .art :global(svg) {
     width: 100%;
     height: auto;
   }
-  .nf-art :global(.s-ink) {
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--k-space-3);
+    margin-top: var(--k-space-6);
+  }
+  /* the illustration's classes (brand.md: each art file themes .s-* and .f-*) */
+  .art :global(.s-ink) {
     stroke: var(--k-ink);
   }
-  .nf-art :global(.f-ink) {
+  .art :global(.f-ink) {
     fill: var(--k-ink);
   }
-  .nf-art :global(.f-card) {
+  .art :global(.f-card) {
     fill: var(--k-card);
   }
-  .nf-art :global(.f-soft) {
+  .art :global(.f-soft) {
     fill: var(--k-soft);
   }
-  .nf-art :global(.f-hollow) {
+  .art :global(.f-hollow) {
     fill: var(--k-hollow);
   }
-  .nf-art :global(.f-acc) {
+  .art :global(.f-acc) {
     fill: var(--k-acc);
   }
-  .nf-art :global(.f-amber) {
+  .art :global(.f-amber) {
     fill: var(--k-amber);
   }
 </style>

@@ -1,0 +1,32 @@
+---
+// A text link with a trailing arrow that nudges on hover: "go read this".
+import type { HTMLAttributes } from 'astro/types';
+import Icon from './Icon.astro';
+
+interface Props extends HTMLAttributes<'a'> {
+  href: string;
+}
+const { class: className, ...rest } = Astro.props;
+---
+
+<a class:list={['k-arrow', className]} {...rest}><slot /><Icon name="arrow" size={18} /></a>
+
+<style>
+  .k-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .k-arrow:hover {
+    text-decoration: underline;
+  }
+  .k-arrow :global(svg) {
+    flex: none;
+    transition: transform var(--k-dur) var(--k-ease);
+  }
+  .k-arrow:hover :global(svg) {
+    transform: translateX(3px);
+  }
+</style>

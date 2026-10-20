@@ -1,0 +1,43 @@
+/* The brand palette and type, as raw values: docs/brand.md ("Palette", "Type"), the same values as the server's
+   style.css. Stand-in for @kuukura/brand/tokens.css: when the brand package exists, tokens.css imports that
+   instead and this file goes. No theming here; tokens.css decides which set a page uses. */
+:root {
+  /* light */
+  --brand-light-bg: #f1f5f5;
+  --brand-light-card: #ffffff;
+  --brand-light-ink: #0a1b20;
+  --brand-light-muted: #566870;
+  --brand-light-line: #dce5e6;
+  --brand-light-soft: #e3f1ee;
+  --brand-light-hollow: #cde3df;
+  --brand-light-soft-2: #eef3f3;
+  --brand-light-acc: #0e9384;
+  --brand-light-acc-ink: #0a6b61;
+  --brand-light-amber: #f5a524;
+  --brand-light-ring: rgba(14, 147, 132, 0.4);
+
+  /* dark */
+  --brand-dark-bg: #061215;
+  --brand-dark-card: #0c1d22;
+  --brand-dark-ink: #e9f3f2;
+  --brand-dark-muted: #8fa5aa;
+  --brand-dark-line: #1a3036;
+  --brand-dark-soft: #0f2e2e;
+  --brand-dark-hollow: #07201f;
+  --brand-dark-soft-2: #112429;
+  --brand-dark-acc: #2dd4bf;
+  --brand-dark-acc-ink: #5eead4;
+  --brand-dark-amber: #fbbf24;
+  --brand-dark-ring: rgba(45, 212, 191, 0.45);
+
+  /* fixed: they do not change with the theme */
+  --brand-tile: #071519; /* the mark's tile; also the terminal background */
+  --brand-tile-dark: #16373d; /* tab icon and logo tile in dark mode */
+  --brand-tile-raised: #0e2a30; /* the banner's lockup tile */
+  --brand-fg: #eaf4f2; /* the mark's foreground */
+  --brand-hub: #f5a524; /* the mark's hub */
+
+  /* type: system stacks, no web fonts */
+  --brand-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --brand-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+}

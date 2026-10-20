@@ -1,37 +1,92 @@
-/* Brand tokens. The single source is docs/brand.md; these are the same values as internal/api/web/style.css.
-   The landing page is dark only; the docs follow Starlight's theme switch (data-theme). */
-:root {
-  --k-bg: #061215;
-  --k-card: #0c1d22;
-  --k-ink: #e9f3f2;
-  --k-muted: #8fa5aa;
-  --k-line: #1a3036;
-  --k-soft: #0f2e2e;
-  --k-hollow: #07201f;
-  --k-soft-2: #112429;
-  --k-acc: #2dd4bf;
-  --k-acc-ink: #5eead4;
-  --k-amber: #fbbf24;
-  --k-tile: #16373d;
-  --k-fg: #eaf4f2;
-  --k-ring: rgba(45, 212, 191, 0.45);
+/* Site tokens. The brand palette and type come from the brand file (one import: switch it to
+   '@kuukura/brand/tokens.css' when the brand package exists); this file maps them to the site's semantic tokens
+   and adds what only the site needs: type scale, spacing, radii, motion.
+   Dark is the default (the landing page is dark only); the docs switch with Starlight's [data-theme='light']. */
+@import './brand.css';
 
-  --k-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --k-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+:root {
+  /* ---- color (brand.md "Palette") ---- */
+  --k-bg: var(--brand-dark-bg);
+  --k-card: var(--brand-dark-card);
+  --k-ink: var(--brand-dark-ink);
+  --k-muted: var(--brand-dark-muted);
+  --k-line: var(--brand-dark-line);
+  --k-soft: var(--brand-dark-soft);
+  --k-hollow: var(--brand-dark-hollow);
+  --k-soft-2: var(--brand-dark-soft-2);
+  --k-acc: var(--brand-dark-acc); /* teal: state only */
+  --k-acc-ink: var(--brand-dark-acc-ink); /* teal text: links */
+  --k-amber: var(--brand-dark-amber); /* the one accent, sparingly */
+  --k-ring: var(--brand-dark-ring);
+  --k-tile: var(--brand-tile-dark);
+  --k-tile-ink: var(--brand-tile);
+  --k-tile-raised: var(--brand-tile-raised);
+  --k-fg: var(--brand-fg);
+  --k-hub: var(--brand-hub);
+  /* site-only, for the dark page: a quieter ink for second lines (5:1 on the page) and stronger lines for hover */
+  --k-ink-2: #6f8a90;
+  --k-line-2: #2a454c;
+  --k-line-3: #46666e;
+
+  /* ---- type (brand.md "Type": system stacks) ---- */
+  --k-font: var(--brand-font);
+  --k-mono: var(--brand-mono);
+  --k-text-xs: 0.8125rem;
+  --k-text-sm: 0.875rem;
+  --k-text-md: 0.96875rem;
+  --k-text-base: 1.0625rem;
+  --k-text-lg: 1.1875rem;
+  --k-text-lede: clamp(1.125rem, 0.98rem + 0.62vw, 1.5rem);
+  --k-text-h3: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+  --k-text-h2: clamp(2.125rem, 1rem + 4.4vw, 4.5rem);
+  --k-text-display: clamp(2.6rem, 1rem + 5.6vw, 5.75rem);
+  --k-leading-tight: 1.03;
+  --k-leading: 1.55;
+  --k-tracking-tight: -0.042em;
+  --k-tracking-display: -0.048em;
+
+  /* ---- space ---- */
+  --k-space-1: 0.25rem;
+  --k-space-2: 0.5rem;
+  --k-space-3: 0.75rem;
+  --k-space-4: 1rem;
+  --k-space-5: 1.5rem;
+  --k-space-6: 2.25rem;
+  --k-space-7: clamp(2.5rem, 6vw, 4rem);
+  --k-space-8: clamp(3rem, 7vw, 5.5rem);
+  --k-section: clamp(6rem, 13vw, 11.5rem);
+  --k-gutter: clamp(1rem, 4.5vw, 3rem);
+  --k-maxw: 75rem;
+
+  /* ---- radii: the product's card 22, panel 14, small 10 (style.css); the tile is 22% (brand.md) ---- */
+  --k-radius-sm: 10px;
+  --k-radius-md: 14px;
+  --k-radius-lg: 22px;
+  --k-radius-pill: 999px;
+  --k-radius-tile: 22%;
+
+  /* ---- motion ---- */
+  --k-dur-fast: 150ms;
+  --k-dur: 250ms;
+  --k-dur-slow: 900ms;
+  --k-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --k-ease-inout: cubic-bezier(0.45, 0, 0.3, 1);
+
+  --k-shadow: 0 40px 100px rgba(0, 0, 0, 0.45);
 }
 
 :root[data-theme='light'] {
-  --k-bg: #f1f5f5;
-  --k-card: #ffffff;
-  --k-ink: #0a1b20;
-  --k-muted: #566870;
-  --k-line: #dce5e6;
-  --k-soft: #e3f1ee;
-  --k-hollow: #cde3df;
-  --k-soft-2: #eef3f3;
-  --k-acc: #0e9384;
-  --k-acc-ink: #0a6b61;
-  --k-amber: #f5a524;
-  --k-tile: #071519;
-  --k-ring: rgba(14, 147, 132, 0.4);
+  --k-bg: var(--brand-light-bg);
+  --k-card: var(--brand-light-card);
+  --k-ink: var(--brand-light-ink);
+  --k-muted: var(--brand-light-muted);
+  --k-line: var(--brand-light-line);
+  --k-soft: var(--brand-light-soft);
+  --k-hollow: var(--brand-light-hollow);
+  --k-soft-2: var(--brand-light-soft-2);
+  --k-acc: var(--brand-light-acc);
+  --k-acc-ink: var(--brand-light-acc-ink);
+  --k-amber: var(--brand-light-amber);
+  --k-ring: var(--brand-light-ring);
+  --k-tile: var(--brand-tile);
 }

@@ -1,0 +1,73 @@
+---
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Button from '../ui/Button.astro';
+import InstallCommands from '../InstallCommands.astro';
+import { REPO_URL } from '../../../site.config.mjs';
+---
+
+<Section class="hero" aria-labelledby="hero-title">
+  <div class="stack" data-intro>
+    <Heading id="hero-title" level={1} size="display" align="center" eyebrow="Open source · Self-hosted · MIT" gap={false}>
+      <span class="line">Secrets for your team.</span>
+      <span class="line k-quiet">Decrypted only on your server.</span>
+      <Fragment slot="lede">
+        kuukura is a small vault you run yourself. <b>Reveals are confirmed with your passkey</b> or authenticator
+        app, and <b>every read is recorded</b> in a tamper-evident log.
+      </Fragment>
+    </Heading>
+    <div class="ctas">
+      <Button href="/docs/install/">Get started</Button>
+      <Button href={REPO_URL} variant="ghost">View on GitHub</Button>
+    </div>
+    <div class="install">
+      <InstallCommands id="hero" />
+      <p class="k-fine">
+        Installs <code>ku</code> and <code>kuukura</code> (the same program). Then:{' '}
+        <a href="/docs/deploy/">deploy the server</a>.
+      </p>
+    </div>
+  </div>
+</Section>
+
+<style>
+  .hero {
+    padding-block: clamp(3.5rem, 7.5vw, 7rem) clamp(3rem, 6vw, 5rem);
+    text-align: center;
+    isolation: isolate;
+  }
+  /* the product page's background: a soft teal glow over a dot grid (internal/api/web/style.css) */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: -3.5rem 0 -30vh;
+    z-index: -1;
+    background-image:
+      radial-gradient(60rem 34rem at 50% 0%, rgba(45, 212, 191, 0.13), transparent 65%),
+      radial-gradient(rgba(233, 243, 242, 0.055) 1.2px, transparent 1.2px);
+    background-size:
+      auto,
+      26px 26px;
+    mask-image: linear-gradient(#000 55%, transparent);
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .line {
+    display: block;
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--k-space-3);
+    margin-top: var(--k-space-6);
+  }
+  .install {
+    width: 100%;
+    max-width: 41rem;
+    margin-top: var(--k-space-7);
+  }
+</style>

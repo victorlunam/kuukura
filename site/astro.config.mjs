@@ -1,10 +1,10 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import { REPO, SECTIONS, SITE } from './docs.config.mjs';
+import { REPO_URL, SIDEBAR, SITE } from './site.config.mjs';
 
 const link = (/** @type {{ slug: string }} */ p) => `/docs/${p.slug ? `${p.slug}/` : ''}`;
-const sidebar = SECTIONS.map((s) => {
+const sidebar = SIDEBAR.map((s) => {
   const only = s.pages.length === 1 ? s.pages[0] : undefined;
   return only && only.label === s.label
     ? { label: s.label, link: link(only) }
@@ -26,7 +26,7 @@ export default defineConfig({
       title: 'kuukura',
       description: 'A self-hosted secrets vault for small teams. Values are decrypted only on your server.',
       favicon: '/favicon.svg',
-      social: [{ icon: 'github', label: 'GitHub', href: REPO }],
+      social: [{ icon: 'github', label: 'GitHub', href: REPO_URL }],
       sidebar,
       customCss: ['./src/styles/tokens.css', './src/styles/starlight.css'],
       components: {

@@ -1,0 +1,83 @@
+---
+// Features as outcomes (README "Features" and "How it works").
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Card from '../ui/Card.astro';
+
+const features = [
+  {
+    icon: 'envelope',
+    title: 'A fresh key for every version.',
+    body: 'Envelope encryption: each secret version gets its own AES-256-GCM data key, and the master key wraps the data keys.',
+  },
+  {
+    icon: 'people',
+    title: 'Least privilege by default.',
+    body: 'Read and write grants per tag, and groups. Admins manage people but have no secret access by role.',
+  },
+  {
+    icon: 'machine',
+    title: 'CI without shared passwords.',
+    body: 'Machine tokens are limited by their own grants and their owner’s, and can never reveal a value.',
+  },
+  {
+    icon: 'chain',
+    title: 'A log you can check.',
+    body: 'Insert-only and hash-chained. <code>ku-server audit verify</code> detects edited or removed rows in the middle of the chain.',
+  },
+  {
+    icon: 'terminal',
+    title: 'Guard rails in the CLI.',
+    body: '<code>ku run</code> injects environment variables and refuses names that load code, such as <code>LD_PRELOAD</code>. Values are never arguments.',
+  },
+  {
+    icon: 'key',
+    title: 'Your master key, your choice.',
+    body: 'From a file or Docker secret, an environment variable, or AWS KMS. It is never in the database, and <code>key show</code> prints it once per version for your backup.',
+  },
+  {
+    icon: 'lifebuoy',
+    title: 'Lost your passkey? Recover.',
+    body: 'Ten recovery codes at enrollment. Lost those too? <code>ku-server user reset-factors</code> on the host prints a new 15-minute link.',
+  },
+  {
+    icon: 'shield',
+    title: 'Releases you can verify.',
+    body: 'A macOS CLI signed with a Developer ID (not notarized). A multi-arch image with build provenance, a keyless cosign signature and an SBOM.',
+  },
+] as const;
+---
+
+<Section aria-labelledby="features-title">
+  <Heading id="features-title" eyebrow="What you get">Small enough to understand.<br />Strict where it counts.</Heading>
+  <ul class="grid">
+    {
+      features.map((f, i) => (
+        <Card title={f.title} icon={f.icon} data-reveal style={`--i: ${i % 4}`}>
+          <p set:html={f.body} />
+        </Card>
+      ))
+    }
+  </ul>
+</Section>
+
+<style>
+  .grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--k-space-4);
+  }
+  @media (max-width: 1080px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 560px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

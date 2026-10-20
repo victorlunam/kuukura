@@ -1,0 +1,77 @@
+---
+// README "Status", "Contributing" and "License".
+import Section from '../ui/Section.astro';
+import Heading from '../ui/Heading.astro';
+import Card from '../ui/Card.astro';
+import ArrowLink from '../ui/ArrowLink.astro';
+import { REPO_URL } from '../../../site.config.mjs';
+
+const items = [
+  {
+    title: 'MIT license',
+    body: 'Use it, read it, change it. There is no hosted version: you run it yourself.',
+    link: 'License',
+    href: `${REPO_URL}/blob/main/LICENSE`,
+  },
+  {
+    title: 'Calendar versions',
+    body: 'Releases are <code>YEAR.MONTH.N</code>. Pin one in production and read the notes before upgrading.',
+    link: 'Changelog',
+    href: '/docs/changelog/',
+  },
+  {
+    title: 'Contributions welcome',
+    body: 'Issues and pull requests are welcome. A short issue before a large change saves everyone time.',
+    link: 'Contributing',
+    href: `${REPO_URL}/blob/main/CONTRIBUTING.md`,
+  },
+  {
+    title: 'Report privately',
+    body: 'Found a vulnerability? Use GitHub’s private vulnerability reporting, not a public issue.',
+    link: 'Security policy',
+    href: '/docs/security/',
+  },
+];
+---
+
+<Section aria-labelledby="oss-title">
+  <Heading id="oss-title" eyebrow="Open source">MIT licensed. One maintainer. No surprises.</Heading>
+  <ul class="grid">
+    {
+      items.map((it, i) => (
+        <Card title={it.title} data-reveal style={`--i: ${i}`}>
+          <p set:html={it.body} />
+          <ArrowLink href={it.href}>{it.link}</ArrowLink>
+        </Card>
+      ))
+    }
+  </ul>
+  <p class="k-fine status">
+    Not yet: SSO/SAML, dynamic secrets, multi-organization instances, a third-party security audit, and a full
+    requirement-by-requirement ASVS mapping.
+  </p>
+</Section>
+
+<style>
+  .grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--k-space-4);
+  }
+  .status {
+    margin-top: var(--k-space-6);
+  }
+  @media (max-width: 1080px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 560px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

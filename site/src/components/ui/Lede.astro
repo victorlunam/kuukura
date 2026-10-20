@@ -1,0 +1,22 @@
+---
+// The paragraph under a headline: larger, quieter, with <b> picking out what matters.
+import type { HTMLAttributes } from 'astro/types';
+
+type Props = HTMLAttributes<'p'>;
+const { class: className, ...rest } = Astro.props;
+---
+
+<p class:list={['k-lede', className]} {...rest}><slot /></p>
+
+<style>
+  .k-lede {
+    margin: var(--k-space-5) 0 0;
+    max-width: 40rem;
+    font-size: var(--k-text-lede);
+    line-height: 1.42;
+    letter-spacing: -0.012em;
+    font-weight: 500;
+    color: var(--k-muted);
+    text-wrap: pretty;
+  }
+</style>
