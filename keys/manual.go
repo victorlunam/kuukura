@@ -6,8 +6,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -19,8 +22,23 @@ type Manual struct {
 	active int
 }
 
-// ParseMasterKeys reads lines of `<version>:<base64 32-byte key>`.
+// ParseMasterKeys reads lines of `<version>:<base64 32-byte key>`. A single bare key (base64 of 32 bytes, or 64 hex
+// characters) is version 1: that is the form a hosting platform can generate for an environment variable.
 func ParseMasterKeys(data []byte) (*Manual, error) {
+	if bare := bytes.TrimSpace(data); len(bare) > 0 && !bytes.ContainsAny(bare, ":\n") {
+		var k []byte
+		var err error
+		switch len(bare) { // 64 hex characters are also valid base64, so the length decides
+		case 44:
+			k, err = base64.StdEncoding.DecodeString(string(bare))
+		case 64:
+			k, err = hex.DecodeString(string(bare))
+		}
+		if err != nil || len(k) != 32 {
+			return nil, errors.New("keys: bad master key")
+		}
+		return &Manual{ring: map[int][]byte{1: k}, active: 1}, nil
+	}
 	m := &Manual{ring: map[int][]byte{}}
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	for line := 1; sc.Scan(); line++ {
@@ -86,6 +104,16 @@ func (m *Manual) Unwrap(_ context.Context, keyID string, wrapped, aad []byte) ([
 		return nil, ErrDecrypt
 	}
 	return dek, nil
+}
+
+// Ring is the key file body for every version, one `<version>:<base64>` line each, oldest first. It is key
+// material: only `key show` and the key file writers may touch it.
+func (m *Manual) Ring() []byte {
+	var out []byte
+	for _, v := range slices.Sorted(maps.Keys(m.ring)) {
+		out = fmt.Appendf(out, "%d:%s\n", v, base64.StdEncoding.EncodeToString(m.ring[v]))
+	}
+	return out
 }
 
 // Version is the active key version.

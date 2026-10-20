@@ -5,14 +5,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 	"strings"
 	"testing"
 
-	"filippo.io/age"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/google/uuid"
 )
@@ -267,7 +266,6 @@ func TestParseMasterKeysRejects(t *testing.T) {
 		"version 0":          "0:" + good,
 		"negative version":   "-1:" + good,
 		"not a version":      "x:" + good,
-		"no separator":       good,
 		"short key":          "1:" + base64.StdEncoding.EncodeToString(make([]byte, 16)),
 		"not base64":         "1:!!!",
 		"duplicate version":  "1:" + good + "\n1:" + other,
@@ -334,50 +332,51 @@ func TestDEKIsClearedAfterUse(t *testing.T) {
 	}
 }
 
-// decryptExport is `age -d` with a passphrase, which is how the runbook restores the key.
-func decryptExport(t *testing.T, enc []byte, passphrase string) ([]byte, error) {
-	t.Helper()
-	id, err := age.NewScryptIdentity(passphrase)
+// A bare key (what a platform generates for an env var) is version 1 and unlocks what the same key in a key file
+// unlocks.
+func TestParseBareMasterKey(t *testing.T) {
+	ctx := t.Context()
+	raw := bytes.Repeat([]byte{7}, 32)
+	b64 := base64.StdEncoding.EncodeToString(raw)
+	ringed, err := ParseMasterKeys([]byte("1:" + b64))
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := age.Decrypt(bytes.NewReader(enc), id)
-	if err != nil {
-		return nil, err
+	id := uuid.New()
+	p, _ := Seal(ctx, ringed, id, 1, []byte(fakeValue))
+	for name, body := range map[string]string{"base64": b64 + "\n", "hex": " " + hex.EncodeToString(raw) + " "} {
+		m, err := ParseMasterKeys([]byte(body))
+		if err != nil || m.Version() != 1 || m.KeyID() != "manual:v1" {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got, err := Open(ctx, m, id, 1, p); err != nil || string(got) != fakeValue {
+			t.Fatalf("%s: a bare key must open what version 1 sealed", name)
+		}
 	}
-	return io.ReadAll(r)
+	for name, body := range map[string]string{
+		"hex too short":    strings.Repeat("ab", 31),
+		"hex not hex":      strings.Repeat("zz", 32),
+		"base64 16 bytes":  base64.StdEncoding.EncodeToString(make([]byte, 16)),
+		"base64 url form":  strings.NewReplacer("+", "-", "/", "_").Replace(base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0xfb}, 32))),
+		"two bare lines":   b64 + "\n" + b64,
+		"bare then ringed": b64 + "\n2:" + b64,
+	} {
+		if _, err := ParseMasterKeys([]byte(body)); err == nil {
+			t.Errorf("%s: accepted", name)
+		} else if strings.Contains(err.Error(), body) {
+			t.Errorf("%s: the error echoes the input", name)
+		}
+	}
 }
 
-func TestExportedKeyUnlocksSecret(t *testing.T) {
-	ctx := t.Context()
-	keyFile, _ := GenerateMasterKey(1)
-	m, _ := ParseMasterKeys(keyFile)
-	id := uuid.New()
-	p, _ := Seal(ctx, m, id, 1, []byte(fakeValue))
-
-	var out bytes.Buffer
-	if err := ExportMasterKey(&out, keyFile, "correct horse battery"); err != nil {
-		t.Fatal(err)
+func TestRingRoundTrips(t *testing.T) {
+	m := manual(t, 3, 1)
+	again, err := ParseMasterKeys(m.Ring())
+	if err != nil || again.Version() != 3 || !bytes.Equal(again.Ring(), m.Ring()) {
+		t.Fatalf("the ring text must parse back to the same ring: %v", err)
 	}
-	if bytes.Contains(out.Bytes(), keyFile) {
-		t.Fatal("export is not encrypted")
-	}
-	if _, err := decryptExport(t, out.Bytes(), "wrong passphrase!!"); err == nil {
-		t.Fatal("wrong passphrase must fail")
-	}
-	restored, err := decryptExport(t, out.Bytes(), "correct horse battery")
-	if err != nil {
-		t.Fatal(err)
-	}
-	m2, err := ParseMasterKeys(restored)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := Open(ctx, m2, id, 1, p); err != nil || string(got) != fakeValue {
-		t.Fatal("restored key must unlock the secret")
-	}
-	if err := ExportMasterKey(&bytes.Buffer{}, keyFile, "short"); err == nil {
-		t.Fatal("short passphrase must be rejected")
+	if !strings.HasPrefix(string(m.Ring()), "1:") {
+		t.Fatal("oldest version first")
 	}
 }
 

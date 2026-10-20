@@ -3,7 +3,6 @@ module github.com/victorlunam/kuukura
 go 1.26.0
 
 require (
-	filippo.io/age v1.3.2
 	github.com/amacneil/dbmate/v2 v2.37.0
 	github.com/aws/aws-sdk-go-v2 v1.47.3
 	github.com/aws/aws-sdk-go-v2/config v1.33.9
@@ -27,7 +26,6 @@ require (
 )
 
 require (
-	filippo.io/hpke v0.4.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.9 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3 // indirect

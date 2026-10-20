@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
+	"github.com/victorlunam/kuukura/keys"
 	"github.com/victorlunam/kuukura/storage"
 )
 
@@ -163,45 +165,88 @@ func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (En
 // RewrapTOTP moves stored TOTP secrets to the provider's active key. Returns how many were rewrapped.
 func (s *Service) RewrapTOTP(ctx context.Context) (int, error) {
 	n := 0
-	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT id, principal_id, encrypted_totp_secret FROM credentials WHERE kind = 'totp'`)
-		if err != nil {
-			return err
-		}
-		type item struct {
-			id, principal uuid.UUID
-			enc           []byte
-		}
-		var items []item
-		for rows.Next() {
-			var it item
-			if err := rows.Scan(&it.id, &it.principal, &it.enc); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			items = append(items, it)
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		for _, it := range items {
-			if len(it.enc) > 0 && int(it.enc[0]) < len(it.enc) && string(it.enc[1:1+int(it.enc[0])]) == s.kp.KeyID() {
-				continue
-			}
-			secret, err := s.openTOTP(ctx, it.principal, it.enc)
-			if err != nil {
-				return err
-			}
-			enc, err := s.sealTOTP(ctx, it.principal, secret)
-			if err != nil {
-				return err
-			}
-			if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET encrypted_totp_secret = ? WHERE id = ?`), enc, it.id); err != nil {
-				return err
-			}
-			n++
-		}
-		return nil
+	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) (err error) {
+		n, err = s.RewrapTOTPTx(ctx, tx)
+		return err
 	})
 	return n, err
+}
+
+// RewrapTOTPTx is RewrapTOTP inside the caller's transaction, so a rotation can commit all its work together.
+func (s *Service) RewrapTOTPTx(ctx context.Context, tx *sql.Tx) (int, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id, principal_id, encrypted_totp_secret FROM credentials WHERE kind = 'totp'`)
+	if err != nil {
+		return 0, err
+	}
+	type item struct {
+		id, principal uuid.UUID
+		enc           []byte
+	}
+	var items []item
+	for rows.Next() {
+		var it item
+		if err := rows.Scan(&it.id, &it.principal, &it.enc); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		items = append(items, it)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, it := range items {
+		if len(it.enc) > 0 && int(it.enc[0]) < len(it.enc) && string(it.enc[1:1+int(it.enc[0])]) == s.kp.KeyID() {
+			continue
+		}
+		secret, err := s.openTOTP(ctx, it.principal, it.enc)
+		if err != nil {
+			return 0, err
+		}
+		enc, err := s.sealTOTP(ctx, it.principal, secret)
+		if err != nil {
+			return 0, err
+		}
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET encrypted_totp_secret = ? WHERE id = ?`), enc, it.id); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+// HasTOTP reports whether any authenticator-app secret is stored (encrypted under the master key).
+func (s *Service) HasTOTP(ctx context.Context) (bool, error) {
+	var n int
+	err := s.p.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM credentials WHERE kind = 'totp'`).Scan(&n)
+	return n > 0, err
+}
+
+// CheckKey opens one stored authenticator secret with the master key, so a wrong key is found at start instead of
+// at somebody's login. It passes when there is none.
+func (s *Service) CheckKey(ctx context.Context) error {
+	var principal uuid.UUID
+	var enc []byte
+	err := s.p.DB().QueryRowContext(ctx, `SELECT principal_id, encrypted_totp_secret FROM credentials WHERE kind = 'totp' LIMIT 1`).Scan(&principal, &enc)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := s.openTOTP(ctx, principal, enc); err != nil {
+		if errors.Is(err, keys.ErrDecrypt) || errors.Is(err, ErrLogin) {
+			return keys.MismatchError(storedKeyID(enc))
+		}
+		return err
+	}
+	return nil
+}
+
+// storedKeyID is the key id a sealed TOTP secret names (see sealTOTP).
+func storedKeyID(enc []byte) string {
+	if len(enc) < 1 || len(enc) < 1+int(enc[0]) {
+		return "unknown"
+	}
+	return string(enc[1 : 1+int(enc[0])])
 }

@@ -13,16 +13,14 @@ import (
 
 	"github.com/victorlunam/kuukura/access"
 	"github.com/victorlunam/kuukura/api"
-	"github.com/victorlunam/kuukura/audit"
 	"github.com/victorlunam/kuukura/auth"
-	"github.com/victorlunam/kuukura/identity"
 	"github.com/victorlunam/kuukura/secrets"
 )
 
 // runServe validates the config, refuses to start without the master key, and serves until SIGTERM/SIGINT.
 func runServe(args []string) error {
-	if len(args) != 0 {
-		return errors.New("usage: ku-server serve")
+	if err := noArgs("serve", args); err != nil {
+		return err
 	}
 	c, err := loadConfig(true)
 	if err != nil {
@@ -40,7 +38,14 @@ func runServe(args []string) error {
 	if err := p.CheckAuditProtected(ctx, p.DB()); err != nil {
 		return err
 	}
-	kp, err := keyProvider(ctx, c)
+	a := newApp(c, p)
+	generated := a.c.KeyMissing
+	if generated {
+		if err := generateKey(ctx, a); err != nil {
+			return err
+		}
+	}
+	kp, err := keyProvider(ctx, a.c)
 	if err != nil {
 		return fmt.Errorf("cannot load the master key: %w", err)
 	}
@@ -48,14 +53,24 @@ func runServe(args []string) error {
 	if err != nil {
 		return fmt.Errorf("cannot reach the login provider: %w", err)
 	}
-	alog, tokens := audit.New(p), auth.NewTokens(p)
-	authSvc, err := auth.NewService(p, alog, tokens, google, kp, auth.Config{RPID: c.Domain, RPOrigin: c.baseURL(), Issuer: "kuukura"})
+	authSvc, err := auth.NewService(p, a.log, a.tokens, google, kp, c.authConfig())
 	if err != nil {
 		return err
 	}
+	secretsSvc := secrets.New(p, kp, a.log)
+	if err := errors.Join(secretsSvc.CheckKey(ctx), authSvc.CheckKey(ctx)); err != nil {
+		return err
+	}
+	warn, err := backupWarning(ctx, a, kp, generated)
+	if err != nil {
+		return err
+	}
+	if warn != "" {
+		log.Warn(warn)
+	}
 	srv := api.New(api.Deps{
-		Secrets: secrets.New(p, kp, alog), Admin: access.NewAdmin(p, alog), Identity: identity.New(p, alog, tokens),
-		Auth: authSvc, Tokens: tokens, Audit: alog, Storage: p, BaseURL: c.baseURL(), AllowHTTP: c.DevHTTP, Name: c.Name, Log: log,
+		Secrets: secretsSvc, Admin: access.NewAdmin(p, a.log), Identity: a.ids,
+		Auth: authSvc, Tokens: a.tokens, Audit: a.log, Storage: p, BaseURL: c.baseURL(), AllowHTTP: c.DevHTTP, Name: c.Name, Log: log,
 	})
 	hs := &http.Server{Addr: c.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 2 * time.Minute}

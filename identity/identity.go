@@ -63,8 +63,8 @@ func (s *Service) InviteHuman(ctx context.Context, a access.Actor, email string)
 
 // InviteMachine creates a machine identity owned by the admin and returns its key once.
 func (s *Service) InviteMachine(ctx context.Context, a access.Actor, name string) (Invite, error) {
-	if !machineRE.MatchString(name) {
-		return Invite{}, access.Fail(access.CodeInvalid, "machine names use a-z, 0-9, dot, dash, underscore")
+	if !machineRE.MatchString(name) || name == HostName {
+		return Invite{}, access.Fail(access.CodeInvalid, "machine names use a-z, 0-9, dot, dash, underscore ("+HostName+" is reserved)")
 	}
 	var inv Invite
 	err := access.AdminTx(ctx, s.p, s.log, a, "invite", func(tx *sql.Tx) error {
@@ -90,37 +90,9 @@ func (s *Service) InviteMachine(ctx context.Context, a access.Actor, name string
 	return inv, err
 }
 
-// BootstrapAdmin is the server-side first-admin / break-glass invite (15 min).
-// An existing admin gets a fresh invite to re-enroll a second factor.
+// BootstrapAdmin is the server-side first-admin invite (15 min); see InviteByHost.
 func (s *Service) BootstrapAdmin(ctx context.Context, email string) (Invite, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	if !emailRE.MatchString(email) {
-		return Invite{}, access.Fail(access.CodeInvalid, "invalid email")
-	}
-	var inv Invite
-	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
-		var id uuid.UUID
-		var role sql.NullString
-		err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT id, role FROM principals WHERE name = ?`), email).Scan(&id, &role)
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			if id, err = s.createHuman(ctx, tx, email, "admin"); err != nil {
-				return err
-			}
-		case err != nil:
-			return err
-		case role.String != "admin":
-			return access.Fail(access.CodeConflict, "that person exists and is not an admin")
-		}
-		iss, err := s.tokens.Issue(ctx, tx, id, auth.KindInvite, nil, auth.AdminInviteTTL)
-		if err != nil {
-			return err
-		}
-		inv = Invite{iss.Raw, iss.ExpiresAt}
-		return s.log.Append(ctx, tx, audit.Entry{Principal: id, Action: "invite", TargetType: "principal", TargetID: &id,
-			Metadata: map[string]any{"kind": "admin", "via": "server"}})
-	})
-	return inv, err
+	return s.InviteByHost(ctx, email, true)
 }
 
 func (s *Service) createHuman(ctx context.Context, tx *sql.Tx, email, role string) (uuid.UUID, error) {
@@ -157,7 +129,11 @@ func (s *Service) lastAdminCheck(ctx context.Context, tx *sql.Tx, target uuid.UU
 
 func (s *Service) find(ctx context.Context, tx *sql.Tx, name string) (id uuid.UUID, role string, err error) {
 	var r sql.NullString
-	err = tx.QueryRowContext(ctx, s.p.Rebind(`SELECT id, role FROM principals WHERE name = ?`), strings.ToLower(name)).Scan(&id, &r)
+	name = strings.ToLower(name)
+	err = sql.ErrNoRows // the host principal is not an identity anyone manages
+	if name != HostName {
+		err = tx.QueryRowContext(ctx, s.p.Rebind(`SELECT id, role FROM principals WHERE name = ?`), name).Scan(&id, &r)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return id, "", access.Fail(access.CodeNotFound, "unknown identity: "+name)
 	}
@@ -193,50 +169,54 @@ func (s *Service) SetRole(ctx context.Context, a access.Actor, name, role string
 // Disable blocks login and ends every token of an identity; history is kept.
 func (s *Service) Disable(ctx context.Context, a access.Actor, name string) error {
 	return access.AdminTx(ctx, s.p, s.log, a, "disable", func(tx *sql.Tx) error {
-		id, role, err := s.find(ctx, tx, name)
-		if err != nil {
-			return err
-		}
-		if role == "admin" {
-			if err := s.lastAdminCheck(ctx, tx, id); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = 'disabled' WHERE id = ?`), id); err != nil {
-			return err
-		}
-		n, err := s.tokens.RevokeAll(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		// machines never outlive their owner
-		rows, err := tx.QueryContext(ctx, s.p.Rebind(`SELECT id FROM principals WHERE owner_id = ?`), id)
-		if err != nil {
-			return err
-		}
-		var owned []uuid.UUID
-		for rows.Next() {
-			var m uuid.UUID
-			if err := rows.Scan(&m); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			owned = append(owned, m)
-		}
-		_ = rows.Close()
-		for _, m := range owned {
-			if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = 'disabled' WHERE id = ?`), m); err != nil {
-				return err
-			}
-			c, err := s.tokens.RevokeAll(ctx, tx, m)
-			if err != nil {
-				return err
-			}
-			n += c
-		}
-		return s.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "disable", IP: a.IP, TargetType: "principal", TargetID: &id,
-			Metadata: map[string]any{"tokens_revoked": int(n)}})
+		return s.disable(ctx, tx, a, name)
 	})
+}
+
+func (s *Service) disable(ctx context.Context, tx *sql.Tx, a access.Actor, name string) error {
+	id, role, err := s.find(ctx, tx, name)
+	if err != nil {
+		return err
+	}
+	if role == "admin" {
+		if err := s.lastAdminCheck(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = 'disabled' WHERE id = ?`), id); err != nil {
+		return err
+	}
+	n, err := s.tokens.RevokeAll(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	// machines never outlive their owner
+	rows, err := tx.QueryContext(ctx, s.p.Rebind(`SELECT id FROM principals WHERE owner_id = ?`), id)
+	if err != nil {
+		return err
+	}
+	var owned []uuid.UUID
+	for rows.Next() {
+		var m uuid.UUID
+		if err := rows.Scan(&m); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		owned = append(owned, m)
+	}
+	_ = rows.Close()
+	for _, m := range owned {
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = 'disabled' WHERE id = ?`), m); err != nil {
+			return err
+		}
+		c, err := s.tokens.RevokeAll(ctx, tx, m)
+		if err != nil {
+			return err
+		}
+		n += c
+	}
+	return s.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "disable", IP: a.IP, TargetType: "principal", TargetID: &id,
+		Metadata: map[string]any{"tokens_revoked": int(n)}})
 }
 
 // RequireAdmin fails unless the actor is an active admin; a failure is audited as a denial.

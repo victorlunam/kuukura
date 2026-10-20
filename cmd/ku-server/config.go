@@ -3,10 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/victorlunam/kuukura/auth"
 )
 
 // config is read from the environment and validated at startup (fail fast).
@@ -22,12 +25,24 @@ type config struct {
 	Name         string // VAULT_NAME: optional instance name for the page header (max 32 chars)
 	KeyProvider  string // VAULT_KEY_PROVIDER: manual (default) | aws-kms
 	MasterKey    []byte // from VAULT_MASTER_KEY_FILE (preferred) or VAULT_MASTER_KEY
+	KeyFile      string // VAULT_MASTER_KEY_FILE
+	KeyGenerate  bool   // VAULT_MASTER_KEY_GENERATE=true: serve creates KeyFile when it is missing and the database has no encrypted data
+	KeyMissing   bool   // KeyGenerate is on and KeyFile does not exist yet
 	KMSKeyARN    string // VAULT_KMS_KEY_ARN
 	OIDCClientID string // VAULT_OIDC_CLIENT_ID
 	OIDCSecret   string // VAULT_OIDC_CLIENT_SECRET (or VAULT_OIDC_CLIENT_SECRET_FILE)
 }
 
 func env(k string) string { return strings.TrimSpace(os.Getenv(k)) }
+
+// normalizeDomain accepts what people paste from a platform ("https://Vault.Example.com/") and returns the bare,
+// lowercase host name; a path, port or space is not a domain.
+func normalizeDomain(s string) (string, bool) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimPrefix(strings.TrimPrefix(s, "https://"), "http://")
+	s = strings.TrimSuffix(s, "/")
+	return s, s != "" && !strings.ContainsAny(s, "/: ")
+}
 
 func fileOrEnv(fileKey, envKey string) (string, error) {
 	if f := env(fileKey); f != "" {
@@ -55,7 +70,9 @@ func loadConfig(needServe bool) (config, error) {
 			errs = append(errs, errors.New(msg))
 		}
 	}
-	need(c.Domain != "" && !strings.ContainsAny(c.Domain, "/: "), "VAULT_DOMAIN must be a bare domain name, e.g. vault.example.com")
+	var okDomain bool
+	c.Domain, okDomain = normalizeDomain(c.Domain)
+	need(okDomain, "VAULT_DOMAIN must be a bare domain name, e.g. vault.example.com (a leading https:// and a trailing slash are tolerated)")
 	if c.Addr == "" {
 		c.Addr = ":8080"
 	}
@@ -77,9 +94,17 @@ func loadConfig(needServe bool) (config, error) {
 	}
 	switch c.KeyProvider {
 	case "manual":
+		c.KeyFile = env("VAULT_MASTER_KEY_FILE")
+		c.KeyGenerate = env("VAULT_MASTER_KEY_GENERATE") == "true"
+		need(!c.KeyGenerate || c.KeyFile != "", "VAULT_MASTER_KEY_GENERATE=true needs VAULT_MASTER_KEY_FILE")
 		mk, err := fileOrEnv("VAULT_MASTER_KEY_FILE", "VAULT_MASTER_KEY")
+		if c.KeyGenerate && c.KeyFile != "" {
+			if _, serr := os.Stat(c.KeyFile); errors.Is(serr, fs.ErrNotExist) {
+				c.KeyMissing, err = true, nil
+			}
+		}
 		need(err == nil, "cannot read VAULT_MASTER_KEY_FILE")
-		need(strings.TrimSpace(mk) != "", "the master key is required: set VAULT_MASTER_KEY_FILE (Docker secret) or VAULT_MASTER_KEY")
+		need(c.KeyMissing || strings.TrimSpace(mk) != "", "the master key is required: set VAULT_MASTER_KEY_FILE (Docker secret) or VAULT_MASTER_KEY")
 		c.MasterKey = []byte(mk)
 	case "aws-kms":
 		need(c.KMSKeyARN != "", "VAULT_KMS_KEY_ARN is required with VAULT_KEY_PROVIDER=aws-kms")
@@ -93,6 +118,10 @@ func loadConfig(needServe bool) (config, error) {
 		need(c.OIDCClientID != "" && c.OIDCSecret != "", "VAULT_OIDC_CLIENT_ID and VAULT_OIDC_CLIENT_SECRET are required")
 	}
 	return c, errors.Join(errs...)
+}
+
+func (c config) authConfig() auth.Config {
+	return auth.Config{RPID: c.Domain, RPOrigin: c.baseURL(), Issuer: "kuukura"}
 }
 
 func (c config) dsn() string {
