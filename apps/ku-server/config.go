@@ -34,9 +34,35 @@ type config struct {
 	KMSKeyARN    string // VAULT_KMS_KEY_ARN
 	OIDCClientID string // VAULT_OIDC_CLIENT_ID
 	OIDCSecret   string // VAULT_OIDC_CLIENT_SECRET (or VAULT_OIDC_CLIENT_SECRET_FILE)
+
+	TrustedProxies []*net.IPNet // VAULT_TRUSTED_PROXIES: public proxy ranges trusted for forwarded headers, besides the private ones
 }
 
 func env(k string) string { return strings.TrimSpace(os.Getenv(k)) }
+
+// parseTrustedProxies reads a comma-separated list of CIDRs; "cloudflare" stands for Cloudflare's ranges. The error
+// names the bad entry (a network range is not a secret) so the operator can fix it.
+func parseTrustedProxies(s string) ([]*net.IPNet, error) {
+	var out []*net.IPNet
+	for _, e := range strings.Split(s, ",") {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+		cidrs := []string{e}
+		if strings.EqualFold(e, "cloudflare") {
+			cidrs = cloudflareRanges
+		}
+		for _, cidr := range cidrs {
+			_, n, err := net.ParseCIDR(cidr)
+			if err != nil {
+				return nil, fmt.Errorf("VAULT_TRUSTED_PROXIES: %q is not a CIDR such as 203.0.113.0/24 or the word cloudflare", e)
+			}
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
 
 // normalizeDomain accepts what people paste from a platform ("https://Vault.Example.com/") and returns the bare,
 // lowercase host name; a path, port or space is not a domain.
@@ -80,6 +106,11 @@ func loadConfig(needServe bool) (config, error) {
 		c.Addr = defaultAddr
 	}
 	need(len(c.Name) <= 32 && !strings.ContainsAny(c.Name, "<>&\"'`\n\r"), "VAULT_NAME must be at most 32 characters of plain text")
+	var err error
+	c.TrustedProxies, err = parseTrustedProxies(env("VAULT_TRUSTED_PROXIES"))
+	if err != nil {
+		errs = append(errs, err)
+	}
 	if env("VAULT_DEV_HTTP") == "true" {
 		need(c.Domain == "localhost", "VAULT_DEV_HTTP=true is only allowed with VAULT_DOMAIN=localhost")
 		c.DevHTTP = true

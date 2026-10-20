@@ -34,3 +34,5 @@ services:
         sync: false
       - key: VAULT_OIDC_CLIENT_SECRET
         sync: false
+      # - key: VAULT_TRUSTED_PROXIES  # behind Cloudflare's proxy: value cloudflare, for the real client IP (docs/deploy.md)
+      #   value: cloudflare

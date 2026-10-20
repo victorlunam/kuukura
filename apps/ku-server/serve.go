@@ -70,7 +70,7 @@ func runServe(args []string) error {
 	}
 	srv := api.New(api.Deps{
 		Secrets: secretsSvc, Admin: access.NewAdmin(p, a.log), Identity: a.ids,
-		Auth: authSvc, Tokens: a.tokens, Audit: a.log, Storage: p, BaseURL: c.baseURL(), AllowHTTP: c.DevHTTP, Name: c.Name, Log: log,
+		Auth: authSvc, Tokens: a.tokens, Audit: a.log, Storage: p, BaseURL: c.baseURL(), AllowHTTP: c.DevHTTP, Name: c.Name, Log: log, TrustedProxies: c.TrustedProxies,
 	})
 	hs := &http.Server{Addr: c.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 2 * time.Minute}

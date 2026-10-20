@@ -6,6 +6,11 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Added
+
+- `VAULT_TRUSTED_PROXIES` (CIDRs, or `cloudflare`) so the audit log and rate limits see the real client IP behind a CDN
+  or load balancer.
+
 ## [2026.10.10] - 2026-10-20
 
 ### Added

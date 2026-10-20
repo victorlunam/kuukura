@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -46,7 +47,10 @@ type env struct {
 	ipSeq  atomic.Int64
 }
 
-func setup(t *testing.T, p storage.Provider) *env {
+func setup(t *testing.T, p storage.Provider) *env { return setupTrusting(t, p) }
+
+// setupTrusting is setup with extra trusted proxy ranges (VAULT_TRUSTED_PROXIES).
+func setupTrusting(t *testing.T, p storage.Provider, trusted ...*net.IPNet) *env {
 	e := &env{t: t, p: p, idp: authtest.NewIDP(), logs: &bytes.Buffer{}}
 	e.log = audit.New(p)
 	e.tokens = auth.NewTokens(p)
@@ -60,7 +64,7 @@ func setup(t *testing.T, p storage.Provider) *env {
 	e.ids = identity.New(p, e.log, e.tokens)
 	e.srv = api.New(api.Deps{
 		Secrets: secrets.New(p, kp, e.log), Admin: access.NewAdmin(p, e.log), Identity: e.ids, Auth: e.auth, Tokens: e.tokens,
-		Audit: e.log, Storage: p, BaseURL: "https://" + domain, Log: slog.New(slog.NewJSONHandler(e.logs, nil)),
+		Audit: e.log, Storage: p, BaseURL: "https://" + domain, Log: slog.New(slog.NewJSONHandler(e.logs, nil)), TrustedProxies: trusted,
 		Now: func() time.Time { return time.Now().Add(time.Duration(e.clock.Load()) * time.Second) },
 	})
 	return e

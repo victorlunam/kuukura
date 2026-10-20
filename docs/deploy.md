@@ -188,6 +188,7 @@ that role is created by the first start.
 | `VAULT_NAME` | Optional instance name for the page header, e.g. `neodev` (max 32 plain characters). Defaults to the domain. Pages opened from the CLI show the user's profile name instead. |
 | `VAULT_DOMAIN` | Bare domain, e.g. `vault.example.com`. Also the passkey RP ID. **Changing it invalidates every passkey** (users re-enroll after `ku-server user reset-factors`). A leading `https://` and a trailing slash are tolerated and removed; a path is an error. |
 | `VAULT_ADDR` | Listen address, default `:8080`. |
+| `VAULT_TRUSTED_PROXIES` | Optional, comma-separated CIDRs (IPv4 or IPv6) of proxies that reach kuukura from public addresses, e.g. `203.0.113.0/24`; or `cloudflare` for Cloudflare's published ranges (it mixes: `cloudflare,203.0.113.0/24`). Loopback and private ranges are always trusted. `X-Forwarded-For` and `X-Forwarded-Proto` are believed only through trusted proxies, and the client IP is the right-most `X-Forwarded-For` entry that is not one, so the audit log and the per-IP rate limits see the real client. An invalid entry stops the server at start. Empty by default. |
 | `VAULT_STORAGE` | `sqlite` or `postgres`. |
 | `VAULT_SQLITE_PATH` | SQLite file (image default `/data/kuukura.db`). |
 | `VAULT_DATABASE_URL` | Postgres URL of the app login role. |
@@ -293,6 +294,15 @@ If you keep the proxy, do not change the zone-wide SSL mode (it applies to every
 SSL: Full (strict)). Full (strict) needs a valid certificate on the server: Let's Encrypt in the platform (not
 "none") or a Cloudflare Origin Certificate. Never use Flexible: the hop to your server would carry secrets
 unencrypted.
+
+**The audit log and the rate limits show Cloudflare's addresses.** Behind Cloudflare's proxy every request arrives from
+a Cloudflare edge address (104.x, 172.64.x, 108.162.x...), so the audit log records Cloudflare instead of the person,
+and everyone behind the same edge shares the 10-per-minute login limit. Set `VAULT_TRUSTED_PROXIES=cloudflare` (the
+ranges are built into the server; add your own CIDRs after a comma if you need) and kuukura reads the real client from
+`X-Forwarded-For` through the chain, e.g. client, Cloudflare, load balancer, Traefik. Also lock your load balancer or
+origin to Cloudflare's IP ranges: otherwise anyone can reach it directly and bypass the WAF. Forged headers would still
+not be trusted from addresses that are not Cloudflare's (or private), so a direct caller cannot choose the IP the audit
+log records.
 
 ## Verifying a release
 

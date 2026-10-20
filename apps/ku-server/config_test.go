@@ -81,6 +81,35 @@ func TestConfigFailsFast(t *testing.T) {
 	}
 }
 
+func TestTrustedProxiesConfig(t *testing.T) {
+	serverEnv(t)
+	for in, want := range map[string]int{
+		"":                                 0,
+		"203.0.113.0/24":                   1,
+		"2001:db8::/32, 203.0.113.0/24":    2,
+		"cloudflare":                       len(cloudflareRanges),
+		"Cloudflare,203.0.113.0/24":        len(cloudflareRanges) + 1,
+		" cloudflare , , 198.51.100.0/24 ": len(cloudflareRanges) + 1,
+	} {
+		t.Setenv("VAULT_TRUSTED_PROXIES", in)
+		c, err := loadConfig(false)
+		if err != nil || len(c.TrustedProxies) != want {
+			t.Errorf("%q: %d ranges, %v; want %d", in, len(c.TrustedProxies), err, want)
+		}
+	}
+	for _, bad := range []string{"203.0.113.0", "203.0.113.0/33", "cloudflare,nope", "cloudflare;203.0.113.0/24"} {
+		t.Setenv("VAULT_TRUSTED_PROXIES", bad)
+		_, err := loadConfig(false)
+		if err == nil || !strings.Contains(err.Error(), "VAULT_TRUSTED_PROXIES") {
+			t.Errorf("%q must be rejected naming the variable: %v", bad, err)
+		}
+	}
+	t.Setenv("VAULT_TRUSTED_PROXIES", "cloudflare,nope")
+	if _, err := loadConfig(false); err == nil || !strings.Contains(err.Error(), `"nope"`) {
+		t.Errorf("the error must name the bad entry: %v", err)
+	}
+}
+
 // Platforms hand over the domain in whatever shape: https://, a trailing slash, capitals.
 func TestDomainIsNormalized(t *testing.T) {
 	serverEnv(t)

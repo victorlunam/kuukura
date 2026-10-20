@@ -8,6 +8,8 @@
 #   VAULT_DOMAIN               vault.example.com           (the same domain you add in the Domains tab)
 #   VAULT_OIDC_CLIENT_ID       000000000000-example.apps.googleusercontent.com
 #   VAULT_OIDC_CLIENT_SECRET   the Google OAuth client secret
+#   VAULT_TRUSTED_PROXIES      optional: `cloudflare` (or CIDRs) when a CDN or load balancer with public addresses is in front
+#                              of Traefik, so the audit log sees the real client IP; then add it under environment below
 #   KUUKURA_VERSION            a release tag (YEAR.MONTH.N, see the releases page); default `latest`, pin one in production
 #
 # The master key is generated on the first start and kept in the `kuukura-keys` volume, apart from the database
@@ -27,6 +29,7 @@ services:
       VAULT_MASTER_KEY_GENERATE: "true"
       VAULT_OIDC_CLIENT_ID: ${VAULT_OIDC_CLIENT_ID}
       VAULT_OIDC_CLIENT_SECRET: ${VAULT_OIDC_CLIENT_SECRET}
+      # VAULT_TRUSTED_PROXIES: cloudflare  # behind Cloudflare's proxy: real client IP in the audit log (docs/deploy.md)
     volumes:
       - kuukura-data:/data
       - kuukura-keys:/keys
