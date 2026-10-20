@@ -1,0 +1,37 @@
+---
+// Starlight's site title, replaced by the product logo. It links to the landing page; "Docs" marks where you are.
+import Logo from '../Logo.astro';
+---
+
+<span class="k-title">
+  <a href="/" class="k-home" aria-label="kuukura home"><Logo height={28} /></a>
+  <a href="/docs/" class="k-docs">Docs</a>
+</span>
+
+<style>
+  .k-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+  .k-home {
+    display: flex;
+    color: var(--sl-color-white);
+    border-radius: 8px;
+  }
+  .k-home :global(svg) {
+    display: block;
+  }
+  .k-docs {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--sl-color-gray-3);
+    text-decoration: none;
+    padding: 0.125rem 0 0.125rem 0.75rem;
+    border-left: 1px solid var(--sl-color-hairline-light);
+  }
+  .k-docs:hover {
+    color: var(--sl-color-white);
+  }
+</style>

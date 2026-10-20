@@ -1,8 +1,5 @@
+# Install scripts run only for these packages (pnpm 11 setting; it replaces onlyBuiltDependencies).
+# esbuild and workerd download their platform binary in postinstall. Nothing else may run scripts.
 allowBuilds:
-  esbuild: set this to true or false
-  workerd: set this to true or false
-minimumReleaseAgeExclude:
-  - '@astrojs/check@0.9.11'
-  - astro@7.4.1
-  - miniflare@5.20261019.0-beta
-  - wrangler@4.151.2
+  esbuild: true
+  workerd: true

@@ -1,0 +1,47 @@
+---
+// The mark, at 6x, in two layers so the door can swing open in 3D: the tile with its empty doorway behind, the
+// door (ring, eight bolts, amber hub) in front. Closed, it is exactly mark.svg (64 grid x 6).
+const bolts = [0, 45, 90, 135, 180, 225, 270, 315]
+  .map((a) => {
+    const r = (a * Math.PI) / 180;
+    const x = +(192 + 69 * Math.sin(r)).toFixed(2);
+    const y = +(192 - 69 * Math.cos(r)).toFixed(2);
+    return `M${x} ${y}h0`;
+  })
+  .join('');
+---
+
+<div class="vault" aria-hidden="true">
+  <svg class="vault-back" viewBox="0 0 384 384" fill="none">
+    <defs>
+      <radialGradient id="vault-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0" stop-color="#2DD4BF" stop-opacity=".34"></stop>
+        <stop offset=".6" stop-color="#2DD4BF" stop-opacity=".08"></stop>
+        <stop offset="1" stop-color="#2DD4BF" stop-opacity="0"></stop>
+      </radialGradient>
+    </defs>
+    <rect width="384" height="384" rx="84" fill="#0E2A30"></rect>
+    <rect x="1.5" y="1.5" width="381" height="381" rx="82.5" stroke="#EAF4F2" stroke-opacity=".14" stroke-width="3"
+    ></rect>
+    <!-- the empty doorway: rings getting lighter toward the middle read as depth (art/vault-empty.svg) -->
+    <circle cx="192" cy="192" r="133.5" fill="#07201F"></circle>
+    <circle cx="192" cy="192" r="100" fill="#EAF4F2" fill-opacity=".05"></circle>
+    <circle cx="192" cy="192" r="64" fill="#EAF4F2" fill-opacity=".06"></circle>
+    <circle cx="192" cy="192" r="28" fill="#EAF4F2" fill-opacity=".08"></circle>
+    <circle class="vault-glow" cx="192" cy="192" r="133.5" fill="url(#vault-glow)"></circle>
+    <circle cx="192" cy="192" r="133.5" stroke="#EAF4F2" stroke-opacity=".22" stroke-width="3"></circle>
+    <path
+      class="vault-spark"
+      fill="#FBBF24"
+      d="M330 40l4.8 11.7 11.7 4.8-11.7 4.8-4.8 11.7-4.8-11.7-11.7-4.8 11.7-4.8z"></path>
+  </svg>
+  <svg class="vault-door" viewBox="0 0 384 384" fill="none">
+    <circle cx="192" cy="192" r="133.5" fill="#0E2A30"></circle>
+    <circle cx="192" cy="192" r="120" stroke="#EAF4F2" stroke-width="27"></circle>
+    <g class="vault-bolts">
+      <path d={bolts} stroke="#EAF4F2" stroke-width="25.2" stroke-linecap="round"></path>
+    </g>
+    <circle cx="192" cy="192" r="27.6" fill="#F5A524"></circle>
+    <circle class="vault-shade" cx="192" cy="192" r="134" fill="#061215"></circle>
+  </svg>
+</div>

@@ -1,0 +1,112 @@
+/* Starlight, in the product's palette: teal-ink grays, teal for links and state, amber only in the mark. */
+:root {
+  --sl-font: var(--k-font);
+  --sl-font-mono: var(--k-mono);
+
+  --sl-color-white: #f4faf9;
+  --sl-color-gray-1: #e9f3f2;
+  --sl-color-gray-2: #c6d6d8;
+  --sl-color-gray-3: #8fa5aa;
+  --sl-color-gray-4: #4d666d;
+  --sl-color-gray-5: #1a3036;
+  --sl-color-gray-6: #0c1d22;
+  --sl-color-black: #061215;
+
+  --sl-color-accent-low: #0f2e2e;
+  --sl-color-accent: #2dd4bf;
+  --sl-color-accent-high: #5eead4;
+
+  --sl-color-bg-nav: rgba(6, 18, 21, 0.82);
+  --sl-color-bg-sidebar: #061215;
+  --sl-color-bg-inline-code: #112429;
+  --sl-color-hairline-light: #1a3036;
+  --sl-color-hairline: #13272c;
+  --sl-color-backdrop-overlay: rgba(6, 18, 21, 0.7);
+}
+
+:root[data-theme='light'] {
+  --sl-color-white: #0a1b20;
+  --sl-color-gray-1: #102a30;
+  --sl-color-gray-2: #26393f;
+  --sl-color-gray-3: #566870;
+  --sl-color-gray-4: #8a9ca2;
+  --sl-color-gray-5: #c9d6d8;
+  --sl-color-gray-6: #e6eeee;
+  --sl-color-gray-7: #f1f5f5;
+  --sl-color-black: #ffffff;
+
+  --sl-color-accent-low: #e3f1ee;
+  --sl-color-accent: #0e9384;
+  --sl-color-accent-high: #0a6b61;
+  --sl-color-text-accent: #0a6b61;
+
+  --sl-color-bg-nav: rgba(255, 255, 255, 0.85);
+  --sl-color-bg-sidebar: #ffffff;
+  --sl-color-bg-inline-code: #eef3f3;
+  --sl-color-hairline-light: #dce5e6;
+  --sl-color-hairline: #e6eeee;
+  --sl-color-backdrop-overlay: rgba(241, 245, 245, 0.7);
+}
+
+header.header {
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+h1#_top {
+  letter-spacing: -0.022em;
+}
+h1#_top {
+  font-weight: 700;
+}
+
+.sl-markdown-content a {
+  text-underline-offset: 3px;
+}
+
+.sl-markdown-content table {
+  font-size: 0.875rem;
+}
+.sl-markdown-content :is(th, td) {
+  vertical-align: top;
+}
+
+/* the active sidebar entry: a calm teal tint instead of a solid block */
+nav.sidebar a[aria-current='page'],
+nav.sidebar a[aria-current='page']:hover,
+nav.sidebar a[aria-current='page']:focus {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-white);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--sl-color-accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--k-ring);
+  outline-offset: 2px;
+}
+
+/* screenshots that follow the docs theme */
+.k-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1rem;
+  margin-block: 1.5rem;
+}
+.k-shots figure {
+  margin: 0;
+}
+.k-shots img {
+  width: 100%;
+  height: auto;
+  border-radius: 1.25rem;
+  border: 1px solid var(--sl-color-hairline-light);
+}
+.k-shots figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--sl-color-gray-3);
+}

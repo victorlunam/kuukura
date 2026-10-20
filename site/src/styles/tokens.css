@@ -1,0 +1,37 @@
+/* Brand tokens. The single source is docs/brand.md; these are the same values as internal/api/web/style.css.
+   The landing page is dark only; the docs follow Starlight's theme switch (data-theme). */
+:root {
+  --k-bg: #061215;
+  --k-card: #0c1d22;
+  --k-ink: #e9f3f2;
+  --k-muted: #8fa5aa;
+  --k-line: #1a3036;
+  --k-soft: #0f2e2e;
+  --k-hollow: #07201f;
+  --k-soft-2: #112429;
+  --k-acc: #2dd4bf;
+  --k-acc-ink: #5eead4;
+  --k-amber: #fbbf24;
+  --k-tile: #16373d;
+  --k-fg: #eaf4f2;
+  --k-ring: rgba(45, 212, 191, 0.45);
+
+  --k-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --k-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+:root[data-theme='light'] {
+  --k-bg: #f1f5f5;
+  --k-card: #ffffff;
+  --k-ink: #0a1b20;
+  --k-muted: #566870;
+  --k-line: #dce5e6;
+  --k-soft: #e3f1ee;
+  --k-hollow: #cde3df;
+  --k-soft-2: #eef3f3;
+  --k-acc: #0e9384;
+  --k-acc-ink: #0a6b61;
+  --k-amber: #f5a524;
+  --k-tile: #071519;
+  --k-ring: rgba(14, 147, 132, 0.4);
+}

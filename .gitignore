@@ -13,3 +13,5 @@
 /site/.wrangler/
 /site/src/content/docs/docs/
 /site/public/brand/
+/site/public/favicon.svg
+/site/src/generated/

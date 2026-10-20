@@ -1,0 +1,169 @@
+---
+// How a request flows (README "How it works"). Two drawings of the same graph: wide, and tall for phones.
+// Lines draw themselves as the figure scrolls in; small packets travel the TLS paths once it is drawn.
+type Box = { x: number; y: number; w: number; h: number; title: string; sub?: string[]; at: number; cls?: string };
+
+const wide = {
+  vb: '0 0 1120 600',
+  clients: [
+    { x: 24, y: 90, w: 232, h: 86, title: 'ku (CLI)', sub: ['people'], at: 4 },
+    { x: 24, y: 250, w: 232, h: 86, title: 'CI job', sub: ['machine token'], at: 8 },
+    { x: 24, y: 410, w: 232, h: 86, title: 'AI agent', sub: ['through ku run'], at: 12 },
+  ] as Box[],
+  tls: [
+    'M256 133 C350 133 342 263 436 263',
+    'M256 293 C340 293 352 303 436 303',
+    'M256 453 C350 453 342 343 436 343',
+  ],
+  tlsLabel: { x: 346, y: 303 },
+  server: { x: 436, y: 188, w: 268, h: 230 },
+  pills: [
+    { y: 252, a: 'authorize', b: 'grants per tag' },
+    { y: 304, a: 'decrypt', b: 'key per version' },
+    { y: 356, a: 'audit', b: 'hash chain' },
+  ],
+  pillX: 460,
+  pillW: 220,
+  db: { x: 868, y: 244, w: 228, h: 118, title: 'SQLite or Postgres', sub: ['ciphertext and', 'wrapped keys only'], at: 34 } as Box,
+  dbLine: 'M704 303 L868 303',
+  key: { x: 456, y: 506, w: 228, h: 78, title: 'Master key', sub: ['file, env var or AWS KMS'], at: 40 } as Box,
+  keyLine: 'M570 506 L570 418',
+  google: { x: 456, y: 22, w: 228, h: 78, title: 'Google', sub: ['sign-in only'], at: 46 } as Box,
+  googleLine: 'M570 100 L570 188',
+  factor: { x: 868, y: 22, w: 228, h: 96, title: 'Passkey or', sub: ['authenticator app', 'on the confirmation page'], at: 50 } as Box,
+  factorLine: 'M704 226 C792 226 790 70 868 70',
+  labels: [
+    { x: 786, y: 292, t: 'reads and writes' },
+    { x: 582, y: 470, t: 'read at start', anchor: 'start' },
+  ],
+};
+
+const tall = {
+  vb: '0 0 360 800',
+  clients: [
+    { x: 6, y: 12, w: 110, h: 70, title: 'ku (CLI)', sub: ['people'], at: 4 },
+    { x: 125, y: 12, w: 110, h: 70, title: 'CI job', sub: ['machine token'], at: 8 },
+    { x: 244, y: 12, w: 110, h: 70, title: 'AI agent', sub: ['via ku run'], at: 12 },
+  ] as Box[],
+  tls: ['M61 82 C61 130 140 124 140 170', 'M180 82 L180 170', 'M299 82 C299 130 220 124 220 170'],
+  tlsLabel: { x: 180, y: 128 },
+  server: { x: 30, y: 170, w: 300, h: 214 },
+  pills: [
+    { y: 224, a: 'authorize', b: 'grants' },
+    { y: 272, a: 'decrypt', b: 'data keys' },
+    { y: 320, a: 'audit', b: 'hash chain' },
+  ],
+  pillX: 52,
+  pillW: 256,
+  db: { x: 6, y: 470, w: 164, h: 120, title: 'SQLite or Postgres', sub: ['ciphertext and', 'wrapped keys only'], at: 34 } as Box,
+  dbLine: 'M88 384 L88 470',
+  key: { x: 190, y: 470, w: 164, h: 120, title: 'Master key', sub: ['file, env var', 'or AWS KMS'], at: 40 } as Box,
+  keyLine: 'M272 470 L272 384',
+  google: { x: 6, y: 700, w: 164, h: 88, title: 'Google', sub: ['sign-in only'], at: 46 } as Box,
+  googleLine: 'M180 384 L180 650 L88 650 L88 700',
+  factor: { x: 190, y: 700, w: 164, h: 88, title: 'Passkey or', sub: ['authenticator app', 'confirmations'], at: 50 } as Box,
+  factorLine: 'M180 650 L272 650 L272 700',
+  labels: [] as { x: number; y: number; t: string; anchor?: string }[],
+};
+
+const variants = [
+  { name: 'wide', d: wide, title: 18, sub: 14, pillT: 15, pillS: 12.5 },
+  { name: 'tall', d: tall, title: 14, sub: 11.5, pillT: 13, pillS: 11 },
+];
+const v = (a: number, b: number) => `--a: ${a}%; --b: ${b}%`;
+---
+
+<figure class="diagram">
+  {
+    variants.map(({ name, d, title, sub, pillT, pillS }) => {
+      const box = (b: Box, extra = '') => (
+        <g class:list={['dg-node', extra]} style={v(b.at, b.at + 10)}>
+          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="18" />
+          <text x={b.x + 20} y={b.y + 22 + title} class="dg-t" font-size={title}>
+            {b.title}
+          </text>
+          {(b.sub ?? []).map((s, i) => (
+            <text x={b.x + 20} y={b.y + 26 + title + (i + 1) * (sub + 6)} class="dg-s" font-size={sub}>
+              {s}
+            </text>
+          ))}
+        </g>
+      );
+      return (
+        <svg class={`dg dg-${name}`} viewBox={d.vb} role="img" aria-labelledby={`dg-${name}-t`}>
+          <title id={`dg-${name}-t`}>
+            The ku CLI, CI jobs and AI agents talk to ku-server over TLS. The server authorizes, decrypts and audits.
+            The database, SQLite or Postgres, holds only ciphertext and wrapped keys. The master key comes from a file,
+            an environment variable or AWS KMS. Google is used for sign-in only, and confirmations use your passkey or
+            authenticator app.
+          </title>
+          <defs>
+            <marker id={`dg-${name}-arrow`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M1 1 L9 5 L1 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </marker>
+          </defs>
+
+          {d.tls.map((p, i) => (
+            <path id={`dg-${name}-tls-${i}`} class="dg-line" d={p} pathLength="1" style={v(16 + i * 3, 30 + i * 3)} marker-end={`url(#dg-${name}-arrow)`} />
+          ))}
+          <g class="dg-node" style={v(24, 32)}>
+            <rect class="dg-pill" x={d.tlsLabel.x - 24} y={d.tlsLabel.y - 13} width="48" height="26" rx="13" />
+            <text x={d.tlsLabel.x} y={d.tlsLabel.y + 4.5} class="dg-tag" text-anchor="middle" font-size="12.5">
+              TLS
+            </text>
+          </g>
+
+          <path class="dg-line" d={d.dbLine} pathLength="1" style={v(32, 42)} marker-end={`url(#dg-${name}-arrow)`} marker-start={`url(#dg-${name}-arrow)`} />
+          <path class="dg-line" d={d.keyLine} pathLength="1" style={v(40, 48)} marker-end={`url(#dg-${name}-arrow)`} />
+          <path class="dg-dash" d={d.googleLine} style={v(46, 54)} />
+          <path class="dg-dash" d={d.factorLine} style={v(50, 58)} />
+          {d.labels.map((l) => (
+            <text x={l.x} y={l.y} class="dg-s dg-node" style={v(40, 50)} text-anchor={l.anchor ?? 'middle'} font-size={sub - 1}>
+              {l.t}
+            </text>
+          ))}
+
+          {d.clients.map((c) => box(c))}
+
+          <g class="dg-node dg-server" style={v(12, 24)}>
+            <rect x={d.server.x} y={d.server.y} width={d.server.w} height={d.server.h} rx="22" />
+            <text x={d.server.x + 24} y={d.server.y + 24 + title} class="dg-t" font-size={title + 2}>
+              ku-server
+            </text>
+            <text x={d.server.x + d.server.w - 24} y={d.server.y + 24 + title} class="dg-s" text-anchor="end" font-size={sub}>
+              your host
+            </text>
+          </g>
+          {d.pills.map((p, i) => (
+            <g class="dg-node" style={v(20 + i * 4, 28 + i * 4)}>
+              <rect class="dg-pill" x={d.pillX} y={p.y} width={d.pillW} height={name === 'wide' ? 40 : 36} rx="12" />
+              <circle cx={d.pillX + 18} cy={p.y + (name === 'wide' ? 20 : 18)} r="4" class="dg-dot" />
+              <text x={d.pillX + 32} y={p.y + (name === 'wide' ? 25 : 23)} class="dg-t" font-size={pillT}>
+                {p.a}
+              </text>
+              <text x={d.pillX + d.pillW - 14} y={p.y + (name === 'wide' ? 25 : 23)} class="dg-s" text-anchor="end" font-size={pillS}>
+                {p.b}
+              </text>
+            </g>
+          ))}
+
+          {box(d.db, 'dg-db')}
+          {box(d.key, 'dg-key')}
+          {box(d.google, 'dg-ext')}
+          {box(d.factor, 'dg-ext')}
+
+          <g class="dg-packets" aria-hidden="true">
+            {d.tls.map((_, i) => (
+              <circle r="4" class="dg-packet">
+                <animateMotion dur={`${2.6 + i * 0.4}s`} begin={`${i * 0.7}s`} repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                  <mpath href={`#dg-${name}-tls-${i}`} />
+                </animateMotion>
+              </circle>
+            ))}
+          </g>
+        </svg>
+      );
+    })
+  }
+  <figcaption class="sr-only">How kuukura is put together.</figcaption>
+</figure>

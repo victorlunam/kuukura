@@ -1,0 +1,88 @@
+---
+title: kuukura documentation
+description: Start here. What kuukura is, the few ideas it is built on, and which page to read for what you want to do.
+editUrl: https://github.com/victorlunam/kuukura/edit/main/site/src/docs/index.mdx
+tableOfContents:
+  maxHeadingLevel: 2
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import inviteDark from '~/assets/screens/invite-dark.webp';
+import inviteLight from '~/assets/screens/invite-light.webp';
+import enrollDark from '~/assets/screens/enroll-dark.webp';
+import enrollLight from '~/assets/screens/enroll-light.webp';
+import stepupDark from '~/assets/screens/stepup-dark.webp';
+import stepupLight from '~/assets/screens/stepup-light.webp';
+import doneDark from '~/assets/screens/done-dark.webp';
+import doneLight from '~/assets/screens/done-light.webp';
+
+kuukura is a self-hosted secrets vault for small teams. You run one small server with one database; your team uses
+the `ku` CLI to save secrets and to run programs with them. Values are decrypted only on your server, every
+decision is written to a tamper-evident audit log, and revealing a value needs the person's own passkey or
+authenticator app.
+
+## Where to start
+
+<CardGrid>
+  <LinkCard title="Try it on your machine" description="Real Google sign-in and Touch ID on localhost, no domain needed." href="/docs/local-testing/" />
+  <LinkCard title="Deploy it for your team" description="Docker Compose with Caddy, Dokploy, Coolify, Render or Swarm." href="/docs/deploy/" />
+  <LinkCard title="Install the CLI" description="Homebrew, an install script for macOS and Linux, or PowerShell on Windows." href="/docs/install/" />
+  <LinkCard title="Look up a command" description="Every ku and ku-server command, one line each." href="/docs/cli/" />
+  <LinkCard title="Use it with coding agents" description="Agents run commands with secrets; what that does and does not protect." href="/docs/agents/" />
+  <LinkCard title="Review its security" description="Threat model, the ASVS 5.0.0 L2 self-review and how to report a vulnerability." href="/docs/threat-model/" />
+</CardGrid>
+
+## The ideas in one minute
+
+- **Secrets** have a name and tags, such as `DATABASE_URL app:shop env:dev`. Every save is a new version. A value
+  never travels as a command-line argument: `ku secret set` reads it from a hidden prompt.
+- **Grants** give a person, a group or a machine `read` or `write` on secrets with certain tags. Nothing is
+  readable by default. Admins manage people, groups and grants, but have no secret access by role.
+- **People join by invitation only.** They sign in with Google and then a passkey or an authenticator app, and get
+  ten recovery codes. **Machines** (CI) use a token limited by their own grants and their owner's, and can never
+  reveal a value.
+- **`ku run -- <command>`** starts a program with the secrets it is allowed to read in its environment (file secrets
+  arrive as a temporary path). It is how people, CI and coding agents use secrets without seeing them.
+- **Confirmations.** Revealing a value, saving it to a file, turning confirmation off, and running with secrets marked
+  `requires_authorize` open a page on your server that says what you are confirming and asks for your passkey or a
+  code from your authenticator app.
+- **The master key** wraps a fresh data key for every secret version. It never sits in the database: it comes from a
+  file, an environment variable or AWS KMS, and `ku-server key show` prints it once per version for your backup.
+- **The audit log** is insert-only and hash-chained. `ku-server audit verify` checks the chain.
+
+## What your team sees
+
+These are the server's real pages: the invitation, adding a passkey, a confirmation, and the end of enrollment.
+
+<div class="k-shots">
+  <figure>
+    <Image class="light:sl-hidden" src={inviteDark} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="The invitation page: you're invited, sign in with Google." />
+    <Image class="dark:sl-hidden" src={inviteLight} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="The invitation page: you're invited, sign in with Google." />
+    <figcaption>1. The invitation</figcaption>
+  </figure>
+  <figure>
+    <Image class="light:sl-hidden" src={enrollDark} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="Secure your account: add a passkey or use an authenticator app." />
+    <Image class="dark:sl-hidden" src={enrollLight} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="Secure your account: add a passkey or use an authenticator app." />
+    <figcaption>2. Add a passkey</figcaption>
+  </figure>
+  <figure>
+    <Image class="light:sl-hidden" src={stepupDark} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="Confirm it's you: a command is asking to reveal STRIPE_KEY app:shop env:prod." />
+    <Image class="dark:sl-hidden" src={stepupLight} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="Confirm it's you: a command is asking to reveal STRIPE_KEY app:shop env:prod." />
+    <figcaption>3. A confirmation</figcaption>
+  </figure>
+  <figure>
+    <Image class="light:sl-hidden" src={doneDark} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="You're all set: your account is ready. In your terminal, add this server and sign in." />
+    <Image class="dark:sl-hidden" src={doneLight} widths={[320, 640]} sizes="(min-width: 50rem) 12rem, 45vw" alt="You're all set: your account is ready. In your terminal, add this server and sign in." />
+    <figcaption>4. All set</figcaption>
+  </figure>
+</div>
+
+## Is it for you?
+
+It is for one organization that wants to run its own vault, signs in with Google, uses CI and local development,
+and wants people and machines to see only the secrets they are granted.
+
+It is not for you if you need dynamic (short-lived, generated) secrets, SSO or SAML sign-in, several organizations
+on one instance, or a vendor with a support contract. kuukura has one maintainer and uses calendar versions; see
+the [changelog](/docs/changelog/).
