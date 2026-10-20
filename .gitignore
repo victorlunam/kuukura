@@ -3,3 +3,5 @@
 /ku
 *.age
 .env
+*.bak
+.claude/
