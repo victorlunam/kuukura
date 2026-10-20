@@ -30,11 +30,11 @@ const wide = {
   keyLine: 'M570 506 L570 418',
   google: { x: 456, y: 22, w: 228, h: 78, title: 'Google', sub: ['sign-in only'], at: 46 } as Box,
   googleLine: 'M570 100 L570 188',
-  factor: { x: 868, y: 22, w: 228, h: 96, title: 'Passkey or', sub: ['authenticator app', 'on the confirmation page'], at: 50 } as Box,
+  factor: { x: 868, y: 22, w: 228, h: 96, title: 'Your passkey', sub: ['or authenticator app,', 'for confirmations'], at: 50 } as Box,
   factorLine: 'M704 226 C792 226 790 70 868 70',
   labels: [
     { x: 786, y: 292, t: 'reads and writes' },
-    { x: 582, y: 470, t: 'read at start', anchor: 'start' },
+    { x: 582, y: 470, t: 'wraps the data keys', anchor: 'start' },
   ],
 };
 
@@ -61,7 +61,7 @@ const tall = {
   keyLine: 'M272 470 L272 384',
   google: { x: 6, y: 700, w: 164, h: 88, title: 'Google', sub: ['sign-in only'], at: 46 } as Box,
   googleLine: 'M180 384 L180 650 L88 650 L88 700',
-  factor: { x: 190, y: 700, w: 164, h: 88, title: 'Passkey or', sub: ['authenticator app', 'confirmations'], at: 50 } as Box,
+  factor: { x: 190, y: 700, w: 164, h: 88, title: 'Your passkey', sub: ['or authenticator', 'app: confirmations'], at: 50 } as Box,
   factorLine: 'M180 650 L272 650 L272 700',
   labels: [] as { x: number; y: number; t: string; anchor?: string }[],
 };

@@ -579,7 +579,7 @@ main:focus {
   color: var(--k-muted);
 }
 .cap-n span[aria-hidden] {
-  opacity: 0.55;
+  color: #6f8a90;
 }
 .cap h3 {
   margin: 0;
@@ -952,9 +952,8 @@ main:focus {
   margin: 0;
 }
 .note a {
-  display: inline-block;
-  margin-left: 0.25rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 .skill,
 .code-card {
@@ -1559,22 +1558,23 @@ main:focus {
 }
 @keyframes k-dim {
   from {
-    opacity: 0.16;
+    opacity: 0.5;
   }
   to {
     opacity: 1;
   }
 }
+/* only the large text dims, and never below 3:1 against the page */
 @keyframes k-focus {
   0% {
-    opacity: 0.25;
+    opacity: 0.5;
   }
   35%,
   65% {
     opacity: 1;
   }
   100% {
-    opacity: 0.25;
+    opacity: 0.5;
   }
 }
 @keyframes k-type {
@@ -1721,8 +1721,7 @@ main:focus {
       animation-range: contain 62% contain 80%;
     }
 
-    .pl,
-    .answer {
+    .pl {
       animation: k-dim linear both;
       animation-timeline: view();
       animation-range: entry 40% cover 42%;
@@ -1736,8 +1735,11 @@ main:focus {
 
     /* the terminal follows the captions */
     .cap {
+      view-timeline-axis: block;
+    }
+    .cap h3 {
       animation: k-focus linear both;
-      animation-timeline: view();
+      animation-timeline: var(--cap);
       animation-range: cover 10% cover 90%;
     }
     .ln {
@@ -1809,9 +1811,8 @@ main:focus {
       transform 0.9s var(--ease);
     transition-delay: calc(var(--i, 0) * 90ms);
   }
-  .fx-io .pl,
-  .fx-io .answer {
-    opacity: 0.16;
+  .fx-io .pl {
+    opacity: 0.5;
     transform: none;
   }
   .fx-io .is-in[data-reveal],
@@ -1850,11 +1851,11 @@ main:focus {
   .fx-io .stage.is-in .stage-a {
     opacity: 0;
   }
-  .fx-io .cap {
-    opacity: 0.25;
+  .fx-io .cap h3 {
+    opacity: 0.5;
     transition: opacity 0.5s ease;
   }
-  .fx-io .cap.is-in {
+  .fx-io .cap.is-in h3 {
     opacity: 1;
   }
   .fx-io .ln {

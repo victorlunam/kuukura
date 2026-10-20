@@ -68,7 +68,7 @@ const timed = steps.map((step, si) => {
   <div class="scene-captions">
     {
       steps.map((s, i) => (
-        <div class="cap" data-step={i + 1} style={`view-timeline-name: --s${i + 1}`}>
+        <div class="cap" data-step={i + 1} style={`view-timeline-name: --s${i + 1}; --cap: --s${i + 1}`}>
           <p class="cap-n">
             <span class="sr-only">Step </span>
             {`${i + 1}`}<span aria-hidden="true">{' / 4'}</span>
