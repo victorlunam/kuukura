@@ -11,7 +11,7 @@ import (
 func runHealthcheck() error {
 	addr := env("VAULT_ADDR")
 	if addr == "" {
-		addr = ":8080"
+		addr = defaultAddr
 	}
 	_, port, err := net.SplitHostPort(addr)
 	if err != nil {

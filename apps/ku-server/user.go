@@ -2,24 +2,13 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"text/tabwriter"
 	"time"
 
-	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/identity"
 )
-
-// positional parses args into exactly n positional arguments plus the flags declared on fs.
-func positional(fs *flag.FlagSet, usage string, args []string, n int) ([]string, error) {
-	pos, err := parseArgs(fs, args)
-	if err != nil || len(pos) != n { // the flag package's error would name what was typed
-		return nil, cli.UsageError("ku-server " + usage)
-	}
-	return pos, nil
-}
 
 func runUserList(args []string) error {
 	if err := noArgs("user list", args); err != nil {

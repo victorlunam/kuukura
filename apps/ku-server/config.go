@@ -12,6 +12,9 @@ import (
 	"github.com/victorlunam/kuukura/internal/auth"
 )
 
+// defaultAddr is where the server listens without VAULT_ADDR; the container healthcheck probes the same port.
+const defaultAddr = ":8080"
+
 // config is read from the environment and validated at startup (fail fast).
 // Values never appear in error messages.
 type config struct {
@@ -74,7 +77,7 @@ func loadConfig(needServe bool) (config, error) {
 	c.Domain, okDomain = normalizeDomain(c.Domain)
 	need(okDomain, "VAULT_DOMAIN must be a bare domain name, e.g. vault.example.com (a leading https:// and a trailing slash are tolerated)")
 	if c.Addr == "" {
-		c.Addr = ":8080"
+		c.Addr = defaultAddr
 	}
 	need(len(c.Name) <= 32 && !strings.ContainsAny(c.Name, "<>&\"'`\n\r"), "VAULT_NAME must be at most 32 characters of plain text")
 	if env("VAULT_DEV_HTTP") == "true" {

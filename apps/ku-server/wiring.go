@@ -6,9 +6,9 @@ import (
 
 	"github.com/victorlunam/kuukura/internal/audit"
 	"github.com/victorlunam/kuukura/internal/auth"
-	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/identity"
 	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
 )
 
@@ -66,9 +66,12 @@ func withApp(fn func(ctx context.Context, a *app) error) error {
 	return fn(ctx, newApp(c, p))
 }
 
-func noArgs(usage string, args []string) error {
-	if len(args) != 0 {
-		return cli.UsageError("ku-server " + usage)
+// services builds the two services that hold data encrypted under kp. prov is the login provider, nil for the
+// commands that never sign anyone in.
+func (a *app) services(kp keys.KeyProvider, prov auth.AuthProvider) (*secrets.Service, *auth.Service, error) {
+	authSvc, err := auth.NewService(a.p, a.log, a.tokens, prov, kp, a.c.authConfig())
+	if err != nil {
+		return nil, nil, err
 	}
-	return nil
+	return secrets.New(a.p, kp, a.log), authSvc, nil
 }

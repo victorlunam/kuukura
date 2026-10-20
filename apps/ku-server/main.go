@@ -2,9 +2,7 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -53,8 +51,6 @@ func report(err error) int {
 	return cli.ExitFail
 }
 
-type subcommands map[string]func(args []string) error
-
 // errUnknown is no command, or one that does not exist: the help goes to stderr and it exits 2, like `ku` does.
 var errUnknown = errors.New("unknown command")
 
@@ -83,36 +79,4 @@ func run(args []string) error {
 		return subcommands{"verify": runAuditVerify}.run("audit", "verify", args[1:])
 	}
 	return errUnknown
-}
-
-// run dispatches `ku-server <group> <verb>`; verbs is how the usage line lists them.
-func (s subcommands) run(group, verbs string, args []string) error {
-	if len(args) > 0 {
-		if fn, ok := s[args[0]]; ok {
-			return fn(args[1:])
-		}
-	}
-	return cli.UsageError("ku-server " + group + " " + verbs)
-}
-
-// parseArgs splits args into positional arguments and the flags declared on fs, accepting flags before, between and
-// after the positionals (`user invite dev@example.com --admin`). An undeclared flag is an error.
-func parseArgs(fs *flag.FlagSet, args []string) ([]string, error) {
-	var pos []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			return nil, err
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			pos, args = append(pos, args[0]), args[1:]
-		}
-	}
-	return pos, nil
-}
-
-func newFlags(name string) *flag.FlagSet {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	return fs
 }
