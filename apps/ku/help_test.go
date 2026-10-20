@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/victorlunam/kuukura/internal/api"
+	"github.com/victorlunam/kuukura/apps/ku-server/api"
 )
 
 // A problem code added to the API without a message in plain() would reach people as "Something went wrong".

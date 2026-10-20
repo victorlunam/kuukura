@@ -1,4 +1,6 @@
 .git
 .github
 docs
+apps/web
+**/node_modules
 .env

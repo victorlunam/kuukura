@@ -1,7 +1,13 @@
+/ku
 /ku-server
 /kuukura
-/ku
+/apps/ku/ku
+/apps/ku-server/ku-server
 *.age
 .env
 *.bak
 .claude/
+node_modules/
+dist/
+.astro/
+.wrangler/

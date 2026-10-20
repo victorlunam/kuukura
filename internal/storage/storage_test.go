@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 
-	kdb "github.com/victorlunam/kuukura/internal/db"
 	"github.com/victorlunam/kuukura/internal/storage"
 	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
@@ -42,7 +41,7 @@ func newSecret(t *testing.T, p storage.Provider, by, name string, tags storage.T
 
 func TestMigrationsReversibleWithData(t *testing.T) {
 	storagetest.EachDSN(t, func(t *testing.T, kind, dsn string) {
-		files, err := fs.ReadDir(kdb.Migrations, "migrations/"+kind)
+		files, err := fs.ReadDir(storage.Migrations, "migrations/"+kind)
 		if err != nil {
 			t.Fatal(err)
 		}

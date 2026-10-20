@@ -6,13 +6,14 @@ monoline as the ring. Nothing in the brand depends on a font, a script or a netw
 
 | Asset | File |
 |---|---|
-| Mark (app icon, 64x64 tile) | [`internal/api/web/assets/mark.svg`](../internal/api/web/assets/mark.svg) |
-| Logo (mark + wordmark, light and dark aware) | [`internal/api/web/assets/logo.svg`](../internal/api/web/assets/logo.svg) |
-| Favicon (simplified for 16/32 px, dark-mode tile) | [`internal/api/web/assets/favicon.svg`](../internal/api/web/assets/favicon.svg) |
-| Banner (1280x640, README hero) | [`internal/api/web/assets/banner.svg`](../internal/api/web/assets/banner.svg) |
+| Mark (app icon, 64x64 tile) | [`packages/brand/assets/mark.svg`](../packages/brand/assets/mark.svg) |
+| Logo (mark + wordmark, light and dark aware) | [`packages/brand/assets/logo.svg`](../packages/brand/assets/logo.svg) |
+| Favicon (simplified for 16/32 px, dark-mode tile) | [`packages/brand/assets/favicon.svg`](../packages/brand/assets/favicon.svg) |
+| Banner (1280x640, README hero) | [`packages/brand/assets/banner.svg`](../packages/brand/assets/banner.svg) |
 | Social preview (the banner rendered, 1280x640 PNG) | [`docs/social-preview.png`](social-preview.png) |
-| Illustrations: empty vault, passkey, shield, closed vault (done), alert, confirm | [`internal/api/web/art/`](../internal/api/web/art) |
-| Icon sprite (Google, fingerprint, key, shield, copy, download, check, terminal, phone, lifebuoy) | [`internal/api/web/sprite.svg`](../internal/api/web/sprite.svg) |
+| Illustrations: empty vault, passkey, shield, closed vault (done), alert, confirm | [`packages/brand/art/`](../packages/brand/art) |
+| Icon sprite (Google, fingerprint, key, shield, copy, download, check, terminal, phone, lifebuoy) | [`packages/brand/sprite.svg`](../packages/brand/sprite.svg) |
+| Design tokens (the palette below as CSS variables) | [`packages/brand/tokens.css`](../packages/brand/tokens.css) |
 | Dokploy template logo (a copy of the mark) | [`deploy/dokploy/kuukura.svg`](../deploy/dokploy/kuukura.svg) |
 
 The server serves the mark, logo, favicon and banner at `/favicon.svg` and `/assets/<name>.svg`. The pages use inline
@@ -21,8 +22,9 @@ SVG, system fonts and no external resources, so the strict CSP (`default-src 'no
 ## Palette
 
 One accent. The base is teal-ink; amber is the only highlight. Teal is the supporting hue for state (progress, success,
-the fingerprint) and never decorates. These are the same values as the `:root` variables in
-[`internal/api/web/style.css`](../internal/api/web/style.css); each art file and the CLI's "signed in" page repeat them.
+the fingerprint) and never decorates. These are the values of
+[`packages/brand/tokens.css`](../packages/brand/tokens.css), which the server's
+[`style.css`](../apps/ku-server/api/web/style.css) repeats (a test keeps them equal); each art file and the CLI's "signed in" page repeat them.
 
 | Token (css var) | Light | Dark | Use |
 |---|---|---|---|
@@ -75,10 +77,10 @@ glyph is the one full-color symbol.
 
 - Colors come only from the tokens above. No gradients in the mark; the banner may use one soft teal glow.
 - No external references, scripts, raster images or fonts inside any SVG.
-- The mark's geometry is pinned in `api/art_test.go` and, for the CLI's "signed in" page, in `cmd/ku/signedin_test.go`
+- The mark's geometry is pinned in `apps/ku-server/api/art_test.go` and, for the CLI's "signed in" page, in `apps/ku/signedin_test.go`
   (it must match `mark.svg` exactly). Change the file and both tests together, then copy the mark to
   `deploy/dokploy/kuukura.svg` and update `signedin.go`.
 - After changing the banner, render `docs/social-preview.png` again at exactly 1280x640 (it stays under 1 MB):
-  `chrome --headless --screenshot=docs/social-preview.png --window-size=1280,640 internal/api/web/assets/banner.svg`.
+  `chrome --headless --screenshot=docs/social-preview.png --window-size=1280,640 packages/brand/assets/banner.svg`.
 
 **Voice:** short, plain, calm. Say what happened and what to do next.

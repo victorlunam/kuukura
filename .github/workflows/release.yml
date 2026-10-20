@@ -102,7 +102,7 @@ jobs:
           full="${GITHUB_REF_NAME#v}"
           ext=""; [ "$GOOS" = "windows" ] && ext=".exe"
           mkdir -p out
-          go build -trimpath -ldflags "-s -w -X main.version=$full" -o "out/kuukura$ext" ./cmd/ku
+          go build -trimpath -ldflags "-s -w -X main.version=$full" -o "out/kuukura$ext" ./apps/ku
           if [ "$GOOS" = "darwin" ] && [ -n "$MACOS_CERT_P12" ]; then
             kc="$RUNNER_TEMP/sign.keychain-db"; pw="$(uuidgen)"
             echo "$MACOS_CERT_P12" | base64 -d > "$RUNNER_TEMP/cert.p12"

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="internal/api/web/assets/banner.svg" alt="kuukura: secrets for your team, self-hosted" width="720">
+  <img src="packages/brand/assets/banner.svg" alt="kuukura: secrets for your team, self-hosted" width="720">
 </p>
 
 <h3 align="center">A self-hosted secrets vault for small teams. Values are decrypted only on your server.</h3>

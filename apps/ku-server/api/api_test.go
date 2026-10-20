@@ -18,8 +18,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/victorlunam/kuukura/apps/ku-server/api"
 	"github.com/victorlunam/kuukura/internal/access"
-	"github.com/victorlunam/kuukura/internal/api"
 	"github.com/victorlunam/kuukura/internal/audit"
 	"github.com/victorlunam/kuukura/internal/auth"
 	"github.com/victorlunam/kuukura/internal/auth/authtest"

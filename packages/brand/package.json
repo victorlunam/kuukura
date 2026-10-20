@@ -1,0 +1,11 @@
+{
+  "name": "@kuukura/brand",
+  "private": true,
+  "description": "kuukura brand: logo, illustrations, icon sprite and design tokens. Go embeds the same files (brand.go).",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./sprite.svg": "./sprite.svg",
+    "./assets/*": "./assets/*",
+    "./art/*": "./art/*"
+  }
+}

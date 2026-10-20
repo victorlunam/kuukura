@@ -1,6 +1,6 @@
 :root {
   color-scheme: light dark;
-  /* brand tokens: the single source is docs/brand.md; the art files and the CLI page repeat these values */
+  /* brand tokens: the single source is packages/brand/tokens.css (a test keeps this block equal); the art files and the CLI page repeat these values */
   --bg: #f1f5f5;
   --card: #ffffff;
   --ink: #0a1b20;

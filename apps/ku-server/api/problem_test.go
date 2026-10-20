@@ -35,7 +35,7 @@ func TestProblemCodesAreWellFormed(t *testing.T) {
 
 // A domain error code that has no entry in domainCodes would reach the client as a 500 "internal".
 func TestEveryDomainCodeIsMapped(t *testing.T) {
-	f, err := parser.ParseFile(token.NewFileSet(), "../access/errors.go", nil, 0)
+	f, err := parser.ParseFile(token.NewFileSet(), "../../../internal/access/errors.go", nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

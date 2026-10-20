@@ -1,0 +1,46 @@
+/* kuukura brand tokens. The server's style.css repeats these values; a test in apps/ku-server/api keeps them equal.
+   The palette is described in docs/brand.md. */
+:root {
+  color-scheme: light dark;
+  --bg: #f1f5f5;
+  --card: #ffffff;
+  --ink: #0a1b20;
+  --muted: #566870;
+  --line: #dce5e6;
+  --soft: #e3f1ee;
+  --hollow: #cde3df;
+  --soft-2: #eef3f3;
+  --acc: #0e9384;
+  --acc-ink: #0a6b61;
+  --amber: #f5a524;
+  --danger: #b4332a;
+  --btn: #0a1b20;
+  --btn-ink: #ffffff;
+  --ring: rgba(14, 147, 132, .4);
+  --shadow: 0 1px 2px rgba(7, 21, 25, .05), 0 12px 40px rgba(7, 21, 25, .08);
+  --dot: rgba(7, 21, 25, .07);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #061215;
+    --card: #0c1d22;
+    --ink: #e9f3f2;
+    --muted: #8fa5aa;
+    --line: #1a3036;
+    --soft: #0f2e2e;
+    --hollow: #07201f;
+    --soft-2: #112429;
+    --acc: #2dd4bf;
+    --acc-ink: #5eead4;
+    --amber: #fbbf24;
+    --danger: #f87171;
+    --btn: #e9f3f2;
+    --btn-ink: #071519;
+    --ring: rgba(45, 212, 191, .45);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 16px 48px rgba(0, 0, 0, .45);
+    --dot: rgba(255, 255, 255, .06);
+  }
+}

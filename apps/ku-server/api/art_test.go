@@ -7,13 +7,15 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/victorlunam/kuukura/packages/brand"
 )
 
 // One mark everywhere: the door (ring r20, eight bolts, amber hub r4.6 on the 14-radius ink tile) is the same drawing
 // in the app icon, the logo, the banner, the Dokploy template and the pages; the wordmark is shared by the logo and banner.
-// cmd/ku/signedin_test.go pins the CLI page to the same file.
+// apps/ku/signedin_test.go pins the CLI page to the same file.
 func TestBrandMarkIsOneDrawing(t *testing.T) {
-	mark := webFile("assets/mark.svg")
+	mark := brandFile("assets/mark.svg")
 	tile := `<rect width="64" height="64" rx="14" fill="#071519"/>`
 	door := []string{
 		`<circle cx="32" cy="32" r="20" stroke="#EAF4F2" stroke-width="4.5"/>`,
@@ -21,7 +23,7 @@ func TestBrandMarkIsOneDrawing(t *testing.T) {
 		`<circle cx="32" cy="32" r="4.6" fill="#F5A524"/>`,
 	}
 	for _, name := range []string{"assets/mark.svg", "assets/logo.svg", "assets/banner.svg"} {
-		s := webFile(name)
+		s := brandFile(name)
 		for _, p := range door {
 			if !strings.Contains(s, p) {
 				t.Fatalf("%s lacks the mark geometry %q", name, p)
@@ -31,22 +33,22 @@ func TestBrandMarkIsOneDrawing(t *testing.T) {
 	if !strings.Contains(mark, tile) || strings.Contains(mark, "<style") || strings.Contains(mark, "id=") {
 		t.Fatal("mark.svg is inlined in every page: the tile is pinned and it carries no <style> or ids")
 	}
-	if b, err := os.ReadFile("../../deploy/dokploy/kuukura.svg"); err != nil || string(b) != mark {
+	if b, err := os.ReadFile("../../../deploy/dokploy/kuukura.svg"); err != nil || string(b) != mark {
 		t.Fatalf("deploy/dokploy/kuukura.svg must be a copy of mark.svg (%v)", err)
 	}
-	fav := webFile("assets/favicon.svg")
+	fav := brandFile("assets/favicon.svg")
 	if !strings.Contains(fav, `r="20" stroke="#EAF4F2"`) || !strings.Contains(fav, `r="7" fill="#F5A524"`) || !strings.Contains(fav, "prefers-color-scheme: dark") {
 		t.Fatal("favicon: the ring and the amber hub, with a dark-mode tile")
 	}
 	word := regexp.MustCompile(`d="(M0 -31V0[^"]+)"`)
-	logo, banner := word.FindStringSubmatch(webFile("assets/logo.svg")), word.FindStringSubmatch(webFile("assets/banner.svg"))
+	logo, banner := word.FindStringSubmatch(brandFile("assets/logo.svg")), word.FindStringSubmatch(brandFile("assets/banner.svg"))
 	if logo == nil || banner == nil || logo[1] != banner[1] {
 		t.Fatal("logo and banner must carry the same outlined wordmark")
 	}
-	if strings.Contains(webFile("assets/logo.svg"), "<text") {
+	if strings.Contains(brandFile("assets/logo.svg"), "<text") {
 		t.Fatal("the wordmark is outlined paths, never live text")
 	}
-	if !strings.Contains(webFile("assets/banner.svg"), `viewBox="0 0 1280 640"`) {
+	if !strings.Contains(brandFile("assets/banner.svg"), `viewBox="0 0 1280 640"`) {
 		t.Fatal("the banner is 1280x640 (it is also rendered to docs/social-preview.png)")
 	}
 	if !strings.Contains(string(pageMark), door[2]) {
@@ -62,7 +64,7 @@ func TestSVGsAreSelfContainedAndThemed(t *testing.T) {
 	pageCSS := webFile("style.css")
 
 	check := func(path string) {
-		b, err := fs.ReadFile(webFS, path)
+		b, err := fs.ReadFile(brand.FS, path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,15 +95,15 @@ func TestSVGsAreSelfContainedAndThemed(t *testing.T) {
 				if !defined[c] {
 					t.Fatalf("%s uses class %q that its own <style> does not define (it would render empty)", path, c)
 				}
-				if strings.HasPrefix(path, "web/art/") && !strings.Contains(pageCSS, "."+c) {
+				if strings.HasPrefix(path, "art/") && !strings.Contains(pageCSS, "."+c) {
 					t.Fatalf("%s uses class %q that the page CSS does not define (it would render empty inside a page)", path, c)
 				}
 			}
 		}
 	}
 
-	for _, dir := range []string{"web/art", "web/assets"} {
-		entries, err := fs.ReadDir(webFS, dir)
+	for _, dir := range []string{"art", "assets"} {
+		entries, err := fs.ReadDir(brand.FS, dir)
 		if err != nil || len(entries) == 0 {
 			t.Fatalf("%s: %v", dir, err)
 		}

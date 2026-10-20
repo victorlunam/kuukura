@@ -12,19 +12,25 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/packages/brand"
 )
 
 // The only web pages: the sign-in and invite cards, second factor (sign-in), first enrollment, adding a factor to
 // an active account, the step-up confirmation, and their result pages (done, added, failures).
 // Everything is embedded (templates, CSS, JS, SVG art): no external resources and a strict CSP with one nonce.
+// The page, CSS and JS live here; the brand files (art, sprite, logos) come from packages/brand.
 
 //go:embed web
 var webFS embed.FS
 
 var pageTmpl = template.Must(template.ParseFS(webFS, "web/page.html"))
 
-func webFile(name string) string {
-	b, err := webFS.ReadFile("web/" + name)
+func webFile(name string) string { return embedded(webFS, "web/"+name) }
+
+func brandFile(name string) string { return embedded(brand.FS, name) }
+
+func embedded(fsys embed.FS, name string) string {
+	b, err := fsys.ReadFile(name)
 	if err != nil {
 		panic(err) // embedded at build time
 	}
@@ -33,10 +39,10 @@ func webFile(name string) string {
 
 // The static pieces are trusted, embedded files (not user input), so they are marked safe once at startup.
 var (
-	pageCSS    = template.CSS(webFile("style.css"))        // #nosec G203 -- embedded file
-	pageJS     = template.JS(webFile("app.js"))            // #nosec G203 -- embedded file
-	pageSprite = template.HTML(webFile("sprite.svg"))      // #nosec G203 -- embedded file
-	pageMark   = template.HTML(webFile("assets/mark.svg")) // #nosec G203 -- embedded file
+	pageCSS    = template.CSS(webFile("style.css"))          // #nosec G203 -- embedded file
+	pageJS     = template.JS(webFile("app.js"))              // #nosec G203 -- embedded file
+	pageSprite = template.HTML(brandFile("sprite.svg"))      // #nosec G203 -- embedded file
+	pageMark   = template.HTML(brandFile("assets/mark.svg")) // #nosec G203 -- embedded file
 )
 
 // styleBlock matches the <style> each art file carries so it also renders on its own; inside a page the
@@ -44,7 +50,7 @@ var (
 var styleBlock = regexp.MustCompile(`(?s)\s*<style>.*?</style>`)
 
 func art(name string) template.HTML {
-	return template.HTML(styleBlock.ReplaceAllString(webFile("art/"+name+".svg"), "")) // #nosec G203 -- embedded file
+	return template.HTML(styleBlock.ReplaceAllString(brandFile("art/"+name+".svg"), "")) // #nosec G203 -- embedded file
 }
 
 type pageData struct {
@@ -220,5 +226,5 @@ func (s *Server) asset(c echo.Context) error {
 	h := c.Response().Header()
 	h.Set("Cache-Control", "public, max-age=86400")
 	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-	return c.Blob(http.StatusOK, "image/svg+xml", []byte(webFile("assets/"+name)))
+	return c.Blob(http.StatusOK, "image/svg+xml", []byte(brandFile("assets/"+name)))
 }

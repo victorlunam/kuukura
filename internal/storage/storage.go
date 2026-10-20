@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
 	"strings"
 	"time"
@@ -11,9 +12,12 @@ import (
 	"github.com/amacneil/dbmate/v2/pkg/dbmate"
 	_ "github.com/amacneil/dbmate/v2/pkg/driver/postgres"
 	"net/url"
-
-	kdb "github.com/victorlunam/kuukura/internal/db"
 )
+
+// migrations holds the dbmate migrations, one set per dialect; always a sqlite + postgres pair.
+//
+//go:embed migrations
+var migrations embed.FS
 
 // Provider hides the dialect differences. Queries are written with `?`
 // placeholders and passed through Rebind.
@@ -108,7 +112,7 @@ func migrator(kind, dsn string) (*dbmate.DB, error) {
 		return nil, fmt.Errorf("storage: bad dsn")
 	}
 	m := dbmate.New(u)
-	m.FS = kdb.Migrations
+	m.FS = migrations
 	m.MigrationsDir = []string{"migrations/" + kind}
 	m.AutoDumpSchema = false
 	m.Log = discard{}
