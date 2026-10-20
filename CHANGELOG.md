@@ -6,6 +6,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Security
+
+- Website: strict Content-Security-Policy and HSTS.
+
 ### Added
 
 - Install scripts are tested on macOS, Linux and Windows (PowerShell 7 and 5.1) on every change and weekly.
