@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 )
@@ -24,19 +23,24 @@ type Manual struct {
 func ParseMasterKeys(data []byte) (*Manual, error) {
 	m := &Manual{ring: map[int][]byte{}}
 	sc := bufio.NewScanner(bytes.NewReader(data))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
+	for line := 1; sc.Scan(); line++ {
+		text := strings.TrimSpace(sc.Text())
+		if text == "" {
 			continue
 		}
-		v, b64, ok := strings.Cut(line, ":")
+		// Errors name the line, never its content: it is key material.
+		bad := fmt.Errorf("keys: bad master key file (line %d)", line)
+		v, b64, ok := strings.Cut(text, ":")
 		n, err := strconv.Atoi(v)
 		if !ok || err != nil || n < 1 {
-			return nil, errors.New("keys: bad master key file")
+			return nil, bad
 		}
 		k, err := base64.StdEncoding.DecodeString(b64)
 		if err != nil || len(k) != 32 {
-			return nil, errors.New("keys: bad master key file")
+			return nil, bad
+		}
+		if _, dup := m.ring[n]; dup {
+			return nil, fmt.Errorf("keys: master key file repeats version %d (line %d)", n, line)
 		}
 		m.ring[n] = k
 		m.active = max(m.active, n)
@@ -50,9 +54,7 @@ func ParseMasterKeys(data []byte) (*Manual, error) {
 // GenerateMasterKey returns a key file body holding one fresh version-N key.
 func GenerateMasterKey(version int) ([]byte, error) {
 	k := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, k); err != nil {
-		return nil, err
-	}
+	rand.Read(k)
 	return fmt.Appendf(nil, "%d:%s\n", version, base64.StdEncoding.EncodeToString(k)), nil
 }
 
@@ -64,9 +66,7 @@ func (m *Manual) Wrap(_ context.Context, dek, aad []byte) ([]byte, error) {
 		return nil, err
 	}
 	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
+	rand.Read(nonce)
 	return gcm.Seal(nonce, nonce, dek, aad), nil // nonce || ciphertext || tag
 }
 

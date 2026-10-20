@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"errors"
-	"io"
 
 	"github.com/google/uuid"
 )
@@ -48,17 +47,14 @@ func wrapAAD(id uuid.UUID, number uint32, keyID string) []byte {
 // Seal encrypts plaintext under a fresh random DEK wrapped by kp.
 func Seal(ctx context.Context, kp KeyProvider, id uuid.UUID, number uint32, plaintext []byte) (Payload, error) {
 	dek := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, dek); err != nil {
-		return Payload{}, err
-	}
+	rand.Read(dek)
+	defer clear(dek)
 	gcm, err := newGCM(dek)
 	if err != nil {
 		return Payload{}, err
 	}
 	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return Payload{}, err
-	}
+	rand.Read(nonce)
 	keyID := kp.KeyID()
 	wrapped, err := kp.Wrap(ctx, dek, wrapAAD(id, number, keyID))
 	if err != nil {
@@ -85,6 +81,7 @@ func Open(ctx context.Context, kp KeyProvider, id uuid.UUID, number uint32, p Pa
 		}
 		return nil, ErrDecrypt
 	}
+	defer clear(dek)
 	gcm, err := newGCM(dek)
 	if err != nil || len(p.Nonce) != gcm.NonceSize() {
 		return nil, ErrDecrypt
@@ -102,6 +99,7 @@ func Rewrap(ctx context.Context, kp KeyProvider, id uuid.UUID, number uint32, p 
 	if err != nil {
 		return Payload{}, err
 	}
+	defer clear(dek)
 	keyID := kp.KeyID()
 	wrapped, err := kp.Wrap(ctx, dek, wrapAAD(id, number, keyID))
 	if err != nil {

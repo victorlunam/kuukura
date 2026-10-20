@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"filippo.io/age"
+
 	"github.com/victorlunam/kuukura/keys"
 )
 
@@ -96,9 +98,16 @@ func TestInitAndRotateKeyFile(t *testing.T) {
 	}
 	// the offline copy decrypts to the same key file
 	f, _ := os.Open(export1)
-	got, err := keys.ImportMasterKey(f, "correct horse battery")
-	_ = f.Close()
-	if err != nil || string(got) != string(body) {
+	defer f.Close()
+	ident, err := age.NewScryptIdentity("correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dec, err := age.Decrypt(f, ident)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := io.ReadAll(dec); string(got) != string(body) {
 		t.Fatal("offline copy must hold the key file")
 	}
 

@@ -2,7 +2,6 @@ package keys
 
 import (
 	"encoding/binary"
-	"errors"
 
 	"github.com/google/uuid"
 )
@@ -23,30 +22,4 @@ func AAD(purpose, format byte, secretID uuid.UUID, number uint32, keyID string) 
 	b = binary.BigEndian.AppendUint32(b, number)
 	b = binary.BigEndian.AppendUint16(b, uint16(len(keyID))) // #nosec G115 -- key ids are short (provider-prefixed ARN or manual:vN)
 	return append(b, keyID...)
-}
-
-// ParsedAAD is the decoded form of AAD bytes.
-type ParsedAAD struct {
-	Purpose, Format byte
-	SecretID        uuid.UUID
-	Number          uint32
-	KeyID           string
-}
-
-var errAAD = errors.New("keys: malformed aad")
-
-func ParseAAD(b []byte) (ParsedAAD, error) {
-	var p ParsedAAD
-	if len(b) < 24 {
-		return p, errAAD
-	}
-	p.Purpose, p.Format = b[0], b[1]
-	copy(p.SecretID[:], b[2:18])
-	p.Number = binary.BigEndian.Uint32(b[18:22])
-	n := int(binary.BigEndian.Uint16(b[22:24]))
-	if len(b) != 24+n {
-		return p, errAAD
-	}
-	p.KeyID = string(b[24:])
-	return p, nil
 }
