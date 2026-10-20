@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strings"
-	"time"
 )
 
 type selReq struct {
@@ -15,28 +14,12 @@ type selReq struct {
 	Tags []string `json:"tags"`
 }
 
-// subjectOf is the canonical selector string a step-up is bound to (matches the server).
-func subjectOf(name string, tags []string) string {
-	t := make([]string, 0, len(tags))
-	seen := map[string]bool{}
-	for _, x := range tags {
-		x = strings.ToLower(x)
-		if !seen[x] {
-			seen[x] = true
-			t = append(t, x)
-		}
-	}
-	sort.Strings(t)
-	return strings.TrimSpace(strings.ToUpper(name) + " " + strings.Join(t, " "))
-}
-
-var stdinReader *bufio.Reader
-
+// stdin is the one buffered reader of a.in, so a second prompt does not lose what the first one buffered.
 func (a *app) stdin() *bufio.Reader {
-	if stdinReader == nil {
-		stdinReader = bufio.NewReader(a.in)
+	if a.stdinR == nil {
+		a.stdinR = bufio.NewReader(a.in)
 	}
-	return stdinReader
+	return a.stdinR
 }
 
 // confirm asks a y/N question. --yes skips it; without a terminal it refuses rather than guessing.
@@ -51,58 +34,6 @@ func (a *app) confirm(question string, yes bool) (bool, error) {
 	line, _ := a.stdin().ReadString('\n')
 	l := strings.ToLower(strings.TrimSpace(line))
 	return l == "y" || l == "yes", nil
-}
-
-// stepUp runs a confirmation with the account's own second step: the server issues a one-time request, the
-// browser page asks for a passkey (Touch ID) or an authenticator code, and the CLI waits.
-// Returns the grant id for X-Step-Up.
-func (a *app) stepUp(c *client, purpose, subject string) (string, error) {
-	var r struct {
-		ID      string   `json:"id"`
-		URL     string   `json:"url"`
-		Methods []string `json:"methods"`
-	}
-	if err := c.call("POST", "/auth/stepup", map[string]string{"purpose": purpose, "subject": subject, "profile": c.profile}, &r); err != nil {
-		return "", err
-	}
-	fmt.Fprintf(a.err, "If the browser does not open, copy this link:\n  %s\n", r.URL)
-	if len(r.Methods) == 1 && r.Methods[0] == "passkey" {
-		fmt.Fprint(a.err, "Confirm with Touch ID...") // a passkey is the only way, so name it
-	} else {
-		fmt.Fprint(a.err, "Confirm in your browser...")
-	}
-	_ = a.openURL(r.URL)
-	deadline := time.Now().Add(2 * time.Minute)
-	for time.Now().Before(deadline) {
-		var s struct {
-			Done bool `json:"done"`
-		}
-		if err := c.call("GET", "/auth/stepup/"+r.ID, nil, &s); err != nil {
-			fmt.Fprintln(a.err)
-			return "", err
-		}
-		if s.Done {
-			fmt.Fprintln(a.err, " ✓")
-			return r.ID, nil
-		}
-		time.Sleep(a.poll)
-	}
-	fmt.Fprintln(a.err)
-	return "", errors.New("the confirmation timed out")
-}
-
-// callStepUp calls the API, and if it asks for a Touch ID confirmation, does it once and retries.
-func (a *app) callStepUp(c *client, purpose, subject, method, path string, body, out any) error {
-	err := c.call(method, path, body, out)
-	var p *problem
-	if !errors.As(err, &p) || p.Code != "step-up-required" {
-		return err
-	}
-	id, err := a.stepUp(c, purpose, subject)
-	if err != nil {
-		return err
-	}
-	return c.call(method, path, body, out, "X-Step-Up", id)
 }
 
 func splitItem(item string) (name string, tags []string) {
@@ -138,11 +69,7 @@ func distinguishingTag(items []string) string {
 		all := true
 		for _, it := range items[1:] {
 			_, ts := splitItem(it)
-			has := false
-			for _, x := range ts {
-				has = has || x == t
-			}
-			all = all && has
+			all = all && slices.Contains(ts, t)
 		}
 		if !all {
 			return t
@@ -197,6 +124,12 @@ func writePrivate(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	return fillPrivate(f, data)
+}
+
+// fillPrivate writes data to a freshly opened file, forces mode 0600 (an existing file keeps its old mode
+// otherwise) and closes it.
+func fillPrivate(f *os.File, data []byte) error {
 	if err := f.Chmod(0o600); err != nil {
 		_ = f.Close()
 		return err

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -26,8 +27,11 @@ func (a *app) cmdProfile(args []string) int {
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "add":
-		p, err := parseArgs(rest, "url")
-		if err != nil || len(p.pos) != 1 || p.flags["url"] == "" {
+		p, err := parseArgs(rest, []string{"url"})
+		if err != nil {
+			return a.fail("%v", err)
+		}
+		if len(p.pos) != 1 || p.flags["url"] == "" {
 			return a.fail("Use: ku profile add <name> --url <url>")
 		}
 		name := p.pos[0]
@@ -48,7 +52,7 @@ func (a *app) cmdProfile(args []string) int {
 		if err := a.saveConfig(cfg); err != nil {
 			return a.fail("%v", err)
 		}
-		fmt.Fprintf(a.out, "✓ Added profile %s\n", name)
+		a.say("✓ Added profile %s", name)
 	case "use":
 		if len(rest) != 1 {
 			return a.fail("Use: ku profile use <name>")
@@ -60,7 +64,7 @@ func (a *app) cmdProfile(args []string) int {
 		if err := a.saveConfig(cfg); err != nil {
 			return a.fail("%v", err)
 		}
-		fmt.Fprintf(a.out, "✓ Using profile %s\n", rest[0])
+		a.say("✓ Using profile %s", rest[0])
 	case "list":
 		for _, n := range sortedKeys(cfg.Profiles) {
 			mark := " "
@@ -87,7 +91,7 @@ func (a *app) cmdProfile(args []string) int {
 		if err := a.saveConfig(cfg); err != nil {
 			return a.fail("%v", err)
 		}
-		fmt.Fprintf(a.out, "✓ Removed profile %s\n", name)
+		a.say("✓ Removed profile %s", name)
 	default:
 		return a.fail("Use: ku profile add|use|list|remove")
 	}
@@ -96,8 +100,11 @@ func (a *app) cmdProfile(args []string) int {
 
 // cmdLink links the current folder to an app (local alias only; nothing in the repo or on the server).
 func (a *app) cmdLink(args []string) int {
-	p, err := parseArgs(args, "profile")
-	if err != nil || len(p.pos) > 1 {
+	p, err := parseArgs(args, []string{"profile"})
+	if err != nil {
+		return a.fail("%v", err)
+	}
+	if len(p.pos) > 1 {
 		return a.fail("Use: ku link <app> [--profile <name>]")
 	}
 	if len(p.pos) == 0 {
@@ -133,18 +140,21 @@ func (a *app) cmdLink(args []string) int {
 	if err := a.saveLinks(links); err != nil {
 		return a.fail("%v", err)
 	}
-	fmt.Fprintf(a.out, "✓ Linked this folder to %s\n", app)
+	a.say("✓ Linked this folder to %s", app)
 	return 0
 }
 
-// cmdLogin signs in through the browser with a localhost PKCE callback and stores the token in the Keychain.
+// cmdLogin signs in through the browser with a localhost PKCE callback and saves the token (keychain or private file).
 func (a *app) cmdLogin(args []string) int {
-	p, err := parseArgs(args, "profile")
-	if err != nil || len(p.pos) != 0 {
+	p, err := parseArgs(args, []string{"profile"})
+	if err != nil {
+		return a.fail("%v", err)
+	}
+	if len(p.pos) != 0 {
 		return a.fail("Use: ku login")
 	}
 	if a.getenv("KU_URL") != "" || a.getenv("KU_TOKEN") != "" {
-		return a.fail("KU_URL and KU_TOKEN are set, so there is nothing to log in to.")
+		return a.fail("KU_URL or KU_TOKEN is set, so there is nothing to log in to. Unset it to sign in with a profile.")
 	}
 	// The server URL lives in the profile: add one first with `ku profile add <name> --url <url>`.
 	pr, err := a.resolve(p.flags["profile"])
@@ -162,21 +172,39 @@ func (a *app) cmdLogin(args []string) int {
 	}
 	defer ln.Close()
 	port := ln.Addr().(*net.TCPAddr).Port
-	type result struct{ code string }
-	got := make(chan result, 1)
+	c := &client{a: a, base: pr.url}
+	// signIn trades the one-time code for the token and saves it, so the page can say what really happened.
+	// It returns what went wrong, or "".
+	signIn := func(code string) string {
+		var tok struct {
+			Token string `json:"token"`
+		}
+		if err := c.call("POST", "/auth/token", map[string]string{"code": code, "verifier": verifier}, &tok); err != nil {
+			return "Sign-in failed. Try again: ku login"
+		}
+		if err := a.store.Set(pr.name, tok.Token); err != nil {
+			return fmt.Sprintf("Could not save the session: %v", err)
+		}
+		return ""
+	}
+	got := make(chan string, 1)
+	var claimed atomic.Bool // only the first callback signs in
 	srv := &http.Server{ReadHeaderTimeout: 10 * time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/callback" || r.URL.Query().Get("state") != state || r.URL.Query().Get("code") == "" {
+		code := r.URL.Query().Get("code")
+		if r.URL.Path != "/callback" || r.URL.Query().Get("state") != state || code == "" || !claimed.CompareAndSwap(false, true) {
 			http.NotFound(w, r)
 			return
 		}
+		failure := signIn(code)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
 		w.Header().Set("Cache-Control", "no-store")
-		fmt.Fprint(w, signedInPage(pr.name))
-		select {
-		case got <- result{r.URL.Query().Get("code")}:
-		default:
+		if failure != "" {
+			fmt.Fprint(w, signInFailedPage(pr.name))
+		} else {
+			fmt.Fprint(w, signedInPage(pr.name))
 		}
+		got <- failure
 	})}
 	go func() { _ = srv.Serve(ln) }()
 	defer func() {
@@ -190,30 +218,20 @@ func (a *app) cmdLogin(args []string) int {
 	// Always print the link: the default browser may not be the one you want (another profile or account).
 	a.say("Opening your browser to sign in. If it does not open, or you want another browser, copy this link:\n  %s", loginURL)
 	_ = a.openURL(loginURL)
-	var res result
 	select {
-	case res = <-got:
+	case failure := <-got:
+		if failure != "" {
+			return a.fail("%s", failure)
+		}
 	case <-time.After(5 * time.Minute):
 		return a.fail("Sign-in timed out. Try again: ku login")
 	}
-	c := &client{a: a, base: pr.url}
-	var tok struct {
-		Token string `json:"token"`
-	}
-	if err := c.call("POST", "/auth/token", map[string]string{"code": res.code, "verifier": verifier}, &tok); err != nil {
-		return a.fail("Sign-in failed. Try again: ku login")
-	}
-	if err := a.store.Set(pr.name, tok.Token); err != nil {
-		return a.fail("Could not save the session: %v", err)
-	}
-	fmt.Fprintf(a.out, "✓ Signed in to %s\n", pr.name)
+	a.say("✓ Signed in to %s", pr.name)
 	return 0
 }
 
 func randomString(n int) string {
 	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		panic(err)
-	}
+	_, _ = rand.Read(b) // never fails: the runtime aborts instead
 	return base64.RawURLEncoding.EncodeToString(b)
 }

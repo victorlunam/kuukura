@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 )
@@ -21,10 +22,10 @@ func (a *app) cmdRun(args []string) int {
 			break
 		}
 	}
-	if command == nil && !contains(args, "--") || len(command) == 0 {
+	if len(command) == 0 {
 		return a.fail("Use: ku run [name] [tags] -- <command>")
 	}
-	p, err := parseArgs(before, "profile")
+	p, err := parseArgs(before, []string{"profile"})
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -59,6 +60,11 @@ func (a *app) cmdRun(args []string) int {
 		})
 	}
 
+	for _, s := range res.Secrets {
+		if isHookVar(s.Name) {
+			return a.fail("%s would change how the command loads code, so it is not injected and nothing was run. Rename that secret.", s.Name)
+		}
+	}
 	env := os.Environ()
 	var tmp string
 	defer func() {
@@ -89,21 +95,39 @@ func (a *app) cmdRun(args []string) int {
 	return a.exec(command, env)
 }
 
+// hookVars are names whose value makes a program load or run code: the dynamic loader and the common interpreters
+// read them at start. Whoever can write a secret of an app could otherwise store one (a file secret even gives a
+// path to a library of their choosing) and run code on every teammate's `ku run`. Any DYLD_* name counts. The list
+// is the usual vectors, not a sandbox: the command itself is the user's own.
+var hookVars = []string{
+	"PATH", "LD_PRELOAD", "LD_LIBRARY_PATH", "LD_AUDIT", "BASH_ENV",
+	"NODE_OPTIONS", "PYTHONPATH", "PYTHONSTARTUP", "RUBYOPT", "RUBYLIB", "PERL5OPT", "PERL5LIB", "JAVA_TOOL_OPTIONS",
+}
+
+func isHookVar(name string) bool {
+	return slices.Contains(hookVars, name) || strings.HasPrefix(name, "DYLD_")
+}
+
 func (a *app) exec(command, env []string) int {
 	cmd := exec.Command(command[0], command[1:]...) // #nosec G204 G702 -- running the user's own command is the point
 	cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = env, a.in, a.out, a.err
+	// Registered before the start so no signal can kill ku while the command lives on with secrets in its environment.
+	sigs := make(chan os.Signal, 4)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(sigs)
 	if err := cmd.Start(); err != nil {
 		return a.fail("Could not start %s.", command[0])
 	}
-	sigs := make(chan os.Signal, 4)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	defer signal.Stop(sigs)
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	for {
 		select {
 		case s := <-sigs:
-			_ = cmd.Process.Signal(s)
+			// Ctrl-C reaches the command from the terminal itself (same process group, same console on Windows);
+			// forwarding it too would be a second interrupt, which many dev servers take as "force quit".
+			if s != os.Interrupt {
+				_ = cmd.Process.Signal(s)
+			}
 		case err := <-done:
 			var ee *exec.ExitError
 			switch {
@@ -120,22 +144,8 @@ func (a *app) exec(command, env []string) int {
 	}
 }
 
-func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
 func hasKey(tags []string, key string) bool {
-	for _, t := range tags {
-		if strings.HasPrefix(t, key+":") {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(tags, func(t string) bool { return strings.HasPrefix(t, key+":") })
 }
 
 // knownApps lists app:* tag values the identity can see, for the "not linked" hint.

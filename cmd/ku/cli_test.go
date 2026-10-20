@@ -3,12 +3,16 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/victorlunam/kuukura/storage"
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
+
+// passkeyConfirm is the prompt line while the only second step is a passkey.
+var passkeyConfirm = "Confirm with " + passkeyLabel(runtime.GOOS) + "... ✓"
 
 func mustOK(t *testing.T, r result) result {
 	t.Helper()
@@ -43,7 +47,7 @@ func TestCanonicalSecretFlows(t *testing.T) {
 
 		// set: hidden prompt (TTY), confirm creation
 		r := mustOK(t, w.ku("y\n", true, nil, "secret", "set", "DATABASE_URL", "app:shop"))
-		if r.out != "✓ Saved DATABASE_URL (version 1)\n" || !strings.Contains(r.errOut, "DATABASE_URL is new. Create it? (y/N)") || !strings.Contains(r.errOut, "profile: default") {
+		if r.out != "" || !strings.Contains(r.errOut, "✓ Saved DATABASE_URL (version 1)\n") || !strings.Contains(r.errOut, "DATABASE_URL is new. Create it? (y/N)") || !strings.Contains(r.errOut, "profile: default") {
 			t.Fatalf("set:\n%q\n%q", r.out, r.errOut)
 		}
 		noValue(t, r, fakeValue)
@@ -52,7 +56,7 @@ func TestCanonicalSecretFlows(t *testing.T) {
 		}
 		// piped value, --yes, no terminal
 		noValue(t, mustOK(t, w.ku(fakeValue+"\n", false, nil, "secret", "set", "STRIPE_KEY", "app:shop", "env:prod", "team:pay", "--yes")), fakeValue)
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			mustOK(t, w.ku("v"+string(rune('a'+i))+"\n", false, nil, "secret", "set", "STRIPE_KEY", "app:shop", "env:prod", "team:pay", "--yes"))
 		}
 		if r := w.ku("x\n", false, nil, "secret", "set", "NEW_ONE", "app:shop"); r.code != 1 || !strings.Contains(r.errOut, "--yes") {
@@ -69,21 +73,21 @@ func TestCanonicalSecretFlows(t *testing.T) {
 
 		// get without a choice
 		r = w.ku("", false, nil, "secret", "get", "STRIPE_KEY", "env:prod")
-		if r.code != 1 || r.errOut != "Choose how to get it: --reveal or --out <file>\n" {
+		if r.code != 1 || r.errOut != "✗ Choose how to get it: --reveal or --out <file>\n" {
 			t.Fatalf("get: %q", r.errOut)
 		}
 		if w.stepUps != 0 {
-			t.Fatal("no Touch ID without a choice")
+			t.Fatal("no confirmation without a choice")
 		}
 
-		// reveal: Touch ID, value on stdout
+		// reveal: confirmation with the passkey, value on stdout
 		mustOK(t, w.ku(fakeValue+"\n", false, nil, "secret", "set", "STRIPE_KEY", "app:shop", "env:prod", "team:pay", "--yes"))
 		r = mustOK(t, w.ku("", false, nil, "secret", "get", "STRIPE_KEY", "env:prod", "--reveal"))
-		if r.out != fakeValue || !strings.Contains(r.errOut, "Confirm with Touch ID... ✓") || w.stepUps != 1 {
+		if r.out != fakeValue || !strings.Contains(r.errOut, passkeyConfirm) || w.stepUps != 1 {
 			t.Fatalf("reveal: %q %q steps=%d", r.out, r.errOut, w.stepUps)
 		}
 
-		// --out: Touch ID, file 0600
+		// --out: confirmation, file 0600
 		out := filepath.Join(t.TempDir(), "key.txt")
 		r = mustOK(t, w.ku("", false, nil, "secret", "get", "STRIPE_KEY", "env:prod", "--out", out))
 		st, err := os.Stat(out)
@@ -96,21 +100,21 @@ func TestCanonicalSecretFlows(t *testing.T) {
 		// rename (typo fix)
 		mustOK(t, w.ku("v\n", false, nil, "secret", "set", "BASE_ULR", "app:shop", "--yes"))
 		r = mustOK(t, w.ku("", false, nil, "secret", "update", "BASE_ULR", "--name", "BASE_URL"))
-		if r.out != "✓ Renamed BASE_ULR to BASE_URL\n" {
-			t.Fatalf("rename: %q", r.out)
+		if r.out != "" || !strings.HasSuffix(r.errOut, "✓ Renamed BASE_ULR to BASE_URL\n") {
+			t.Fatalf("rename: %q %q", r.out, r.errOut)
 		}
 
-		// bulk authorize: confirm, then Touch ID for requires_authorize on run
+		// bulk authorize: confirm, then a confirmation for requires_authorize on run
 		r = mustOK(t, w.ku("y\n", true, nil, "secret", "update", "env:prod", "team:pay", "--authorize", "on"))
-		if r.out != "✓ Updated STRIPE_KEY\n" { // one match: no confirmation
-			t.Fatalf("single: %q", r.out)
+		if !strings.HasSuffix(r.errOut, "✓ Updated STRIPE_KEY\n") || strings.Contains(r.errOut, "Continue?") { // one match: no confirmation
+			t.Fatalf("single: %q", r.errOut)
 		}
 		r = mustOK(t, w.ku("y\n", true, nil, "secret", "update", "app:shop", "--authorize", "on"))
-		if !strings.Contains(r.errOut, "  STRIPE_KEY    app:shop env:prod team:pay\n") || !strings.Contains(r.errOut, "3 secrets will ask for a confirmation. Continue? (y/N)") || r.out != "✓ Updated 3 secrets\n" {
+		if !strings.Contains(r.errOut, "  STRIPE_KEY    app:shop env:prod team:pay\n") || !strings.Contains(r.errOut, "3 secrets will ask for a confirmation. Continue? (y/N)") || !strings.HasSuffix(r.errOut, "✓ Updated 3 secrets\n") || r.out != "" {
 			t.Fatalf("bulk:\n%q\n%q", r.out, r.errOut)
 		}
-		if r := w.ku("n\n", true, nil, "secret", "update", "app:shop", "--authorize", "off"); r.code != 1 || w.stepUps != 2 {
-			t.Fatalf("declined bulk must not ask Touch ID: %v steps=%d", r, w.stepUps)
+		if r := w.ku("n\n", true, nil, "secret", "update", "app:shop", "--authorize", "off"); r.code != 1 || w.stepUps != 2 || !strings.Contains(r.errOut, "✗ Nothing changed.") {
+			t.Fatalf("declined bulk must not ask for a confirmation: %v steps=%d", r, w.stepUps)
 		}
 
 		// clash: exact copy
@@ -130,8 +134,8 @@ func TestCanonicalSecretFlows(t *testing.T) {
 
 		// archive
 		mustOK(t, w.ku("", false, nil, "secret", "archive", "BASE_URL"))
-		if r := w.ku("", false, nil, "secret", "list", "BASE_URL"); !strings.Contains(r.out, "No secrets found") {
-			t.Fatalf("archived: %q", r.out)
+		if r := w.ku("", false, nil, "secret", "list", "BASE_URL"); r.out != "" || !strings.Contains(r.errOut, "No secrets found") {
+			t.Fatalf("archived: %q %q", r.out, r.errOut)
 		}
 	})
 }
@@ -173,12 +177,12 @@ func TestRun(t *testing.T) {
 		if !strings.Contains(r.out, "key=val-env:dev base=val-env:dev") || !strings.Contains(r.out, "CERT-FAKE") || !strings.Contains(r.out, "\n600\n") {
 			t.Fatalf("run output: %q", r.out)
 		}
-		path := strings.TrimPrefix(strings.Split(strings.Split(r.out, "path=")[1], "\n")[0], "")
+		path := strings.Split(strings.Split(r.out, "path=")[1], "\n")[0]
 		if fileExists(path) || fileExists(filepath.Dir(path)) {
 			t.Fatal("the temp file must be deleted on exit")
 		}
 		if w.stepUps != 0 {
-			t.Fatal("plain run needs no Touch ID")
+			t.Fatal("plain run needs no confirmation")
 		}
 
 		// the command's exit code passes through, and files are still cleaned up on failure
@@ -191,10 +195,10 @@ func TestRun(t *testing.T) {
 			t.Fatalf("temp files must be removed when the command fails: %q", p)
 		}
 
-		// requires_authorize: Touch ID once per command
+		// requires_authorize: a confirmation once per command
 		mustOK(t, w.ku("y\n", true, env, "secret", "update", "env:dev", "--authorize", "on", "--yes"))
 		r = mustOK(t, w.ku("", false, env, "run", "env:dev", "--", "sh", "-c", `echo $API_KEY`))
-		if w.stepUps != 1 || !strings.Contains(r.errOut, "Confirm with Touch ID... ✓") || !strings.Contains(r.out, "val-env:dev") {
+		if w.stepUps != 1 || !strings.Contains(r.errOut, passkeyConfirm) || !strings.Contains(r.out, "val-env:dev") {
 			t.Fatalf("authorize: steps=%d %q", w.stepUps, r.errOut)
 		}
 	})

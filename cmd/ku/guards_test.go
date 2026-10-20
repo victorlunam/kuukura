@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,20 +11,20 @@ import (
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-func TestTouchIDGates(t *testing.T) {
+func TestConfirmationGates(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		w, _ := userWorld(t, p)
 		mustOK(t, w.ku(fakeValue+"\n", false, nil, "secret", "set", "STRIPE_KEY", "app:shop", "env:prod", "--yes"))
 		steps := func(want int, what string) {
 			t.Helper()
 			if w.stepUps != want {
-				t.Fatalf("%s: Touch ID confirmations = %d, want %d", what, w.stepUps, want)
+				t.Fatalf("%s: confirmations = %d, want %d", what, w.stepUps, want)
 			}
 		}
 		mustOK(t, w.ku("", false, nil, "secret", "list"))
 		steps(0, "list")
 		mustOK(t, w.ku("", false, nil, "secret", "update", "STRIPE_KEY", "--authorize", "on"))
-		steps(0, "--authorize on needs no Touch ID")
+		steps(0, "--authorize on needs no confirmation")
 		mustOK(t, w.ku("", false, nil, "secret", "get", "STRIPE_KEY", "--reveal"))
 		steps(1, "reveal")
 		mustOK(t, w.ku("", false, nil, "secret", "get", "STRIPE_KEY", "--out", filepath.Join(t.TempDir(), "o")))
@@ -56,7 +57,7 @@ func TestFailClosedAndMasking(t *testing.T) {
 		}
 		noValue(t, r, fakeValue)
 
-		// errors and logs never carry the value; a stale session says to log in
+		// a stale session says to log in again
 		_ = w.store.Set("default", "ku_expired")
 		r = w.ku("", false, nil, "secret", "list")
 		if r.code != 1 || !strings.Contains(r.errOut, "Your session ended. Run: ku login") {
@@ -76,19 +77,62 @@ func TestFailClosedAndMasking(t *testing.T) {
 	})
 }
 
+// brokenStore is a session store that cannot be read (a locked keychain, a file other users can read).
+type brokenStore struct{}
+
+func (brokenStore) Get(string) (string, error) { return "", errors.New("the keychain is locked") }
+func (brokenStore) Set(string, string) error   { return nil }
+func (brokenStore) Delete(string) error        { return nil }
+
+// Only "there is no session" means "not logged in"; any other failure says what it is.
+func TestUnreadableSessionIsNotReportedAsLoggedOut(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		w := newWorld(t, p)
+		w.admin()
+		mustOK(t, w.ku("", false, nil, "profile", "add", "default", "--url", w.srv.URL))
+
+		w.altStore = &brokenStore{}
+		r := w.ku("", false, nil, "secret", "list")
+		if r.code != 1 || !strings.Contains(r.errOut, "the keychain is locked") || strings.Contains(r.errOut, "not logged in") {
+			t.Fatalf("unreadable session: %q", r.errOut)
+		}
+
+		w.altStore = &memStore{m: map[string]string{}}
+		if r := w.ku("", false, nil, "secret", "list"); r.code != 1 || !strings.Contains(r.errOut, "not logged in. Run: ku login") {
+			t.Fatalf("no session: %q", r.errOut)
+		}
+
+		// KU_URL without KU_TOKEN: there is no login to run, a token to set instead
+		env := map[string]string{"KU_URL": w.srv.URL}
+		if r := w.ku("", false, env, "secret", "list"); r.code != 1 || !strings.Contains(r.errOut, "Set KU_TOKEN") || strings.Contains(r.errOut, "ku login") {
+			t.Fatalf("KU_URL alone: %q", r.errOut)
+		}
+		if r := w.ku("", false, env, "login"); r.code != 1 || !strings.Contains(r.errOut, "KU_URL or KU_TOKEN is set") {
+			t.Fatalf("login with only KU_URL: %q", r.errOut)
+		}
+	})
+}
+
 func TestMaskingEverywhere(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		w, _ := userWorld(t, p)
-		cmds := [][]string{
-			{"secret", "set", "STRIPE_KEY", "app:shop", "--yes"},
-			{"secret", "list"},
-			{"secret", "update", "STRIPE_KEY", "+env:prod"},
-			{"secret", "revoke", "STRIPE_KEY"},
-			{"run", "app:shop", "--", "true"},
-			{"secret", "get", "NOPE", "--reveal"},
+		cmds := []struct {
+			args   []string
+			code   int
+			reason string // in stderr when the command is expected to fail
+		}{
+			{[]string{"secret", "set", "STRIPE_KEY", "app:shop", "--yes"}, 0, ""},
+			{[]string{"secret", "list"}, 0, ""},
+			{[]string{"secret", "update", "STRIPE_KEY", "+env:prod"}, 0, ""},
+			{[]string{"secret", "revoke", "STRIPE_KEY"}, 0, ""},
+			{[]string{"run", "app:shop", "--", "true"}, 1, "STRIPE_KEY is blocked"},
+			{[]string{"secret", "get", "NOPE", "--reveal"}, 1, "No matching secret."},
 		}
 		for _, c := range cmds {
-			r := w.ku(fakeValue+"\n", false, nil, c...)
+			r := w.ku(fakeValue+"\n", false, nil, c.args...)
+			if r.code != c.code || !strings.Contains(r.errOut, c.reason) {
+				t.Errorf("%v: exit %d (want %d), stderr %q (want %q)", c.args, r.code, c.code, r.errOut, c.reason)
+			}
 			noValue(t, r, fakeValue)
 		}
 	})
@@ -102,18 +146,14 @@ func TestMachineTokenInCI(t *testing.T) {
 		w.grant(admin, "root@example.test", "read", "app:shop")
 		w.loginAs(admin)
 		r := mustOK(t, w.ku("", false, nil, "workspace", "invite", "ci-deploy", "--machine"))
-		token := ""
-		for _, l := range strings.Split(r.out, "\n") {
-			if strings.HasPrefix(l, "ku_") {
-				token = l
-			}
-		}
-		if token == "" || !strings.Contains(r.out, "KU_TOKEN") {
-			t.Fatalf("machine invite: %q", r.out)
+		// stdout carries the token and nothing else, so `| pbcopy` copies exactly it
+		token := strings.TrimSuffix(r.out, "\n")
+		if !strings.HasPrefix(token, "ku_") || strings.ContainsAny(token, " \n") || !strings.Contains(r.errOut, "KU_TOKEN") {
+			t.Fatalf("machine invite: %q %q", r.out, r.errOut)
 		}
 		mustOK(t, w.ku("", false, nil, "workspace", "grant", "ci-deploy", "read", "app:shop"))
 
-		// ephemeral profile: no config file, no Keychain
+		// KU_URL + KU_TOKEN: no config file, no saved session
 		home := t.TempDir()
 		w.home = home
 		env := map[string]string{"KU_URL": w.srv.URL, "KU_TOKEN": token}
@@ -125,11 +165,11 @@ func TestMachineTokenInCI(t *testing.T) {
 			t.Fatal("an ephemeral profile writes no config")
 		}
 		// machines can never reveal
-		if r := w.ku("", false, env, "secret", "get", "DEPLOY_KEY", "--reveal"); r.code != 1 {
+		if r := w.ku("", false, env, "secret", "get", "DEPLOY_KEY", "--reveal"); r.code != 1 || !strings.Contains(r.errOut, "✗ You don't have access to that.") {
 			t.Fatalf("machine reveal: %v", r)
 		}
 		if w.stepUps != 0 {
-			t.Fatal("machines never get a Touch ID step-up")
+			t.Fatal("machines never get a step-up")
 		}
 	})
 }
@@ -140,7 +180,7 @@ func TestWorkspaceCommands(t *testing.T) {
 		admin := w.admin()
 		w.loginAs(admin)
 		r := mustOK(t, w.ku("", false, nil, "workspace", "invite", "new@example.test"))
-		if !strings.Contains(r.out, "https://"+testDomain+"/invite?token=ku_") {
+		if !strings.Contains(r.out, w.srv.URL+"/invite?token=ku_") || !strings.Contains(r.errOut, "✓ Invited new@example.test") {
 			t.Fatalf("invite: %q", r.out)
 		}
 		if !strings.Contains(r.out, "&profile=default") {
@@ -158,9 +198,8 @@ func TestWorkspaceCommands(t *testing.T) {
 			t.Fatalf("audit: %q", r.out)
 		}
 		// columns follow the content: a long email must be followed by at least two spaces, never glued to the action
-		lines := strings.Split(strings.TrimSpace(r.out), "\n")
 		sawLong := false
-		for _, l := range lines {
+		for l := range strings.SplitSeq(strings.TrimSpace(r.out), "\n") {
 			if i := strings.Index(l, long); i >= 0 {
 				sawLong = true
 				if !strings.HasPrefix(l[i+len(long):], "  ") {
@@ -201,7 +240,7 @@ func TestListNeverShowsValues(t *testing.T) {
 			noValue(t, r, v)
 		}
 		noValue(t, r, "BEGIN FAKE", "LS0tLS1CRUdJTiBGQUtF") // file content, plain and base64
-		if first := strings.Fields(strings.Split(r.out, "\n")[0]); strings.Join(first, " ") != "NAME VERSION TAGS" {
+		if first := strings.Fields(strings.SplitN(r.out, "\n", 2)[0]); strings.Join(first, " ") != "NAME VERSION TAGS" {
 			t.Fatalf("list has exactly the columns name, version, tags: %v", first)
 		}
 	})

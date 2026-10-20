@@ -5,18 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type secretRow struct {
-	Name              string   `json:"name"`
-	Version           int      `json:"version"`
-	Tags              []string `json:"tags"`
-	Kind              string   `json:"kind"`
-	RequiresAuthorize bool     `json:"requires_authorize"`
-	Blocked           bool     `json:"blocked"`
+	Name    string   `json:"name"`
+	Version int      `json:"version"`
+	Tags    []string `json:"tags"`
 }
 
 type valueResp struct {
@@ -57,19 +55,19 @@ func (a *app) cmdSecret(args []string) int {
 }
 
 func (a *app) listSecrets(c *client, name string, tags []string) ([]secretRow, error) {
-	path := "/secrets?tags=" + strings.Join(tags, ",")
+	q := url.Values{"tags": {strings.Join(tags, ",")}}
 	if name != "" {
-		path += "&name=" + name
+		q.Set("name", name)
 	}
 	var r struct {
 		Secrets []secretRow `json:"secrets"`
 	}
-	return r.Secrets, c.call("GET", path, nil, &r)
+	return r.Secrets, c.call("GET", "/secrets?"+q.Encode(), nil, &r)
 }
 
 // secretList shows name, version and tags. Never a value, not even masked.
 func (a *app) secretList(args []string) int {
-	p, err := parseArgs(args, "profile")
+	p, err := parseArgs(args, []string{"profile"})
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -86,7 +84,7 @@ func (a *app) secretList(args []string) int {
 		return a.report(err, func(t string) string { return "ku secret list " + t })
 	}
 	if len(rows) == 0 {
-		fmt.Fprintln(a.out, "No secrets found.")
+		a.say("No secrets found.")
 		return 0
 	}
 	w := 18
@@ -102,12 +100,15 @@ func (a *app) secretList(args []string) int {
 
 // secretSet reads the value from a hidden prompt, stdin (no terminal), --generate or --file. Never an argument.
 func (a *app) secretSet(args []string) int {
-	p, err := parseArgs(args, "file", "profile")
+	p, err := parseArgs(args, []string{"file", "profile"}, "generate", "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}
 	name, tags, err := selectorFrom(p.pos)
-	if err != nil || name == "" {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" {
 		return a.fail("Use: ku secret set <name> [tags] [--generate | --file <path>]")
 	}
 	if p.has("generate") && p.has("file") {
@@ -154,8 +155,7 @@ func (a *app) secretSet(args []string) int {
 			return a.fail("%s is new. %v.", name, cerr)
 		}
 		if !ok {
-			fmt.Fprintln(a.err, "Nothing saved.")
-			return 1
+			return a.fail("Nothing saved.")
 		}
 		body["create"] = true
 		err = c.call("POST", "/secrets/versions", body, &res)
@@ -163,9 +163,9 @@ func (a *app) secretSet(args []string) int {
 	if err != nil {
 		return a.report(err, func(t string) string { return "ku secret set " + name + " " + t })
 	}
-	fmt.Fprintf(a.out, "✓ Saved %s (version %d)\n", res.Name, res.Version)
+	a.say("✓ Saved %s (version %d)", res.Name, res.Version)
 	if p.has("generate") {
-		fmt.Fprintln(a.out, "  A random value was created on the server. It is not shown.")
+		a.say("  A random value was created on the server. It is not shown.")
 	}
 	return 0
 }
@@ -201,19 +201,21 @@ func (a *app) readValue() (string, error) {
 	return val, nil
 }
 
-// secretGet needs --reveal or --out, and always a Touch ID confirmation.
+// secretGet needs --reveal or --out, and always a confirmation with the account's second step.
 func (a *app) secretGet(args []string) int {
-	p, err := parseArgs(args, "out", "profile")
+	p, err := parseArgs(args, []string{"out", "profile"}, "reveal")
 	if err != nil {
 		return a.fail("%v", err)
 	}
 	name, tags, err := selectorFrom(p.pos)
-	if err != nil || name == "" && len(tags) == 0 {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" && len(tags) == 0 {
 		return a.fail("Use: ku secret get <name> [tags] --reveal | --out <path>")
 	}
 	if !p.has("reveal") && !p.has("out") {
-		fmt.Fprintln(a.err, "Choose how to get it: --reveal or --out <file>")
-		return 1
+		return a.fail("Choose how to get it: --reveal or --out <file>")
 	}
 	if p.has("reveal") && p.has("out") {
 		return a.fail("Use --reveal or --out, not both.")
@@ -236,7 +238,7 @@ func (a *app) secretGet(args []string) int {
 		if err := writePrivate(p.flags["out"], data); err != nil {
 			return a.fail("Cannot write %s.", p.flags["out"])
 		}
-		fmt.Fprintf(a.out, "✓ Saved to %s\n", p.flags["out"])
+		a.say("✓ Saved to %s", p.flags["out"])
 		return 0
 	}
 	if _, err := a.out.Write(data); err != nil {
@@ -250,26 +252,27 @@ func (a *app) secretGet(args []string) int {
 
 // splitUpdateArgs separates the selector from +tag / -tag changes.
 func splitUpdateArgs(pos []string) (sel, add, rem []string, err error) {
-	for _, t := range pos {
+	for i, t := range pos {
 		switch {
-		case strings.HasPrefix(t, "+"):
-			add = append(add, strings.ToLower(t[1:]))
-		case strings.HasPrefix(t, "-"):
-			rem = append(rem, strings.ToLower(t[1:]))
+		case strings.HasPrefix(t, "+"), strings.HasPrefix(t, "-"):
+			tag := strings.ToLower(t[1:])
+			if !tagRE.MatchString(tag) {
+				return nil, nil, nil, notATag(i + 1)
+			}
+			if t[0] == '+' {
+				add = append(add, tag)
+			} else {
+				rem = append(rem, tag)
+			}
 		default:
 			sel = append(sel, t)
-		}
-	}
-	for _, t := range append(append([]string{}, add...), rem...) {
-		if !strings.Contains(t, ":") {
-			return nil, nil, nil, fmt.Errorf("%q is not a tag. Tags look like key:value", t)
 		}
 	}
 	return
 }
 
 func (a *app) secretUpdate(args []string) int {
-	p, err := parseArgs(args, "name", "authorize", "profile")
+	p, err := parseArgs(args, []string{"name", "authorize", "profile"}, "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}
@@ -278,7 +281,10 @@ func (a *app) secretUpdate(args []string) int {
 		return a.fail("%v.", err)
 	}
 	name, tags, err := selectorFrom(selPos)
-	if err != nil || name == "" && len(tags) == 0 {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" && len(tags) == 0 {
 		return a.fail("Use: ku secret update <name|tags> [--name <new>] [+tag -tag] [--authorize on|off]")
 	}
 	body := map[string]any{"selector": selReq{name, nonNilTags(tags)}}
@@ -332,8 +338,7 @@ func (a *app) secretUpdate(args []string) int {
 			return a.fail("%v.", cerr)
 		}
 		if !ok {
-			fmt.Fprintln(a.err, "Nothing changed.")
-			return 1
+			return a.fail("Nothing changed.")
 		}
 	}
 	var res struct {
@@ -358,24 +363,27 @@ func (a *app) secretUpdate(args []string) int {
 	}
 	switch {
 	case body["rename"] != nil && len(rows) == 1:
-		fmt.Fprintf(a.out, "✓ Renamed %s to %s\n", rows[0].Name, body["rename"])
+		a.say("✓ Renamed %s to %s", rows[0].Name, body["rename"])
 	case len(res.Updated) == 1:
 		n, _ := splitItem(res.Updated[0])
-		fmt.Fprintf(a.out, "✓ Updated %s\n", n)
+		a.say("✓ Updated %s", n)
 	default:
-		fmt.Fprintf(a.out, "✓ Updated %d secrets\n", len(res.Updated))
+		a.say("✓ Updated %d secrets", len(res.Updated))
 	}
 	return 0
 }
 
 // secretBulk is revoke and archive: preview the list and confirm when several secrets are selected.
 func (a *app) secretBulk(args []string, verb string) int {
-	p, err := parseArgs(args, "profile")
+	p, err := parseArgs(args, []string{"profile"}, "yes")
 	if err != nil {
 		return a.fail("%v", err)
 	}
 	name, tags, err := selectorFrom(p.pos)
-	if err != nil || name == "" && len(tags) == 0 {
+	if err != nil {
+		return a.fail("%v.", err)
+	}
+	if name == "" && len(tags) == 0 {
 		return a.fail("Use: ku secret %s <name|tags>", verb)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
@@ -397,8 +405,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 			return a.fail("%v.", cerr)
 		}
 		if !ok {
-			fmt.Fprintln(a.err, "Nothing changed.")
-			return 1
+			return a.fail("Nothing changed.")
 		}
 	}
 	sel := selReq{name, nonNilTags(tags)}
@@ -417,13 +424,13 @@ func (a *app) secretBulk(args []string, verb string) int {
 	n := len(rows)
 	switch {
 	case verb == "revoke" && n == 1:
-		fmt.Fprintf(a.out, "✓ Revoked %s. It stays blocked until you save a new value.\n", rows[0].Name)
+		a.say("✓ Revoked %s. It stays blocked until you save a new value.", rows[0].Name)
 	case verb == "revoke":
-		fmt.Fprintf(a.out, "✓ Revoked %d secrets. They stay blocked until you save new values.\n", n)
+		a.say("✓ Revoked %d secrets. They stay blocked until you save new values.", n)
 	case n == 1:
-		fmt.Fprintf(a.out, "✓ Archived %s\n", rows[0].Name)
+		a.say("✓ Archived %s", rows[0].Name)
 	default:
-		fmt.Fprintf(a.out, "✓ Archived %d secrets\n", n)
+		a.say("✓ Archived %d secrets", n)
 	}
 	return 0
 }

@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -113,8 +114,8 @@ func validateURL(raw string) (string, error) {
 type profile struct {
 	name      string
 	url       string
-	token     string // empty until read from the Keychain (or KU_TOKEN)
-	ephemeral bool   // KU_URL + KU_TOKEN: no config file, no Keychain
+	token     string // empty until read from the session store (or KU_TOKEN)
+	ephemeral bool   // KU_URL: no config file, no saved session
 	app       string // linked app of the current folder, if any
 }
 
@@ -164,11 +165,4 @@ func (a *app) resolve(flagProfile string) (profile, error) {
 	return profile{}, errors.New("no server yet. Add one first: ku profile add <name> --url https://your-server")
 }
 
-func sortedKeys[V any](m map[string]V) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
+func sortedKeys[V any](m map[string]V) []string { return slices.Sorted(maps.Keys(m)) }

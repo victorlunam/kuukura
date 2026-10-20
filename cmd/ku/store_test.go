@@ -169,11 +169,55 @@ func TestSessionStoreRejectsUnsafeProfileNames(t *testing.T) {
 			t.Fatalf("delete %q must be rejected", bad)
 		}
 	}
-	entries, _ := os.ReadDir(filepath.Dir(dir)) // nothing may appear next to the config folder
-	for _, e := range entries {
-		if e.Name() == "escape" {
-			t.Fatal("a path was written outside the sessions folder")
+	// "../escape" would land in <dir>/escape, next to the sessions folder
+	if fileExists(filepath.Join(dir, "escape")) || fileExists(filepath.Join(dir, "sessions", "escape")) {
+		t.Fatal("a path was written outside the sessions folder")
+	}
+}
+
+// The folder is opened as a root, so even a name that passes the check cannot reach outside it.
+func TestSessionStoreFileNamesStayInsideTheFolder(t *testing.T) {
+	s, _, dir := newTestStore(t, nil)
+	if err := s.Set("work", "ku_tok"); err != nil {
+		t.Fatal(err)
+	}
+	root, err := s.root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	if f, err := root.OpenFile("../escape", os.O_WRONLY|os.O_CREATE, 0o600); err == nil || fileExists(filepath.Join(dir, "escape")) {
+		if f != nil {
+			f.Close()
 		}
+		t.Fatalf("a name with .. must not resolve outside the sessions folder: %v", err)
+	}
+}
+
+// A keychain that took an older token and then fails (locked, removed) must not keep answering with it once the
+// newer token went to the file.
+func TestSessionStoreFallbackDropsTheOlderKeychainToken(t *testing.T) {
+	sys := &fakeSystem{m: map[string]string{}}
+	s, _, dir := newTestStore(t, sys)
+	if err := s.Set("work", "old"); err != nil {
+		t.Fatal(err)
+	}
+	if sys.m["work"] != "old" {
+		t.Fatal("setup: the first token is in the keychain")
+	}
+	sys.fail = true
+	if err := s.Set("work", "new"); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "sessions", "work")); string(b) != "new" {
+		t.Fatalf("the file holds the new token: %q", b)
+	}
+	if _, ok := sys.m["work"]; ok {
+		t.Fatal("the older keychain entry must be deleted when the token falls back to the file")
+	}
+	sys.fail = false // the keychain works again and is read first
+	if got, err := s.Get("work"); err != nil || got != "new" {
+		t.Fatalf("get after the fallback: %q %v", got, err)
 	}
 }
 
