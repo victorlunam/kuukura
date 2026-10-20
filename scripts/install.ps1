@@ -1,7 +1,7 @@
 # Installs the kuukura CLI (ku.exe and kuukura.exe) on Windows (PowerShell 5.1 or 7).
 #   irm https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts/install.ps1 | iex
 # Environment:
-#   KU_VERSION      a release such as 2026.10.2 (default: the latest release)
+#   KU_VERSION      a release, YEAR.MONTH.N (default: the latest release)
 #   KU_INSTALL_DIR  where to put the programs (default: %LOCALAPPDATA%\Programs\kuukura)
 # The archive is checked against the release's checksums.txt before anything is installed.
 $ErrorActionPreference = 'Stop'
@@ -30,7 +30,7 @@ if (-not $version) {
 }
 $version = $version.TrimStart('v')
 if ($version -notmatch '^\d{4}\.\d+\.\d+$') {
-    throw "install: '$version' is not a release version (expected YEAR.MONTH.N, for example 2026.10.2)"
+    throw "install: '$version' is not a release version (expected YEAR.MONTH.N)"
 }
 
 $file = "kuukura_${version}_windows_${arch}.zip"

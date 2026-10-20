@@ -6,14 +6,23 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.3] - 2026-10-20
+
 ### Added
 
-- Website and docs site (apps/web, Astro + Starlight), deployed to Cloudflare Workers.
+- Website and docs site (apps/web, Astro + Starlight), deployed to Cloudflare Workers:
+  https://kuukura-main-landing.neodev-f72.workers.dev
+- `mise run db:new <name>` creates a migration pair (sqlite and postgres).
 
 ### Changed
 
-- Repository layout: apps/ (ku, ku-server, web), internal/ (shared Go code), packages/ (brand, shared across languages); conventions in CONTRIBUTING.md and AGENTS.md.
+- Repository layout: apps/ (ku, ku-server, web), internal/ (shared Go code), packages/ (brand, shared across languages); conventions in CONTRIBUTING.md and AGENTS.md, enforced by a dependency-rules test.
 - Code organized by capability: one concern per file; key rotation and start-up key checks live in internal/masterkey.
+- Install scripts and the Homebrew formula build from the same tag as everything else; no release number is written in docs.
+
+### Removed
+
+- Two build artifacts that had been committed by mistake.
 
 ## [2026.10.2] - 2026-10-20
 
@@ -107,7 +116,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.2...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.3...HEAD
+[2026.10.3]: https://github.com/victorlunam/kuukura/compare/v2026.10.2...v2026.10.3
 [2026.10.2]: https://github.com/victorlunam/kuukura/compare/v2026.10.1...v2026.10.2
 [2026.10.1]: https://github.com/victorlunam/kuukura/compare/v2026.10.0...v2026.10.1
 [2026.10.0]: https://github.com/victorlunam/kuukura/releases/tag/v2026.10.0

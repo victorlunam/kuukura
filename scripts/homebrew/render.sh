@@ -1,6 +1,6 @@
 #!/bin/sh
 # Prints the Homebrew formula for a release: scripts/homebrew/render.sh <version> <checksums.txt>
-# The version has no leading "v" (2026.10.2). Fails if checksums.txt lacks one of the four archives.
+# The version has no leading "v" (YEAR.MONTH.N). Fails if checksums.txt lacks one of the four archives.
 set -eu
 version="${1:?usage: render.sh <version> <checksums.txt>}"
 checksums="${2:?usage: render.sh <version> <checksums.txt>}"

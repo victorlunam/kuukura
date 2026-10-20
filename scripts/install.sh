@@ -2,7 +2,7 @@
 # Installs the kuukura CLI (`ku` and `kuukura`) on macOS or Linux.
 #   curl -fsSL https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts/install.sh | sh
 # Environment:
-#   KU_VERSION      a release such as 2026.10.2 (default: the latest release)
+#   KU_VERSION      a release, YEAR.MONTH.N (default: the latest release)
 #   KU_INSTALL_DIR  where to put the programs (default: $HOME/.local/bin; no sudo is used)
 # The archive is checked against the release's checksums.txt before anything is installed.
 set -eu
@@ -42,7 +42,7 @@ fi
 version="${version#v}"
 case "$version" in
   [0-9][0-9][0-9][0-9].[0-9]*.[0-9]*) ;;
-  *) die "'$version' is not a release version (expected YEAR.MONTH.N, for example 2026.10.2)" ;;
+  *) die "'$version' is not a release version (expected YEAR.MONTH.N)" ;;
 esac
 
 file="kuukura_${version}_${os}_${arch}.tar.gz"
