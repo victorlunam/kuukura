@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.10] - 2026-10-20
+
 ### Added
 
 - `ku link <app>` creates the app when it is new and gives you write access; an existing app still needs an admin's
@@ -174,7 +176,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.9...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.10...HEAD
+[2026.10.10]: https://github.com/victorlunam/kuukura/compare/v2026.10.9...v2026.10.10
 [2026.10.9]: https://github.com/victorlunam/kuukura/compare/v2026.10.8...v2026.10.9
 [2026.10.8]: https://github.com/victorlunam/kuukura/compare/v2026.10.7...v2026.10.8
 [2026.10.7]: https://github.com/victorlunam/kuukura/compare/v2026.10.6...v2026.10.7
