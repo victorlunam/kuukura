@@ -159,6 +159,35 @@ func TestListDisableEnableByHost(t *testing.T) {
 	})
 }
 
+// Enable is the admin's side of EnableByHost: same rules, audited under the admin, and members cannot use it.
+func TestEnableByAdmin(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		admin := e.person("admin", "active")
+		user := e.person("member", "active")
+		if _, err := e.svc.Enable(ctx, user, e.name(user)); code(err) != access.CodeDenied {
+			t.Fatalf("members cannot enable: %v", err)
+		}
+		if _, err := e.svc.Enable(ctx, admin, e.name(user)); code(err) != access.CodeConflict {
+			t.Fatalf("not disabled: %v", err)
+		}
+		if err := e.svc.Disable(ctx, admin, e.name(user)); err != nil {
+			t.Fatal(err)
+		}
+		// a person without a factor goes back to enrolling, not to active
+		if st, err := e.svc.Enable(ctx, admin, e.name(user)); err != nil || st != "invited" {
+			t.Fatalf("%q %v", st, err)
+		}
+		if e.count(`SELECT COUNT(*) FROM audit_log WHERE principal_id = ? AND action = 'update'`, admin.ID) != 1 {
+			t.Fatal("the enable is audited under the admin")
+		}
+		if err := e.log.Verify(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 // A person who lost their passkey and recovery codes: reset-factors, then sign in through the link, enroll a new
 // factor, and log in; nothing from before works.
 func TestResetFactorsByHost(t *testing.T) {

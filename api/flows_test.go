@@ -179,7 +179,14 @@ func TestWorkspaceAdminAndMachines(t *testing.T) {
 		}
 		e.problem(e.do("GET", "/secrets", user, nil), 401, "unauthorized")
 		e.problem(e.do("PATCH", "/workspace/identities/root@example.test", admin, map[string]any{"status": "disabled"}), 409, "last-admin")
-		e.problem(e.do("PATCH", "/workspace/identities/x", admin, map[string]any{"status": "active"}), 400, "invalid-request")
+		e.problem(e.do("PATCH", "/workspace/identities/x", admin, map[string]any{"status": "archived"}), 400, "invalid-request")
+		e.problem(e.do("PATCH", "/workspace/identities/x", admin, map[string]any{"status": "active"}), 404, "not-found")
+		// enable lifts a disable; the old session stays revoked
+		if r := e.do("PATCH", "/workspace/identities/dev@example.test", admin, map[string]any{"status": "active"}); r.Code != 200 || !strings.Contains(r.Body.String(), `"status":"active"`) {
+			t.Fatalf("enable: %d %s", r.Code, r.Body)
+		}
+		e.problem(e.do("GET", "/secrets", user, nil), 401, "unauthorized")
+		e.problem(e.do("PATCH", "/workspace/identities/dev@example.test", user, map[string]any{"status": "active"}), 401, "unauthorized")
 
 		// logout invalidates the session
 		if r := e.do("POST", "/auth/logout", admin, nil); r.Code != 204 {

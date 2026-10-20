@@ -125,49 +125,64 @@ func (s *Service) DisableByHost(ctx context.Context, name string) error {
 	})
 }
 
-// EnableByHost lifts a disable. A person who never finished enrolling goes back to enrolling; the tokens revoked
-// by the disable stay revoked. A machine whose owner is disabled stays disabled.
+// EnableByHost is Enable for the host principal: same rules, no admin check.
 func (s *Service) EnableByHost(ctx context.Context, name string) (string, error) {
 	var next string
-	err := s.hostTx(ctx, func(tx *sql.Tx, host uuid.UUID) error {
-		id, _, err := s.find(ctx, tx, name)
-		if err != nil {
-			return err
-		}
-		var kind, status string
-		var owner uuid.NullUUID
-		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT kind, status, owner_id FROM principals WHERE id = ?`), id).Scan(&kind, &status, &owner); err != nil {
-			return err
-		}
-		if status != "disabled" {
-			return access.Fail(access.CodeConflict, "that identity is not disabled")
-		}
-		if owner.Valid {
-			var os string
-			if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT status FROM principals WHERE id = ?`), owner.UUID).Scan(&os); err != nil {
-				return err
-			}
-			if os == "disabled" {
-				return access.Fail(access.CodeConflict, "its owner is disabled: enable the owner first")
-			}
-		}
-		next = "active"
-		if kind == "human" {
-			var n int
-			if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT COUNT(*) FROM credentials WHERE principal_id = ?`), id).Scan(&n); err != nil {
-				return err
-			}
-			if n == 0 {
-				next = "invited"
-			}
-		}
-		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = ? WHERE id = ?`), next, id); err != nil {
-			return err
-		}
-		return s.log.Append(ctx, tx, audit.Entry{Principal: host, Action: "update", TargetType: "principal", TargetID: &id,
-			Metadata: map[string]any{"change": "enabled", "status": next}})
+	err := s.hostTx(ctx, func(tx *sql.Tx, host uuid.UUID) (err error) {
+		next, err = s.enable(ctx, tx, access.Actor{ID: host}, name)
+		return err
 	})
 	return next, err
+}
+
+// Enable lifts a disable. Admin only. A person who never finished enrolling goes back to enrolling; the tokens
+// revoked by the disable stay revoked. A machine whose owner is disabled stays disabled. It returns the new status.
+func (s *Service) Enable(ctx context.Context, a access.Actor, name string) (string, error) {
+	var next string
+	err := access.AdminTx(ctx, s.p, s.log, a, "update", func(tx *sql.Tx) (err error) {
+		next, err = s.enable(ctx, tx, a, name)
+		return err
+	})
+	return next, err
+}
+
+func (s *Service) enable(ctx context.Context, tx *sql.Tx, a access.Actor, name string) (string, error) {
+	id, _, err := s.find(ctx, tx, name)
+	if err != nil {
+		return "", err
+	}
+	var kind, status string
+	var owner uuid.NullUUID
+	if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT kind, status, owner_id FROM principals WHERE id = ?`), id).Scan(&kind, &status, &owner); err != nil {
+		return "", err
+	}
+	if status != "disabled" {
+		return "", access.Fail(access.CodeConflict, "that identity is not disabled")
+	}
+	if owner.Valid {
+		var os string
+		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT status FROM principals WHERE id = ?`), owner.UUID).Scan(&os); err != nil {
+			return "", err
+		}
+		if os == "disabled" {
+			return "", access.Fail(access.CodeConflict, "its owner is disabled: enable the owner first")
+		}
+	}
+	next := "active"
+	if kind == "human" {
+		var n int
+		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT COUNT(*) FROM credentials WHERE principal_id = ?`), id).Scan(&n); err != nil {
+			return "", err
+		}
+		if n == 0 {
+			next = "invited"
+		}
+	}
+	if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = ? WHERE id = ?`), next, id); err != nil {
+		return "", err
+	}
+	return next, s.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "update", IP: a.IP, TargetType: "principal", TargetID: &id,
+		Metadata: map[string]any{"change": "enabled", "status": next}})
 }
 
 // ResetFactorsByHost is for a person who lost their passkey and recovery codes. In one transaction it deletes their

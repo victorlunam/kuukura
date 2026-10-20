@@ -9,7 +9,7 @@ import (
 
 func (a *app) cmdWorkspace(args []string) int {
 	if len(args) == 0 {
-		return a.fail("Use: ku workspace invite|group|grant|ungrant|remove|audit")
+		return a.fail("Use: ku workspace invite|group|grant|ungrant|disable|enable|audit")
 	}
 	sub := args[0]
 	p, err := parseArgs(args[1:], []string{"profile"}, "machine")
@@ -18,9 +18,9 @@ func (a *app) cmdWorkspace(args []string) int {
 	}
 	pos := p.pos
 	switch sub {
-	case "invite", "group", "grant", "ungrant", "remove", "audit":
+	case "invite", "group", "grant", "ungrant", "disable", "enable", "audit":
 	default:
-		return a.fail("Use: ku workspace invite|group|grant|ungrant|remove|audit")
+		return a.fail("Use: ku workspace invite|group|grant|ungrant|disable|enable|audit")
 	}
 	if p.has("machine") && sub != "invite" {
 		return a.fail("unknown flag --machine")
@@ -100,9 +100,9 @@ func (a *app) cmdWorkspace(args []string) int {
 			return report(err)
 		}
 		a.say("✓ Removed access for %s to %s", pos[0], strings.Join(pos[1:], " "))
-	case "remove":
+	case "disable":
 		if len(pos) != 1 {
-			return a.fail("Use: ku workspace remove <identity>")
+			return a.fail("Use: ku workspace disable <identity>")
 		}
 		if err := c.call("PATCH", "/workspace/identities/"+url.PathEscape(pos[0]), map[string]string{"status": "disabled"}, nil); err != nil {
 			var pr *problem
@@ -111,7 +111,22 @@ func (a *app) cmdWorkspace(args []string) int {
 			}
 			return report(err)
 		}
-		a.say("✓ Removed %s. Their sessions have ended.", pos[0])
+		a.say("✓ Disabled %s. Their sessions have ended.", pos[0])
+	case "enable":
+		if len(pos) != 1 {
+			return a.fail("Use: ku workspace enable <identity>")
+		}
+		var r struct {
+			Status string `json:"status"`
+		}
+		if err := c.call("PATCH", "/workspace/identities/"+url.PathEscape(pos[0]), map[string]string{"status": "active"}, &r); err != nil {
+			return report(err)
+		}
+		if r.Status == "invited" {
+			a.say("✓ Enabled %s. They never finished signing up: on the server, `ku-server user invite %s` gives them a new link.", pos[0], pos[0])
+			return 0
+		}
+		a.say("✓ Enabled %s. They can sign in again.", pos[0])
 	}
 	return 0
 }

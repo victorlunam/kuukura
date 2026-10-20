@@ -210,10 +210,21 @@ func TestWorkspaceCommands(t *testing.T) {
 		if !sawLong {
 			t.Fatalf("the long-named person has audit rows: %q", r.out)
 		}
-		if r := w.ku("", false, nil, "workspace", "remove", "root@example.test"); r.code != 1 || !strings.Contains(r.errOut, "last admin") {
+		if r := w.ku("", false, nil, "workspace", "disable", "root@example.test"); r.code != 1 || !strings.Contains(r.errOut, "last admin") {
 			t.Fatalf("last admin: %q", r.errOut)
 		}
-		mustOK(t, w.ku("", false, nil, "workspace", "remove", "dev@example.test"))
+		if r := w.ku("", false, nil, "workspace", "enable", "dev@example.test"); r.code != 1 || !strings.Contains(r.errOut, "not disabled") {
+			t.Fatalf("enable an active person: %q", r.errOut)
+		}
+		r = mustOK(t, w.ku("", false, nil, "workspace", "disable", "dev@example.test"))
+		if !strings.Contains(r.errOut, "✓ Disabled dev@example.test") {
+			t.Fatalf("disable: %q", r.errOut)
+		}
+		r = mustOK(t, w.ku("", false, nil, "workspace", "enable", "dev@example.test"))
+		if !strings.Contains(r.errOut, "✓ Enabled dev@example.test") {
+			t.Fatalf("enable: %q", r.errOut)
+		}
+		mustOK(t, w.ku("", false, nil, "workspace", "disable", "dev@example.test"))
 		// a member cannot use admin commands
 		dev2 := w.member(admin, "dev2@example.test")
 		_ = w.store.Set("default", dev2)

@@ -98,23 +98,32 @@ type identityReq struct {
 	Status string `json:"status"`
 }
 
-// identity disables an identity. {id} is the identity name (email or machine name).
+// identity disables or enables an identity. {id} is the identity name (email or machine name). Enabling answers
+// with the status the identity ends up in: a person who never finished signing up is "invited" again.
 func (s *Server) identity(c echo.Context) error {
 	var r identityReq
 	if err := decode(c, &r); err != nil {
 		return err
 	}
-	if r.Status != "disabled" {
-		return badRequest("status can only be set to disabled.")
-	}
 	name, err := url.PathUnescape(c.Param("id"))
 	if err != nil {
-		return badRequest("")
+		return badRequest("Malformed identity name.")
 	}
-	if err := s.Identity.Disable(c.Request().Context(), actor(c), name); err != nil {
-		return err
+	ctx := c.Request().Context()
+	switch r.Status {
+	case "disabled":
+		if err := s.Identity.Disable(ctx, actor(c), name); err != nil {
+			return err
+		}
+		return c.NoContent(http.StatusNoContent)
+	case "active":
+		status, err := s.Identity.Enable(ctx, actor(c), name)
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": status})
 	}
-	return c.NoContent(http.StatusNoContent)
+	return badRequest("Status can only be set to disabled or active.")
 }
 
 type auditRow struct {
