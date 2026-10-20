@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -99,6 +100,24 @@ func (c config) dsn() string {
 		return c.SQLitePath
 	}
 	return c.DatabaseURL
+}
+
+// scrub is err's text with the database URLs and their passwords blanked: a driver error may quote the connection
+// string, and the cause belongs in the message only without credentials.
+func (c config) scrub(err error) string {
+	msg := err.Error()
+	for _, raw := range []string{c.DatabaseURL, c.MigrateURL} {
+		if raw == "" {
+			continue
+		}
+		msg = strings.ReplaceAll(msg, raw, "<database url>")
+		if u, perr := url.Parse(raw); perr == nil && u.User != nil {
+			if pw, ok := u.User.Password(); ok && pw != "" {
+				msg = strings.ReplaceAll(msg, pw, "***")
+			}
+		}
+	}
+	return msg
 }
 
 func (c config) migrateDSN() string {

@@ -44,25 +44,6 @@ func (p Perm) Allows(tags storage.Tags) bool {
 	return true
 }
 
-// Cond is the SQL form of Allows for the tags column col.
-func (p Perm) Cond(sp storage.Provider, col string) (string, []any) {
-	var parts []string
-	var args []any
-	for _, layer := range p.layers {
-		if len(layer) == 0 {
-			return "1=0", nil
-		}
-		ors := make([]string, len(layer))
-		for i, sel := range layer {
-			c, a := sp.Contains(col, sel)
-			ors[i] = c
-			args = append(args, a...)
-		}
-		parts = append(parts, "("+strings.Join(ors, " OR ")+")")
-	}
-	return strings.Join(parts, " AND "), args
-}
-
 // For loads the actor's permission for "read" or "write". Write implies read.
 func For(ctx context.Context, sp storage.Provider, q storage.Querier, a Actor, perm string) (Perm, error) {
 	var p Perm

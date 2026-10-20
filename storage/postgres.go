@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -35,20 +36,34 @@ func (p *postgresProvider) Contains(col string, sel Tags) (string, []any) {
 
 func (p *postgresProvider) TimeArg(t time.Time) any { return t.UTC() }
 
+func (p *postgresProvider) ForUpdate() string { return " FOR UPDATE" }
+
+func pgUnique(err error) bool {
+	var pe *pgconn.PgError
+	return errors.As(err, &pe) && pe.Code == "23505"
+}
+
 func (p *postgresProvider) LockAudit(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(7266011)`)
 	return err
 }
 
+// CheckAuditProtected refuses a role that can modify audit_log, and one that is (or can become, through
+// membership, even without inheriting its privileges) the table owner: an owner can re-grant itself anything.
 func (p *postgresProvider) CheckAuditProtected(ctx context.Context, q Querier) error {
-	var bad bool
-	err := q.QueryRowContext(ctx, `SELECT has_table_privilege(current_user, 'audit_log', 'UPDATE')
-		OR has_table_privilege(current_user, 'audit_log', 'DELETE') OR has_table_privilege(current_user, 'audit_log', 'TRUNCATE')`).Scan(&bad)
+	var canModify, ownerOrMember bool
+	err := q.QueryRowContext(ctx, `SELECT
+		has_table_privilege(current_user, 'audit_log', 'UPDATE') OR has_table_privilege(current_user, 'audit_log', 'DELETE')
+			OR has_table_privilege(current_user, 'audit_log', 'TRUNCATE'),
+		pg_has_role(current_user, (SELECT relowner FROM pg_class WHERE oid = 'audit_log'::regclass), 'MEMBER')`).Scan(&canModify, &ownerOrMember)
 	if err != nil {
 		return err
 	}
-	if bad {
-		return errors.New("the database role can modify audit_log: connect as a login role that is a member of kuukura_app and does not own the tables")
+	if canModify {
+		return errors.New("the database role can modify audit_log: connect as a login role that is a member of kuukura_app and is not the table owner")
+	}
+	if ownerOrMember {
+		return errors.New("the database role owns audit_log or is a member of its owner: connect as a login role that is a member of kuukura_app only")
 	}
 	return nil
 }

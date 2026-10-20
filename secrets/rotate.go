@@ -6,13 +6,16 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/victorlunam/kuukura/audit"
 	"github.com/victorlunam/kuukura/keys"
 	"github.com/victorlunam/kuukura/storage"
 )
 
-// RewrapAll moves every DEK to the provider's active key without touching ciphertext.
-// It returns how many versions were rewrapped. The caller audits `key_rotate`.
-func (s *Service) RewrapAll(ctx context.Context) (int, error) {
+// RewrapAll moves every DEK to the provider's active key without touching ciphertext, and records `key_rotate`
+// for admin `by` in the same transaction: the audit row exists exactly when the rewrap committed. totp is how
+// many TOTP secrets the auth service rewrapped just before; it only goes into the row. It returns how many
+// versions were rewrapped.
+func (s *Service) RewrapAll(ctx context.Context, by uuid.UUID, totp int) (int, error) {
 	n := 0
 	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, s.p.Rebind(`SELECT id, secret_id, number, ciphertext, nonce, wrapped_key, key_id, format_version
@@ -49,7 +52,8 @@ func (s *Service) RewrapAll(ctx context.Context) (int, error) {
 			}
 			n++
 		}
-		return nil
+		return s.log.Append(ctx, tx, audit.Entry{Principal: by, Action: "key_rotate", TargetType: "key",
+			Metadata: map[string]any{"key_id": s.kp.KeyID(), "secret_versions": n, "totp": totp}})
 	})
 	return n, err
 }

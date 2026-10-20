@@ -28,7 +28,8 @@ The CLI accepts `http://` server URLs only for `localhost`, `127.0.0.1` and `::1
 **macOS asks for your keychain password ("ku wants to access key ...")?** That is the Keychain protecting the saved
 session. It ties each item to the program that created it, and a CLI you just built is a different, unsigned program
 every time you rebuild it. Choose **Always Allow** once per build. A release binary signed with a Developer ID keeps its
-identity across versions, so it asks once and then stops (signing the macOS release is still to do).
+identity across versions, so it asks once and then stops. The release workflow signs the macOS binaries when the
+`MACOS_CERT_P12` secrets exist; otherwise `scripts/sign-macos.sh <tag>` signs a published release afterwards.
 
 To try the CLI with a throwaway configuration, set `XDG_CONFIG_HOME` (for example `export XDG_CONFIG_HOME=/tmp/ku-test`).
 Do not change `HOME`: the macOS Keychain lives under it, and the CLI would fail to store the session

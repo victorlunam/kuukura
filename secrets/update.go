@@ -30,22 +30,22 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 		return nil, err
 	}
 	if sel.name == "" && len(sel.tags) == 0 {
-		return nil, fail(CodeInvalid, "a name or a tag is required")
+		return nil, fail(access.CodeInvalid, "a name or a tag is required")
 	}
 	add, err := storage.NormalizeTags(ch.AddTags)
 	if err != nil {
-		return nil, fail(CodeInvalid, err.Error())
+		return nil, fail(access.CodeInvalid, err.Error())
 	}
 	rem, err := storage.NormalizeTags(ch.RemoveTags)
 	if err != nil {
-		return nil, fail(CodeInvalid, err.Error())
+		return nil, fail(access.CodeInvalid, err.Error())
 	}
 	rename := strings.ToUpper(ch.Rename)
 	if rename != "" && !nameRE.MatchString(rename) {
-		return nil, fail(CodeInvalid, "invalid name")
+		return nil, fail(access.CodeInvalid, "invalid name")
 	}
 	if rename == "" && len(add) == 0 && len(rem) == 0 && ch.Authorize == nil {
-		return nil, fail(CodeInvalid, "nothing to change")
+		return nil, fail(access.CodeInvalid, "nothing to change")
 	}
 	var names []string
 	err = s.run(ctx, func(tx *sql.Tx, denied *[]audit.Entry) error {
@@ -58,14 +58,14 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 		if ch.Authorize != nil && !*ch.Authorize {
 			if a.Machine {
 				*denied = append(*denied, deniedEntry(a, "update", rows[0].ID))
-				return fail(CodeDenied, "not permitted")
+				return fail(access.CodeDenied, "not permitted")
 			}
 			if !stepUp {
-				return fail(CodeStepUp, "confirmation required")
+				return fail(access.CodeStepUp, "confirmation required")
 			}
 		}
 		if rename != "" && len(rows) != 1 {
-			return fail(CodeNeedsOne, "--name works on exactly one secret")
+			return fail(access.CodeNeedsOne, "--name works on exactly one secret")
 		}
 		perm, err := access.For(ctx, s.p, tx, a, access.Write)
 		if err != nil {
@@ -89,7 +89,7 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 				err = uniqueKeys(nt)
 			}
 			if err != nil {
-				return fail(CodeInvalid, err.Error(), r.label())
+				return fail(access.CodeInvalid, err.Error(), r.label())
 			}
 			n := r.Name
 			if rename != "" {
@@ -97,11 +97,12 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 			}
 			if !perm.Allows(nt) {
 				*denied = append(*denied, deniedEntry(a, "update", r.ID))
-				return fail(CodeDenied, "not permitted", r.label())
+				return fail(access.CodeDenied, "not permitted", r.label())
 			}
 			plans[i] = plan{r, n, nt}
 		}
-		// Uniqueness: against every other active secret and among the new identities.
+		// Uniqueness: against every other active secret and among the new identities. Someone committing the same
+		// identity between this check and the UPDATE below is caught by the unique index (see conflict).
 		others, err := s.resolve(ctx, tx, selector{})
 		if err != nil {
 			return err
@@ -116,12 +117,12 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 		for _, p := range plans {
 			k := p.name + "|" + strings.Join(p.tags, ",")
 			if taken[k] {
-				clashes = append(clashes, strings.TrimSpace(p.name+" "+strings.Join(p.tags, " ")))
+				clashes = append(clashes, label(p.name, p.tags))
 			}
 			taken[k] = true
 		}
 		if len(clashes) > 0 {
-			return fail(CodeClash, "would clash with existing secrets", clashes...)
+			return fail(access.CodeClash, "would clash with existing secrets", clashes...)
 		}
 		for _, p := range plans {
 			authorize := p.RequiresAuthorize
@@ -130,6 +131,9 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 			}
 			if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE secrets SET name = ?, tags = ?, requires_authorize = ? WHERE id = ?`),
 				p.name, s.p.TagsArg(p.tags), authorize, p.ID); err != nil {
+				if storage.IsUniqueViolation(err) {
+					return fail(access.CodeClash, "would clash with existing secrets", label(p.name, p.tags))
+				}
 				return err
 			}
 			meta := map[string]any{}
@@ -138,10 +142,10 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 				meta["renamed_to"] = p.name
 			}
 			if len(add) > 0 {
-				meta["tags_added"] = toAny(add)
+				meta["tags_added"] = add
 			}
 			if len(rem) > 0 {
-				meta["tags_removed"] = toAny(rem)
+				meta["tags_removed"] = rem
 			}
 			if authorize != p.RequiresAuthorize {
 				meta["requires_authorize"] = authorize
@@ -150,19 +154,11 @@ func (s *Service) Update(ctx context.Context, a access.Actor, in Selector, ch Ch
 			if err := s.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "update", SecretID: &id, IP: a.IP, Metadata: meta}); err != nil {
 				return err
 			}
-			names = append(names, strings.TrimSpace(p.name+" "+strings.Join(p.tags, " ")))
+			names = append(names, label(p.name, p.tags))
 		}
 		return nil
 	})
 	return names, err
-}
-
-func toAny(s []string) []any {
-	out := make([]any, len(s))
-	for i, v := range s {
-		out[i] = v
-	}
-	return out
 }
 
 func tagKey(t string) string { k, _, _ := strings.Cut(t, ":"); return k }

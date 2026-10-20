@@ -32,8 +32,14 @@ type Provider interface {
 	CheckAuditProtected(ctx context.Context, q Querier) error
 	// LockAudit serializes audit appends for the rest of the transaction.
 	LockAudit(ctx context.Context, tx *sql.Tx) error
+	// ForUpdate is appended to a SELECT to lock the rows it returns until the transaction ends (empty on sqlite,
+	// which has one connection and no such syntax).
+	ForUpdate() string
 	Close() error
 }
+
+// IsUniqueViolation reports whether err is a unique-constraint failure, on either backend.
+func IsUniqueViolation(err error) bool { return pgUnique(err) || sqliteUnique(err) }
 
 // Querier is satisfied by *sql.DB and *sql.Tx. With sqlite (single connection)
 // code inside a transaction must use the tx, never the DB.

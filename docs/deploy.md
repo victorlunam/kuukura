@@ -74,16 +74,23 @@ deletion protection** (and a long deletion window) on: deleting the KMS key make
 however you back up Docker volumes (backups are out of scope for kuukura itself).
 
 **Postgres**: `VAULT_STORAGE=postgres`. Audit rows must be insert-only, which Postgres enforces with grants, so use
-two roles:
+two roles, and mind the order: the login role can only be created after the group role it joins exists, and
+that role is created by the first start.
 
-1. A table **owner** role runs the migrations (`VAULT_MIGRATE_DATABASE_URL`). The first start creates the group
-   role `kuukura_app` (NOLOGIN) holding the right grants (INSERT and SELECT only on `audit_log`).
-2. The server connects (`VAULT_DATABASE_URL`) as a **login** role that is a member of `kuukura_app` and does not
-   own the tables:
+1. Create an empty database and a **table owner** role (any role that can create tables in it).
+2. Start kuukura **once** with `VAULT_DATABASE_URL` set to the owner's URL (or `VAULT_MIGRATE_DATABASE_URL`; they may
+   be the same on this first run). It runs the migrations and creates the group role `kuukura_app` (NOLOGIN)
+   holding the right grants (INSERT and SELECT only on `audit_log`). `serve` then stops with an error, by
+   design: the owner may modify `audit_log`, and the server refuses to run as such a role. To migrate without
+   that error, run `ku-server admin verify-audit` with the owner's URL instead: it migrates and changes nothing else.
+3. Create the **login** role the server will use: a member of `kuukura_app` that neither owns the tables nor is a
+   member of the role that does:
    ```sql
    CREATE ROLE kuukura_login LOGIN PASSWORD 'change-me' IN ROLE kuukura_app;
    ```
-   The server refuses to start if its role could modify `audit_log`.
+4. Start for real with `VAULT_MIGRATE_DATABASE_URL` = the owner's URL (used for migrations only) and
+   `VAULT_DATABASE_URL` = the login role's URL. On every start the server checks that its role can neither
+   modify `audit_log` nor become the table owner, and refuses to start otherwise.
 
 ## 4. Configure and start
 
@@ -145,8 +152,42 @@ Confirmations (reveal, `--out`, `--authorize off`, secrets marked `requires_auth
 instance and use the second step your account has: your passkey (Touch ID, with user verification) or a code from your
 authenticator app.
 
+## Verifying a release
+
+Every release is built by the `release` workflow of this repository from the tagged commit. It publishes:
+
+- **Build provenance** (a signed SLSA attestation) for the image and for each CLI archive.
+- A **keyless cosign signature** on the image, made with the workflow's GitHub OIDC identity.
+- An **SBOM** of the image (`kuukura-image.spdx.json`, SPDX) and `checksums.txt` on the GitHub release.
+
+The signature and the attestation name the image by its digest, so check what you actually pull. Replace the version:
+
+```sh
+v=2026.10.0
+
+# provenance of the image and of a CLI archive (needs the GitHub CLI, signed in)
+gh attestation verify oci://ghcr.io/victorlunam/kuukura:$v --repo victorlunam/kuukura
+gh attestation verify kuukura_${v}_linux_amd64.tar.gz --repo victorlunam/kuukura
+
+# the cosign signature: the issuer is GitHub Actions, the identity is this repository's release workflow at that tag
+cosign verify ghcr.io/victorlunam/kuukura:$v \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity https://github.com/victorlunam/kuukura/.github/workflows/release.yml@refs/tags/v$v
+
+# the archives against the published checksums
+sha256sum --check --ignore-missing checksums.txt
+```
+
+For production, pin the image by digest (`ghcr.io/victorlunam/kuukura@sha256:...`) after verifying it. These checks prove
+that the artifact came from this repository's workflow at that tag; they do not prove the source has no bugs.
+
 ## Operations
 
 - Key rotation: see [runbook-key-rotation-drill.md](runbook-key-rotation-drill.md). Run the drill quarterly.
+- Audit log integrity: the log is a hash chain, but nothing checks it while the server runs. Run
+  `docker compose exec kuukura /ku-server admin verify-audit` on a schedule (weekly, and after any incident). It
+  prints `OK: audit log verified, <rows> rows, head <hash>` and exits non-zero if a row was edited or removed in the
+  middle. Store the row count and head hash somewhere the database's operator cannot edit: that is the only way to
+  notice that the newest rows were cut off.
 - Agents: see [agents.md](agents.md) for what is and is not protected.
 - Security review: [asvs-l2.md](asvs-l2.md) and [threat-model.md](threat-model.md).

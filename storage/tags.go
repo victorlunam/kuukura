@@ -17,11 +17,12 @@ var tagPart = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)
 // NormalizeTags validates and canonicalizes tags.
 func NormalizeTags(in []string) (Tags, error) {
 	out := make(Tags, 0, len(in))
-	for _, t := range in {
+	for i, t := range in {
 		t = strings.ToLower(t)
 		k, v, ok := strings.Cut(t, ":")
 		if !ok || !tagPart.MatchString(k) || !tagPart.MatchString(v) {
-			return nil, fmt.Errorf("invalid tag %q", t)
+			// The input is not echoed: a secret value passed as a tag by mistake must not come back in an error.
+			return nil, fmt.Errorf("tag %d is not key:value (a-z, 0-9, . _ - only, 1 to 64 characters on each side)", i+1)
 		}
 		out = append(out, t)
 	}

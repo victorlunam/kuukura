@@ -1,115 +1,100 @@
-package storage
+package storage_test
 
 import (
-	"context"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+
+	kdb "github.com/victorlunam/kuukura/db"
+	"github.com/victorlunam/kuukura/storage"
+	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-// backends returns the backends to run: VAULT_STORAGE selects one, unset runs both.
-// Postgres needs VAULT_TEST_POSTGRES_URL (an admin URL; each test gets its own database).
-func backends(t *testing.T) []string {
-	switch s := os.Getenv("VAULT_STORAGE"); s {
-	case "":
-		return []string{"sqlite", "postgres"}
-	case "sqlite", "postgres":
-		return []string{s}
-	default:
-		t.Fatalf("bad VAULT_STORAGE %q", s)
-		return nil
-	}
-}
-
-func forEachBackend(t *testing.T, fn func(t *testing.T, kind, dsn string)) {
-	for _, kind := range backends(t) {
-		t.Run(kind, func(t *testing.T) {
-			fn(t, kind, newDSN(t, kind))
-		})
-	}
-}
-
-func newDSN(t *testing.T, kind string) string {
-	if kind == "sqlite" {
-		return filepath.Join(t.TempDir(), "kuukura.db")
-	}
-	admin := os.Getenv("VAULT_TEST_POSTGRES_URL")
-	if admin == "" {
-		t.Fatal("VAULT_TEST_POSTGRES_URL is required for the postgres backend")
-	}
-	p, err := Open(context.Background(), "postgres", admin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer p.Close()
-	name := "kt_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := p.DB().Exec("CREATE DATABASE " + name); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		p, err := Open(context.Background(), "postgres", admin)
-		if err == nil {
-			_, _ = p.DB().Exec("DROP DATABASE " + name + " WITH (FORCE)")
-			p.Close()
-		}
-	})
-	u, _ := url.Parse(admin)
-	u.Path = "/" + name
-	return u.String()
-}
-
-func open(t *testing.T, kind, dsn string) Provider {
-	t.Helper()
-	if err := Migrate(kind, dsn); err != nil {
-		t.Fatal(err)
-	}
-	p, err := Open(context.Background(), kind, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { p.Close() })
-	return p
-}
-
-func exec(t *testing.T, p Provider, q string, args ...any) error {
+func exec(t *testing.T, p storage.Provider, q string, args ...any) error {
 	t.Helper()
 	_, err := p.DB().Exec(p.Rebind(q), args...)
 	return err
 }
 
-func mustExec(t *testing.T, p Provider, q string, args ...any) {
+func mustExec(t *testing.T, p storage.Provider, q string, args ...any) {
 	t.Helper()
 	if err := exec(t, p, q, args...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func newPrincipal(t *testing.T, p Provider) string {
+func newPrincipal(t *testing.T, p storage.Provider) string {
 	id := uuid.NewString()
 	mustExec(t, p, `INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, 'a@example.test', 'admin', 'active')`, id, "p-"+id)
 	return id
 }
 
-func newSecret(t *testing.T, p Provider, by, name string, tags Tags) (string, error) {
+func newSecret(t *testing.T, p storage.Provider, by, name string, tags storage.Tags) (string, error) {
 	id := uuid.NewString()
 	err := exec(t, p, `INSERT INTO secrets (id, name, kind, tags, created_by) VALUES (?, ?, 'text', ?, ?)`, id, name, p.TagsArg(tags), by)
 	return id, err
 }
 
-func TestMigrationsReversible(t *testing.T) {
-	forEachBackend(t, func(t *testing.T, kind, dsn string) {
-		p := open(t, kind, dsn)
-		m, err := migrator(kind, dsn)
+func TestMigrationsReversibleWithData(t *testing.T) {
+	storagetest.EachDSN(t, func(t *testing.T, kind, dsn string) {
+		files, err := fs.ReadDir(kdb.Migrations, "migrations/"+kind)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for i := 0; i < 4; i++ { // one rollback per migration
+		if err := storage.Migrate(kind, dsn); err != nil {
+			t.Fatal(err)
+		}
+		p, err := storage.Open(t.Context(), kind, dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = p.Close() })
+		m, err := storage.Migrator(kind, dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// back to the state before the default-factor migration, then fill it with an account that has two factors
+		for range 2 {
+			if err := m.Rollback(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		by := newPrincipal(t, p)
+		older, newer := uuid.NewString(), uuid.NewString()
+		base := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+		for i, id := range []string{newer, older} { // inserted newest first: the backfill must go by age, not by order
+			mustExec(t, p, `INSERT INTO credentials (id, principal_id, kind, public_key, created_at) VALUES (?, ?, 'passkey', ?, ?)`,
+				id, by, []byte("fake-key"), p.TimeArg(base.Add(time.Duration(-i)*time.Hour)))
+		}
+		sid, err := newSecret(t, p, by, "KEPT", storage.Tags{"app:shop"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := m.Migrate(); err != nil {
+			t.Fatal(err)
+		}
+		isDefault := func(id string) bool {
+			var d bool
+			if err := p.DB().QueryRow(p.Rebind(`SELECT is_default FROM credentials WHERE id = ?`), id).Scan(&d); err != nil {
+				t.Fatal(err)
+			}
+			return d
+		}
+		if !isDefault(older) || isDefault(newer) {
+			t.Fatal("migrating up must make the oldest factor the default, and only it")
+		}
+		var n int
+		if err := p.DB().QueryRow(p.Rebind(`SELECT COUNT(*) FROM secrets WHERE id = ?`), sid).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("existing rows must survive the migration: %d %v", n, err)
+		}
+
+		// every migration rolls back, and the schema comes back
+		for range files {
 			if err := m.Rollback(); err != nil {
 				t.Fatal(err)
 			}
@@ -127,12 +112,12 @@ func TestMigrationsReversible(t *testing.T) {
 }
 
 func TestNormalizeTags(t *testing.T) {
-	got, err := NormalizeTags([]string{"Env:Prod", "app:shop", "env:prod"})
-	if err != nil || !slices.Equal(got, Tags{"app:shop", "env:prod"}) {
+	got, err := storage.NormalizeTags([]string{"Env:Prod", "app:shop", "env:prod"})
+	if err != nil || !slices.Equal(got, storage.Tags{"app:shop", "env:prod"}) {
 		t.Fatalf("got %v, %v", got, err)
 	}
 	for _, bad := range [][]string{{"nocolon"}, {"a:b:c"}, {"a:"}, {"A B:c"}} {
-		if _, err := NormalizeTags(bad); err == nil {
+		if _, err := storage.NormalizeTags(bad); err == nil {
 			t.Fatalf("%v should be rejected", bad)
 		}
 	}
@@ -140,21 +125,32 @@ func TestNormalizeTags(t *testing.T) {
 	for i := range many {
 		many[i] = fmt.Sprintf("k:v%d", i)
 	}
-	if _, err := NormalizeTags(many); err == nil {
+	if _, err := storage.NormalizeTags(many); err == nil {
 		t.Fatal("11 tags should be rejected")
 	}
 }
 
+// A secret value passed as a tag by mistake must not come back in the error.
+func TestRejectedTagIsNotEchoed(t *testing.T) {
+	const value = "sk_test_FAKE_EXAMPLE"
+	_, err := storage.NormalizeTags([]string{"app:shop", value})
+	if err == nil {
+		t.Fatal("must be rejected")
+	}
+	if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(value)) || !strings.Contains(err.Error(), "2") {
+		t.Fatalf("the error must name the position, not the input: %v", err)
+	}
+}
+
 func TestTagsRoundTrip(t *testing.T) {
-	forEachBackend(t, func(t *testing.T, kind, dsn string) {
-		p := open(t, kind, dsn)
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
 		by := newPrincipal(t, p)
-		for _, want := range []Tags{{}, {"app:shop"}, {"app:shop", "env:prod", "team:pay"}} {
+		for _, want := range []storage.Tags{{}, {"app:shop"}, {"app:shop", "env:prod", "team:pay"}} {
 			id, err := newSecret(t, p, by, "RT_"+strings.ToUpper(strings.NewReplacer(":", "_", "-", "_").Replace(strings.Join(want, "_"))), want)
 			if err != nil {
 				t.Fatal(err)
 			}
-			var got Tags
+			var got storage.Tags
 			if err := p.DB().QueryRow(p.Rebind(`SELECT tags FROM secrets WHERE id = ?`), id).Scan(&got); err != nil {
 				t.Fatal(err)
 			}
@@ -166,10 +162,9 @@ func TestTagsRoundTrip(t *testing.T) {
 }
 
 func TestUniqueNameTagsActiveOnly(t *testing.T) {
-	forEachBackend(t, func(t *testing.T, kind, dsn string) {
-		p := open(t, kind, dsn)
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
 		by := newPrincipal(t, p)
-		tags := Tags{"app:shop", "env:prod"}
+		tags := storage.Tags{"app:shop", "env:prod"}
 		id, err := newSecret(t, p, by, "STRIPE_KEY", tags)
 		if err != nil {
 			t.Fatal(err)
@@ -177,18 +172,13 @@ func TestUniqueNameTagsActiveOnly(t *testing.T) {
 		if _, err := newSecret(t, p, by, "STRIPE_KEY", tags); err == nil {
 			t.Fatal("duplicate name+tags must be rejected")
 		}
-		if _, err := newSecret(t, p, by, "STRIPE_KEY", Tags{"app:shop", "env:qa"}); err != nil {
+		if _, err := newSecret(t, p, by, "STRIPE_KEY", storage.Tags{"app:shop", "env:qa"}); err != nil {
 			t.Fatalf("same name, other tags must be allowed: %v", err)
 		}
-		if _, err := newSecret(t, p, by, "stripe_key", Tags{"app:x"}); err == nil {
+		if _, err := newSecret(t, p, by, "stripe_key", storage.Tags{"app:x"}); err == nil {
 			t.Fatal("lowercase name must be rejected by CHECK")
 		}
-		now := "2026-10-19T00:00:00Z"
-		if kind == "postgres" {
-			mustExec(t, p, `UPDATE secrets SET archived_at = now(), archived_by = ? WHERE id = ?`, by, id)
-		} else {
-			mustExec(t, p, `UPDATE secrets SET archived_at = ?, archived_by = ? WHERE id = ?`, now, by, id)
-		}
+		mustExec(t, p, `UPDATE secrets SET archived_at = ?, archived_by = ? WHERE id = ?`, p.TimeArg(time.Now()), by, id)
 		if _, err := newSecret(t, p, by, "STRIPE_KEY", tags); err != nil {
 			t.Fatalf("name+tags must be reusable after archive: %v", err)
 		}
@@ -196,10 +186,9 @@ func TestUniqueNameTagsActiveOnly(t *testing.T) {
 }
 
 func TestAuditLogInsertOnly(t *testing.T) {
-	forEachBackend(t, func(t *testing.T, kind, dsn string) {
-		p := open(t, kind, dsn)
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		by := newPrincipal(t, p)
-		ctx := context.Background()
+		ctx := t.Context()
 		conn, err := p.DB().Conn(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -213,10 +202,7 @@ func TestAuditLogInsertOnly(t *testing.T) {
 		id := uuid.NewString()
 		ins := p.Rebind(`INSERT INTO audit_log (id, at, principal_id, action, result, prev_hash, hash)
 			VALUES (?, ?, ?, 'login', 'ok', ?, ?)`)
-		at := any("2026-10-19T00:00:00Z")
-		if kind == "postgres" {
-			at = "2026-10-19T00:00:00Z"
-		}
+		at := p.TimeArg(time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC))
 		if _, err := conn.ExecContext(ctx, ins, id, at, by, make([]byte, 32), make([]byte, 32)); err != nil {
 			t.Fatalf("insert must work: %v", err)
 		}
@@ -231,10 +217,9 @@ func TestAuditLogInsertOnly(t *testing.T) {
 
 // Grant tag containment must give identical answers on both backends.
 func TestGrantTagContainment(t *testing.T) {
-	forEachBackend(t, func(t *testing.T, kind, dsn string) {
-		p := open(t, kind, dsn)
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
 		by := newPrincipal(t, p)
-		secrets := map[string]Tags{
+		secrets := map[string]storage.Tags{
 			"S_NONE":  {},
 			"S_SHOP":  {"app:shop"},
 			"S_PROD":  {"app:shop", "env:prod"},
@@ -247,14 +232,14 @@ func TestGrantTagContainment(t *testing.T) {
 			}
 		}
 		cases := []struct {
-			sel  Tags
+			sel  storage.Tags
 			want []string
 		}{
-			{Tags{}, []string{"S_NONE", "S_OTHER", "S_PAY", "S_PROD", "S_SHOP"}},
-			{Tags{"app:shop"}, []string{"S_PAY", "S_PROD", "S_SHOP"}},
-			{Tags{"app:shop", "env:prod"}, []string{"S_PAY", "S_PROD"}},
-			{Tags{"env:prod", "team:pay"}, []string{"S_PAY"}},
-			{Tags{"env:qa"}, nil},
+			{storage.Tags{}, []string{"S_NONE", "S_OTHER", "S_PAY", "S_PROD", "S_SHOP"}},
+			{storage.Tags{"app:shop"}, []string{"S_PAY", "S_PROD", "S_SHOP"}},
+			{storage.Tags{"app:shop", "env:prod"}, []string{"S_PAY", "S_PROD"}},
+			{storage.Tags{"env:prod", "team:pay"}, []string{"S_PAY"}},
+			{storage.Tags{"env:qa"}, nil},
 		}
 		for _, c := range cases {
 			cond, args := p.Contains("tags", c.sel)
@@ -279,28 +264,50 @@ func TestGrantTagContainment(t *testing.T) {
 }
 
 func TestCheckAuditProtected(t *testing.T) {
-	forEachBackend(t, func(t *testing.T, kind, dsn string) {
-		p := open(t, kind, dsn)
-		conn, err := p.DB().Conn(context.Background())
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
+		conn, err := p.DB().Conn(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer conn.Close()
 		if kind == "sqlite" {
-			if err := p.CheckAuditProtected(context.Background(), conn); err != nil {
+			if err := p.CheckAuditProtected(ctx, conn); err != nil {
 				t.Fatal(err)
 			}
 			return
 		}
 		// the owner/superuser used to run migrations must be refused as the app role
-		if err := p.CheckAuditProtected(context.Background(), conn); err == nil {
+		if err := p.CheckAuditProtected(ctx, conn); err == nil {
 			t.Fatal("an owner connection must be refused")
 		}
-		if _, err := conn.ExecContext(context.Background(), `SET ROLE kuukura_app`); err != nil {
+		if _, err := conn.ExecContext(ctx, `SET ROLE kuukura_app`); err != nil {
 			t.Fatal(err)
 		}
-		if err := p.CheckAuditProtected(context.Background(), conn); err != nil {
+		if err := p.CheckAuditProtected(ctx, conn); err != nil {
 			t.Fatalf("the app role is fine: %v", err)
+		}
+		if _, err := conn.ExecContext(ctx, `RESET ROLE`); err != nil {
+			t.Fatal(err)
+		}
+
+		// A member of the owner role that does not inherit holds no privilege itself but can SET ROLE to the owner,
+		// so the privilege test alone would pass it.
+		var owner string
+		if err := conn.QueryRowContext(ctx, `SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'audit_log'::regclass`).Scan(&owner); err != nil {
+			t.Fatal(err)
+		}
+		member := "kt_member_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+		if _, err := conn.ExecContext(ctx, `CREATE ROLE `+member+` NOINHERIT IN ROLE kuukura_app, `+owner); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _, _ = p.DB().Exec(`DROP ROLE ` + member) })
+		if _, err := conn.ExecContext(ctx, `SET ROLE `+member); err != nil {
+			t.Fatal(err)
+		}
+		err = p.CheckAuditProtected(ctx, conn)
+		if err == nil || !strings.Contains(err.Error(), "owner") {
+			t.Fatalf("a member of the owner role must be refused: %v", err)
 		}
 	})
 }

@@ -1,7 +1,7 @@
 package identity
 
 import (
-	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"strings"
@@ -16,8 +16,6 @@ import (
 	"github.com/victorlunam/kuukura/storage"
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
-
-var ctx = context.Background()
 
 type env struct {
 	t      *testing.T
@@ -68,6 +66,7 @@ func (e *env) count(q string, args ...any) int {
 
 func TestOnlyAdminsInvite(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		admin := e.person("admin", "active")
 		member := e.person("member", "active")
@@ -98,6 +97,7 @@ func TestOnlyAdminsInvite(t *testing.T) {
 
 func TestBootstrapAdminInvite(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		inv, err := e.svc.BootstrapAdmin(ctx, "first@example.test")
 		if err != nil {
@@ -118,7 +118,11 @@ func TestBootstrapAdminInvite(t *testing.T) {
 				t.Fatal("link in audit")
 			}
 		}
-		// only the hash is stored
+		// only the hash is stored: the SHA-256 of the raw token is there, the raw token is not
+		sum := sha256.Sum256([]byte(inv.Token))
+		if e.count(`SELECT COUNT(*) FROM tokens WHERE token_hash = ?`, sum[:]) != 1 {
+			t.Fatal("the token's hash must be stored")
+		}
 		if e.count(`SELECT COUNT(*) FROM tokens WHERE token_hash = ?`, []byte(inv.Token)) != 0 {
 			t.Fatal("raw token stored")
 		}
@@ -135,6 +139,7 @@ func TestBootstrapAdminInvite(t *testing.T) {
 
 func TestLastAdminProtected(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		a1 := e.person("admin", "active")
 		if err := e.svc.Disable(ctx, a1, e.name(a1)); code(err) != access.CodeLastAdmin {
@@ -161,9 +166,9 @@ func TestLastAdminProtected(t *testing.T) {
 
 func TestDisableEndsTokensAndMachines(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		admin := e.person("admin", "active")
-		other := e.person("admin", "active")
 		user := e.person("member", "active")
 		sess, err := e.issue(user.ID, auth.KindSession, []string{"read"})
 		if err != nil {
@@ -189,7 +194,15 @@ func TestDisableEndsTokensAndMachines(t *testing.T) {
 				t.Fatal("tokens of a disabled identity and its machines must stop working")
 			}
 		}
-		_ = other
+		// the tokens fail because the identities are disabled, not by some other accident
+		for _, id := range []uuid.UUID{user.ID, mid} {
+			if e.count(`SELECT COUNT(*) FROM principals WHERE id = ? AND status = 'disabled'`, id) != 1 {
+				t.Fatalf("%s must be disabled", id)
+			}
+		}
+		if e.count(`SELECT COUNT(*) FROM tokens WHERE revoked_at IS NULL AND principal_id IN (?, ?)`, user.ID, mid) != 0 {
+			t.Fatal("every token of the person and the machine must be revoked")
+		}
 		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'disable'`) != 1 {
 			t.Fatal("disable must be audited")
 		}
@@ -198,8 +211,8 @@ func TestDisableEndsTokensAndMachines(t *testing.T) {
 
 func (e *env) issue(id uuid.UUID, kind string, scopes []string) (string, error) {
 	var raw string
-	err := storage.InTx(ctx, e.p, func(tx *sql.Tx) error {
-		iss, err := e.tokens.Issue(ctx, tx, id, kind, scopes, time.Hour)
+	err := storage.InTx(e.t.Context(), e.p, func(tx *sql.Tx) error {
+		iss, err := e.tokens.Issue(e.t.Context(), tx, id, kind, scopes, time.Hour)
 		raw = iss.Raw
 		return err
 	})
@@ -208,6 +221,7 @@ func (e *env) issue(id uuid.UUID, kind string, scopes []string) (string, error) 
 
 func TestMachineInvite(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		admin := e.person("admin", "active")
 		inv, err := e.svc.InviteMachine(ctx, admin, "ci-deploy")

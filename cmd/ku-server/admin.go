@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -19,11 +20,11 @@ import (
 
 func openStorage(ctx context.Context, c config) (storage.Provider, error) {
 	if err := storage.Migrate(c.Storage, c.migrateDSN()); err != nil {
-		return nil, fmt.Errorf("migrations failed")
+		return nil, fmt.Errorf("migrations failed: %s", c.scrub(err))
 	}
 	p, err := storage.Open(ctx, c.Storage, c.dsn())
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to the database")
+		return nil, fmt.Errorf("cannot connect to the database: %s", c.scrub(err))
 	}
 	return p, nil
 }
@@ -37,13 +38,15 @@ func keyProvider(ctx context.Context, c config) (keys.KeyProvider, error) {
 
 func runAdmin(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: ku-server admin <invite|rotate-key>")
+		return errors.New("usage: ku-server admin <invite|rotate-key|verify-audit>")
 	}
 	switch args[0] {
 	case "invite":
 		return adminInvite(args[1:])
 	case "rotate-key":
 		return adminRotate(args[1:])
+	case "verify-audit":
+		return adminVerifyAudit(args[1:])
 	}
 	return fmt.Errorf("unknown admin command %q", args[0])
 }
@@ -73,12 +76,37 @@ func adminInvite(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Invite link (single use, valid until %s):\n%s/invite?token=%s\n", inv.ExpiresAt.Local().Format("15:04"), c.baseURL(), inv.Token)
+	fmt.Printf("Invite link (single use, valid until %s):\n%s/invite?token=%s\n", inv.ExpiresAt.UTC().Format(time.RFC3339), c.baseURL(), inv.Token)
 	return nil
 }
 
-// adminRotate rewraps every DEK and TOTP secret to the active master key version and audits key_rotate.
-// Add the new key version to the key file and restart/run this with it before rotating.
+// adminVerifyAudit recomputes the whole audit hash chain and prints the number of rows and the head hash. Store
+// the head somewhere the database's operator cannot edit: the chain alone shows edits and deletions in the
+// middle, only a remembered head shows that the newest rows were cut off. It fails (exit 1) if the chain is broken.
+func adminVerifyAudit(args []string) error {
+	if len(args) != 0 {
+		return errors.New("usage: ku-server admin verify-audit")
+	}
+	ctx := context.Background()
+	c, err := loadConfig(false)
+	if err != nil {
+		return err
+	}
+	p, err := openStorage(ctx, c)
+	if err != nil {
+		return err
+	}
+	defer p.Close()
+	head, err := audit.New(p).VerifyHead(ctx)
+	if err != nil {
+		return fmt.Errorf("the audit log does not verify: %w", err)
+	}
+	fmt.Printf("OK: audit log verified, %d rows, head %x\n", head.Rows, head.Hash)
+	return nil
+}
+
+// adminRotate rewraps every DEK and TOTP secret to the active master key and audits key_rotate. The active key is
+// the highest version in the key file (or VAULT_KMS_KEY_ARN): add the new one and run this with it.
 func adminRotate(args []string) error {
 	fs := flag.NewFlagSet("admin rotate-key", flag.ContinueOnError)
 	by := fs.String("admin", "", "email of the active admin recorded in the audit log")
@@ -110,22 +138,20 @@ func adminRotate(args []string) error {
 		return err
 	}
 	log := audit.New(p)
-	tokens := auth.NewTokens(p)
-	nSecrets, err := secrets.New(p, kp, log).RewrapAll(ctx)
-	if err != nil {
-		return fmt.Errorf("rewrap failed: %w", err)
-	}
-	a, err := auth.NewService(p, log, tokens, nil, kp, auth.Config{RPID: c.Domain, RPOrigin: c.baseURL(), Issuer: "kuukura"})
+	a, err := auth.NewService(p, log, auth.NewTokens(p), nil, kp, auth.Config{RPID: c.Domain, RPOrigin: c.baseURL(), Issuer: "kuukura"})
 	if err != nil {
 		return err
 	}
+	// TOTP first, in its own transaction (it lives in auth), then the secrets together with the audit row: the
+	// row exists only if both are done, and both steps skip what is already on the active key, so a failed run
+	// can simply be repeated.
 	nTOTP, err := a.RewrapTOTP(ctx)
 	if err != nil {
 		return fmt.Errorf("rewrap failed: %w", err)
 	}
-	if err := log.Record(ctx, audit.Entry{Principal: who, Action: "key_rotate", TargetType: "key",
-		Metadata: map[string]any{"key_id": kp.KeyID(), "secret_versions": nSecrets, "totp": nTOTP}}); err != nil {
-		return err
+	nSecrets, err := secrets.New(p, kp, log).RewrapAll(ctx, who, nTOTP)
+	if err != nil {
+		return fmt.Errorf("rewrap failed: %w", err)
 	}
 	fmt.Printf("Rewrapped %d secret versions and %d TOTP secrets to %s.\n", nSecrets, nTOTP, kp.KeyID())
 	return nil

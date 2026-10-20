@@ -60,29 +60,33 @@ func (l *Log) Append(ctx context.Context, tx *sql.Tx, e Entry) error {
 	if e.Result == "" {
 		e.Result = ResultOK
 	}
-	if err := l.p.LockAudit(ctx, tx); err != nil {
-		return err
-	}
-	prev := genesis
-	err := tx.QueryRowContext(ctx, `SELECT hash FROM audit_log a
-		WHERE NOT EXISTS (SELECT 1 FROM audit_log b WHERE b.prev_hash = a.hash)`).Scan(&prev)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	if errors.Is(err, sql.ErrNoRows) {
-		prev = genesis
-	}
-	r := Row{Entry: e, ID: uuid.New(), At: time.Now().UTC().Truncate(time.Microsecond), PrevHash: prev}
-	if r.Hash, err = r.computeHash(); err != nil {
-		return err
-	}
 	var ip, meta any
 	if e.IP != "" {
 		a, err := netip.ParseAddr(e.IP)
 		if err != nil {
 			return errors.New("audit: bad ip")
 		}
-		ip = a.String()
+		// The hash covers the stored form: Verify reads the canonical text back, so "FD00:0::1" must be hashed
+		// as "fd00::1".
+		e.IP = a.WithZone("").String()
+		ip = e.IP
+	}
+	if err := l.p.LockAudit(ctx, tx); err != nil {
+		return err
+	}
+	prev, prevAt, err := l.tip(ctx, tx)
+	if err != nil {
+		return err
+	}
+	// Strictly after the tip, even if the clock stepped back or two appends share a microsecond: the newest row by
+	// time is then always the tip.
+	at := time.Now().UTC().Truncate(time.Microsecond)
+	if !at.After(prevAt) {
+		at = prevAt.Add(time.Microsecond)
+	}
+	r := Row{Entry: e, ID: uuid.New(), At: at, PrevHash: prev}
+	if r.Hash, err = r.computeHash(); err != nil {
+		return err
 	}
 	if e.Metadata != nil {
 		m, err := json.Marshal(e.Metadata)
@@ -97,6 +101,31 @@ func (l *Log) Append(ctx context.Context, tx *sql.Tx, e Entry) error {
 		r.ID, l.p.TimeArg(r.At), e.Principal, e.Action, e.SecretID, e.Version, e.Result, ip,
 		nullStr(e.TargetType), e.TargetID, meta, prev, r.Hash)
 	return err
+}
+
+// tip returns the hash and time of the last row of the chain (genesis if empty). The newest row by time is read
+// through the (at, id) index; that is the tip unless it already has a successor, which only a hand-edited
+// timestamp can cause, and then the anti-join finds the real one.
+func (l *Log) tip(ctx context.Context, tx *sql.Tx) ([]byte, time.Time, error) {
+	var hash []byte
+	var at storage.Time
+	err := tx.QueryRowContext(ctx, `SELECT hash, at FROM audit_log ORDER BY at DESC, id DESC LIMIT 1`).Scan(&hash, &at)
+	if errors.Is(err, sql.ErrNoRows) {
+		return genesis, time.Time{}, nil
+	}
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	var successors int
+	if err := tx.QueryRowContext(ctx, l.p.Rebind(`SELECT COUNT(*) FROM audit_log WHERE prev_hash = ?`), hash).Scan(&successors); err != nil {
+		return nil, time.Time{}, err
+	}
+	if successors == 0 {
+		return hash, at.Time, nil
+	}
+	err = tx.QueryRowContext(ctx, `SELECT a.hash, a.at FROM audit_log a
+		WHERE NOT EXISTS (SELECT 1 FROM audit_log b WHERE b.prev_hash = a.hash)`).Scan(&hash, &at)
+	return hash, at.Time, err
 }
 
 // Record appends one entry in its own transaction (used for denials).
@@ -170,8 +199,8 @@ func decodeJSON(raw []byte) (any, error) {
 	return v, d.Decode(&v)
 }
 
-const selectRow = `SELECT a.id, a.at, a.principal_id, a.action, a.secret_id, a.version, a.result, CAST(a.ip AS TEXT),
-	a.target_type, a.target_id, CAST(a.metadata AS TEXT), a.prev_hash, a.hash FROM audit_log a`
+const columns = `a.id, a.at, a.principal_id, a.action, a.secret_id, a.version, a.result, CAST(a.ip AS TEXT),
+	a.target_type, a.target_id, CAST(a.metadata AS TEXT), a.prev_hash, a.hash`
 
 func scanRow(rows *sql.Rows, extra ...any) (Row, error) {
 	var r Row
@@ -209,11 +238,24 @@ func scanRow(rows *sql.Rows, extra ...any) (Row, error) {
 	return r, nil
 }
 
+// Head is the end of a verified chain. Keeping it somewhere else lets an operator notice a later truncation,
+// which the chain alone cannot show.
+type Head struct {
+	Rows int
+	Hash []byte
+}
+
 // Verify walks the chain from genesis and recomputes every hash.
 func (l *Log) Verify(ctx context.Context) error {
-	rows, err := l.p.DB().QueryContext(ctx, selectRow)
+	_, err := l.VerifyHead(ctx)
+	return err
+}
+
+// VerifyHead is Verify that also returns the head of the chain.
+func (l *Log) VerifyHead(ctx context.Context) (Head, error) {
+	rows, err := l.p.DB().QueryContext(ctx, `SELECT `+columns+` FROM audit_log a`)
 	if err != nil {
-		return err
+		return Head{}, err
 	}
 	defer rows.Close()
 	byPrev := map[string]Row{}
@@ -221,27 +263,27 @@ func (l *Log) Verify(ctx context.Context) error {
 	for rows.Next() {
 		r, err := scanRow(rows)
 		if err != nil {
-			return err
+			return Head{}, err
 		}
 		byPrev[string(r.PrevHash)] = r
 		total++
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return Head{}, err
 	}
 	prev := genesis
 	for n := 0; n < total; n++ {
 		r, ok := byPrev[string(prev)]
 		if !ok {
-			return fmt.Errorf("audit: chain broken after %d rows", n)
+			return Head{}, fmt.Errorf("audit: chain broken after %d rows", n)
 		}
 		h, err := r.computeHash()
 		if err != nil || !bytes.Equal(h, r.Hash) {
-			return fmt.Errorf("audit: row %s was altered", r.ID)
+			return Head{}, fmt.Errorf("audit: row %s was altered", r.ID)
 		}
 		prev = r.Hash
 	}
-	return nil
+	return Head{Rows: total, Hash: prev}, nil
 }
 
 // Filter narrows List to rows about secrets with this name and/or tags.
@@ -252,8 +294,7 @@ type Filter struct {
 
 // List returns rows newest first, with principal and secret names.
 func (l *Log) List(ctx context.Context, f Filter, limit int) ([]Row, error) {
-	q := `SELECT a.id, a.at, a.principal_id, a.action, a.secret_id, a.version, a.result, CAST(a.ip AS TEXT),
-		a.target_type, a.target_id, CAST(a.metadata AS TEXT), a.prev_hash, a.hash, COALESCE(pr.name, ''), COALESCE(s.name, '')
+	q := `SELECT ` + columns + `, COALESCE(pr.name, ''), COALESCE(s.name, '')
 		FROM audit_log a LEFT JOIN principals pr ON pr.id = a.principal_id LEFT JOIN secrets s ON s.id = a.secret_id WHERE 1=1`
 	var args []any
 	if f.Name != "" {
@@ -265,7 +306,7 @@ func (l *Log) List(ctx context.Context, f Filter, limit int) ([]Row, error) {
 		q += ` AND ` + cond
 		args = append(args, a...)
 	}
-	q += ` ORDER BY a.at DESC, a.id LIMIT ?`
+	q += ` ORDER BY a.at DESC, a.id DESC LIMIT ?`
 	args = append(args, limit)
 	rows, err := l.p.DB().QueryContext(ctx, l.p.Rebind(q), args...)
 	if err != nil {

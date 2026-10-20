@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -15,8 +18,6 @@ import (
 	"github.com/victorlunam/kuukura/storage"
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
-
-var ctx = context.Background()
 
 const fakeValue = "sk_test_FAKE_EXAMPLE"
 
@@ -67,7 +68,7 @@ func (e *env) grant(a access.Actor, perm string, tags ...string) {
 
 func (e *env) set(a access.Actor, name, value string, tags ...string) SetResult {
 	e.t.Helper()
-	r, err := e.svc.Set(ctx, a, SetInput{Name: name, Tags: tags, Value: []byte(value), Create: true})
+	r, err := e.svc.Set(e.t.Context(), a, SetInput{Name: name, Tags: tags, Value: []byte(value), Create: true})
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -79,14 +80,10 @@ func code(err error) string {
 	if errors.As(err, &de) {
 		return de.Code
 	}
-	return "other:" + errString(err)
-}
-
-func errString(err error) string {
 	if err == nil {
 		return "<nil>"
 	}
-	return err.Error()
+	return "other:" + err.Error()
 }
 
 func (e *env) auditCount(a access.Actor, action, result string) int {
@@ -100,11 +97,12 @@ func (e *env) auditCount(a access.Actor, action, result string) int {
 
 func TestSetVersionsRevealRun(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
 
-		if _, err := e.svc.Set(ctx, u, SetInput{Name: "stripe_key", Tags: []string{"app:shop"}, Value: []byte(fakeValue)}); code(err) != CodeWouldCreate {
+		if _, err := e.svc.Set(ctx, u, SetInput{Name: "stripe_key", Tags: []string{"app:shop"}, Value: []byte(fakeValue)}); code(err) != access.CodeWouldCreate {
 			t.Fatalf("missing secret needs confirmation, got %v", err)
 		}
 		if r := e.set(u, "stripe_key", fakeValue, "app:shop", "env:prod"); r.Version != 1 || !r.Created || r.Name != "STRIPE_KEY" {
@@ -119,7 +117,7 @@ func TestSetVersionsRevealRun(t *testing.T) {
 			t.Fatalf("list: %+v %v", list, err)
 		}
 		sel := Selector{Name: "STRIPE_KEY", Tags: []string{"env:prod"}}
-		if _, err := e.svc.Reveal(ctx, u, sel, false); code(err) != CodeStepUp {
+		if _, err := e.svc.Reveal(ctx, u, sel, false); code(err) != access.CodeStepUp {
 			t.Fatalf("reveal without step-up: %v", err)
 		}
 		v, err := e.svc.Reveal(ctx, u, sel, true)
@@ -136,48 +134,77 @@ func TestSetVersionsRevealRun(t *testing.T) {
 		if err := e.log.Verify(ctx); err != nil {
 			t.Fatal(err)
 		}
-		assertNoValueInAudit(t, e, fakeValue)
+		for _, v := range []string{fakeValue, fakeValue + "2"} {
+			if e.auditHolds(v) {
+				t.Fatalf("the value %q leaked into the audit log", v)
+			}
+		}
 	})
 }
 
-func assertNoValueInAudit(t *testing.T, e *env, v string) {
-	t.Helper()
-	rows, err := e.log.List(ctx, audit.Filter{}, 1000)
+// auditHolds reports whether v appears in any column of any audit row, as stored: every column cast to text, the
+// metadata included, and the raw bytes of the hashes.
+func (e *env) auditHolds(v string) bool {
+	e.t.Helper()
+	rows, err := e.p.DB().Query(`SELECT CAST(id AS TEXT), CAST(at AS TEXT), CAST(principal_id AS TEXT), action, CAST(secret_id AS TEXT),
+		CAST(version AS TEXT), result, CAST(ip AS TEXT), target_type, CAST(target_id AS TEXT), CAST(metadata AS TEXT), prev_hash, hash FROM audit_log`)
 	if err != nil {
-		t.Fatal(err)
+		e.t.Fatal(err)
 	}
-	for _, r := range rows {
-		if strings.Contains(r.Action+r.Result+r.TargetType+toString(r.Metadata), v) {
-			t.Fatal("a value leaked into the audit log")
+	defer rows.Close()
+	cols, _ := rows.Columns()
+	n := 0
+	for rows.Next() {
+		n++
+		fields := make([]any, len(cols))
+		for i := range fields {
+			fields[i] = new([]byte)
+		}
+		if err := rows.Scan(fields...); err != nil {
+			e.t.Fatal(err)
+		}
+		for _, f := range fields {
+			if bytes.Contains(*f.(*[]byte), []byte(v)) {
+				return true
+			}
 		}
 	}
+	if err := rows.Err(); err != nil {
+		e.t.Fatal(err)
+	}
+	if n == 0 {
+		e.t.Fatal("the audit log is empty: the scan would prove nothing")
+	}
+	return false
 }
 
-func toString(m map[string]any) string {
-	var b strings.Builder
-	for k, v := range m {
-		b.WriteString(k)
-		b.WriteString(strings.TrimSpace(strings.Join([]string{toS(v)}, "")))
-	}
-	return b.String()
-}
-
-func toS(v any) string {
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return ""
+// The leak scan must be able to see a value where it is stored, or "not found" means nothing.
+func TestAuditScanSeesAPlantedValue(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		e := setup(t, p)
+		u := e.human("member")
+		if err := e.log.Record(t.Context(), audit.Entry{Principal: u.ID, Action: "list", Metadata: map[string]any{"note": "x" + fakeValue}}); err != nil {
+			t.Fatal(err)
+		}
+		if !e.auditHolds(fakeValue) {
+			t.Fatal("a value in the metadata must be found")
+		}
+		if e.auditHolds("not-there-FAKE") {
+			t.Fatal("an absent value must not be found")
+		}
+	})
 }
 
 func TestDenyByDefaultAndAudited(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		owner := e.human("member")
 		e.grant(owner, "write", "app:shop")
 		e.set(owner, "DB_URL", fakeValue, "app:shop")
 
 		nobody := e.human("admin") // admin role grants no secret access
-		if _, err := e.svc.Set(ctx, nobody, SetInput{Name: "X", Tags: []string{"app:shop"}, Value: []byte("v"), Create: true}); code(err) != CodeDenied {
+		if _, err := e.svc.Set(ctx, nobody, SetInput{Name: "X", Tags: []string{"app:shop"}, Value: []byte("v"), Create: true}); code(err) != access.CodeDenied {
 			t.Fatalf("set without grant: %v", err)
 		}
 		if e.auditCount(nobody, "create", "denied") != 1 {
@@ -190,19 +217,19 @@ func TestDenyByDefaultAndAudited(t *testing.T) {
 		_, err := e.svc.Run(ctx, nobody, Selector{Name: "DB_URL", Tags: []string{"app:shop"}}, false)
 		_, errMissing := e.svc.Run(ctx, nobody, Selector{Name: "NO_SUCH", Tags: []string{"app:shop"}}, false)
 		var de, dm *Error
-		if !errors.As(err, &de) || !errors.As(errMissing, &dm) || de.Code != CodeNotFound || de.Msg != dm.Msg || len(de.Items) != 0 {
+		if !errors.As(err, &de) || !errors.As(errMissing, &dm) || de.Code != access.CodeNotFound || de.Msg != dm.Msg || len(de.Items) != 0 {
 			t.Fatalf("an existing unreadable name must look like a missing one: %v / %v", err, errMissing)
 		}
 		if e.auditCount(nobody, "read", "denied") != 1 {
 			t.Fatal("read denial must be audited")
 		}
-		if _, err := e.svc.Reveal(ctx, nobody, Selector{Name: "NOPE", Tags: []string{"app:shop"}}, true); code(err) != CodeNotFound {
+		if _, err := e.svc.Reveal(ctx, nobody, Selector{Name: "NOPE", Tags: []string{"app:shop"}}, true); code(err) != access.CodeNotFound {
 			t.Fatalf("unknown secret: %v", err)
 		}
 		// read-only grant cannot write
 		reader := e.human("member")
 		e.grant(reader, "read", "app:shop")
-		if _, err := e.svc.Revoke(ctx, reader, Selector{Name: "DB_URL"}); code(err) != CodeDenied {
+		if _, err := e.svc.Revoke(ctx, reader, Selector{Name: "DB_URL"}); code(err) != access.CodeDenied {
 			t.Fatalf("revoke with read grant: %v", err)
 		}
 	})
@@ -210,6 +237,7 @@ func TestDenyByDefaultAndAudited(t *testing.T) {
 
 func TestRevokeBlocksUntilNextSet(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
@@ -223,13 +251,17 @@ func TestRevokeBlocksUntilNextSet(t *testing.T) {
 			t.Fatal("revoke must be audited")
 		}
 		sel := Selector{Name: "STRIPE_KEY", Tags: []string{"env:prod"}}
-		if _, err := e.svc.Reveal(ctx, u, sel, true); code(err) != CodeBlocked {
+		if _, err := e.svc.Reveal(ctx, u, sel, true); code(err) != access.CodeBlocked {
 			t.Fatalf("reveal after revoke: %v", err)
 		}
 		_, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, false)
 		var de *Error
-		if !errors.As(err, &de) || de.Code != CodeBlocked || !strings.Contains(strings.Join(de.Items, ","), "STRIPE_KEY") {
+		if !errors.As(err, &de) || de.Code != access.CodeBlocked || !strings.Contains(strings.Join(de.Items, ","), "STRIPE_KEY") {
 			t.Fatalf("run after revoke must name the secret: %v", err)
+		}
+		// revoking what is already blocked changes and audits nothing
+		if names, err := e.svc.Revoke(ctx, u, sel); err != nil || len(names) != 0 || e.auditCount(u, "mark_compromised", "ok") != 1 {
+			t.Fatalf("second revoke: %v %v", names, err)
 		}
 		e.set(u, "STRIPE_KEY", "third-FAKE", "app:shop", "env:prod")
 		v, err := e.svc.Reveal(ctx, u, sel, true)
@@ -239,8 +271,27 @@ func TestRevokeBlocksUntilNextSet(t *testing.T) {
 	})
 }
 
+func TestKindMismatch(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+		e.set(u, "CERT", "text-FAKE", "app:shop")
+		_, err := e.svc.Set(ctx, u, SetInput{Name: "CERT", Tags: []string{"app:shop"}, Kind: "file", Filename: "a.pem", Value: []byte("file-FAKE"), Create: true})
+		if code(err) != access.CodeKindMismatch {
+			t.Fatalf("a file over a text secret: %v", err)
+		}
+		var n int
+		if err := p.DB().QueryRow(`SELECT COUNT(*) FROM secret_versions`).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("a refused kind must add no version: %d %v", n, err)
+		}
+	})
+}
+
 func TestClashAndBulkAllOrNothing(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
@@ -250,7 +301,7 @@ func TestClashAndBulkAllOrNothing(t *testing.T) {
 
 		_, err := e.svc.Update(ctx, u, Selector{Tags: []string{"team:pay"}}, Change{AddTags: []string{"env:qa"}}, false)
 		var de *Error
-		if !errors.As(err, &de) || de.Code != CodeClash || len(de.Items) == 0 {
+		if !errors.As(err, &de) || de.Code != access.CodeClash || len(de.Items) == 0 {
 			t.Fatalf("expected a clash, got %v", err)
 		}
 		if got, _ := e.svc.List(ctx, u, Selector{Tags: []string{"env:qa"}}); len(got) != 1 {
@@ -262,17 +313,17 @@ func TestClashAndBulkAllOrNothing(t *testing.T) {
 			t.Fatalf("update: %v", err)
 		}
 		// rename needs exactly one
-		if _, err := e.svc.Update(ctx, u, Selector{Tags: []string{"team:pay"}}, Change{Rename: "X"}, false); code(err) != CodeNeedsOne {
+		if _, err := e.svc.Update(ctx, u, Selector{Tags: []string{"team:pay"}}, Change{Rename: "X"}, false); code(err) != access.CodeNeedsOne {
 			t.Fatalf("rename of several: %v", err)
 		}
-		if _, err := e.svc.Update(ctx, u, Selector{Name: "PAY_TOKEN"}, Change{Rename: "STRIPE_KEY", RemoveTags: []string{"region:eu"}}, false); code(err) != CodeClash {
+		if _, err := e.svc.Update(ctx, u, Selector{Name: "PAY_TOKEN"}, Change{Rename: "STRIPE_KEY", RemoveTags: []string{"region:eu"}}, false); code(err) != access.CodeClash {
 			t.Fatalf("rename onto an existing identity: %v", err)
 		}
 		if _, err := e.svc.Update(ctx, u, Selector{Name: "PAY_TOKEN"}, Change{Rename: "PAY_KEY"}, false); err != nil {
 			t.Fatal(err)
 		}
 		// moving a secret out of the actor's grant is denied
-		if _, err := e.svc.Update(ctx, u, Selector{Name: "PAY_KEY"}, Change{RemoveTags: []string{"app:shop"}}, false); code(err) != CodeDenied {
+		if _, err := e.svc.Update(ctx, u, Selector{Name: "PAY_KEY"}, Change{RemoveTags: []string{"app:shop"}}, false); code(err) != access.CodeDenied {
 			t.Fatalf("moving out of the grant: %v", err)
 		}
 		if err := e.log.Verify(ctx); err != nil {
@@ -283,6 +334,7 @@ func TestClashAndBulkAllOrNothing(t *testing.T) {
 
 func TestAmbiguousName(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
@@ -290,10 +342,10 @@ func TestAmbiguousName(t *testing.T) {
 		e.set(u, "BASE_URL", "b", "app:shop", "env:prod")
 		_, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, false)
 		var de *Error
-		if !errors.As(err, &de) || de.Code != CodeAmbiguous || len(de.Items) != 2 {
+		if !errors.As(err, &de) || de.Code != access.CodeAmbiguous || len(de.Items) != 2 {
 			t.Fatalf("got %v", err)
 		}
-		if _, err := e.svc.Reveal(ctx, u, Selector{Name: "BASE_URL"}, true); code(err) != CodeAmbiguous {
+		if _, err := e.svc.Reveal(ctx, u, Selector{Name: "BASE_URL"}, true); code(err) != access.CodeAmbiguous {
 			t.Fatalf("reveal: %v", err)
 		}
 		if vals, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop", "env:dev"}}, false); err != nil || len(vals) != 1 {
@@ -304,6 +356,7 @@ func TestAmbiguousName(t *testing.T) {
 
 func TestAuthorizeAndMachines(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
@@ -315,25 +368,25 @@ func TestAuthorizeAndMachines(t *testing.T) {
 		if _, err := e.svc.Update(ctx, u, sel, Change{Authorize: &on}, false); err != nil {
 			t.Fatalf("authorize on needs no step-up: %v", err)
 		}
-		if _, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, false); code(err) != CodeStepUp {
+		if _, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, false); code(err) != access.CodeStepUp {
 			t.Fatalf("run with a requires_authorize secret: %v", err)
 		}
 		if vals, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, true); err != nil || len(vals) != 2 {
 			t.Fatalf("run with step-up: %v", err)
 		}
-		if _, err := e.svc.Update(ctx, u, sel, Change{Authorize: &off}, false); code(err) != CodeStepUp {
+		if _, err := e.svc.Update(ctx, u, sel, Change{Authorize: &off}, false); code(err) != access.CodeStepUp {
 			t.Fatalf("authorize off needs step-up: %v", err)
 		}
 
 		m := e.machine(u)
 		e.grant(m, "read", "app:shop")
-		if _, err := e.svc.Reveal(ctx, m, Selector{Name: "LOG_LEVEL"}, true); code(err) != CodeDenied {
+		if _, err := e.svc.Reveal(ctx, m, Selector{Name: "LOG_LEVEL"}, true); code(err) != access.CodeDenied {
 			t.Fatalf("machines never reveal: %v", err)
 		}
 		if _, err := e.svc.Run(ctx, m, Selector{Tags: []string{"env:dev"}}, false); err != nil {
 			t.Fatalf("machine run of a plain secret: %v", err)
 		}
-		if _, err := e.svc.Run(ctx, m, Selector{Name: "STRIPE_KEY"}, true); code(err) != CodeDenied {
+		if _, err := e.svc.Run(ctx, m, Selector{Name: "STRIPE_KEY"}, true); code(err) != access.CodeDenied {
 			t.Fatalf("machines cannot run requires_authorize secrets: %v", err)
 		}
 		// a machine never exceeds its owner: grant it more than the owner has
@@ -342,7 +395,7 @@ func TestAuthorizeAndMachines(t *testing.T) {
 		other := e.human("member")
 		e.grant(other, "write", "app:billing")
 		e.set(other, "BILL", "v", "app:billing")
-		if _, err := e.svc.Run(ctx, m2, Selector{Name: "BILL"}, false); code(err) != CodeNotFound {
+		if _, err := e.svc.Run(ctx, m2, Selector{Name: "BILL"}, false); code(err) != access.CodeNotFound {
 			t.Fatalf("machine beyond its owner sees nothing: %v", err)
 		}
 	})
@@ -350,6 +403,7 @@ func TestAuthorizeAndMachines(t *testing.T) {
 
 func TestArchiveHidesAndFreesIdentity(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
@@ -360,7 +414,7 @@ func TestArchiveHidesAndFreesIdentity(t *testing.T) {
 		if l, _ := e.svc.List(ctx, u, Selector{}); len(l) != 0 {
 			t.Fatal("archived secrets are hidden")
 		}
-		if _, err := e.svc.Run(ctx, u, Selector{Name: "OLD"}, false); code(err) != CodeNotFound {
+		if _, err := e.svc.Run(ctx, u, Selector{Name: "OLD"}, false); code(err) != access.CodeNotFound {
 			t.Fatalf("archived secrets are not served: %v", err)
 		}
 		if r := e.set(u, "OLD", "v", "app:shop"); r.Version != 1 || !r.Created {
@@ -375,6 +429,7 @@ func TestArchiveHidesAndFreesIdentity(t *testing.T) {
 
 func TestLimitsAndValidation(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
 		e.grant(u, "write", "app:shop")
@@ -384,13 +439,13 @@ func TestLimitsAndValidation(t *testing.T) {
 			_, err := e.svc.Set(ctx, u, in)
 			return err
 		}
-		if code(set(SetInput{Name: "BIG", Value: make([]byte, MaxText+1)})) != CodeInvalid {
+		if code(set(SetInput{Name: "BIG", Value: make([]byte, MaxText+1)})) != access.CodeInvalid {
 			t.Fatal("text over 64 KB")
 		}
 		if err := set(SetInput{Name: "BIG", Value: make([]byte, MaxText)}); err != nil {
 			t.Fatal(err)
 		}
-		if code(set(SetInput{Name: "F", Kind: "file", Filename: "a.pem", Value: make([]byte, MaxFile+1)})) != CodeInvalid {
+		if code(set(SetInput{Name: "F", Kind: "file", Filename: "a.pem", Value: make([]byte, MaxFile+1)})) != access.CodeInvalid {
 			t.Fatal("file over 1 MB")
 		}
 		if err := set(SetInput{Name: "F", Kind: "file", Filename: "../../a.pem", Value: []byte("x")}); err != nil {
@@ -400,10 +455,10 @@ func TestLimitsAndValidation(t *testing.T) {
 		if err != nil || v.Filename != "a.pem" {
 			t.Fatalf("file name must be reduced to its base: %q %v", v.Filename, err)
 		}
-		if code(set(SetInput{Name: "bad name", Value: []byte("x")})) != CodeInvalid {
+		if code(set(SetInput{Name: "bad name", Value: []byte("x")})) != access.CodeInvalid {
 			t.Fatal("bad name")
 		}
-		if code(set(SetInput{Name: "E"})) != CodeInvalid {
+		if code(set(SetInput{Name: "E"})) != access.CodeInvalid {
 			t.Fatal("empty value")
 		}
 		if err := set(SetInput{Name: "GEN", Generate: true}); err != nil {
@@ -417,8 +472,10 @@ func TestLimitsAndValidation(t *testing.T) {
 
 func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		u := e.human("member")
+		admin := e.human("admin")
 		e.grant(u, "write", "app:shop")
 
 		kf1, _ := keys.GenerateMasterKey(1)
@@ -439,7 +496,17 @@ func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
 			t.Fatalf("data stays readable with the extended ring: %v", err)
 		}
-		if n, err := svc2.RewrapAll(ctx); err != nil || n != 1 {
+
+		// A rewrap that fails leaves no audit row: the row and the rewrap commit together.
+		onlyV2, _ := keys.ParseMasterKeys(k2)
+		if _, err := New(p, onlyV2, e.log).RewrapAll(ctx, admin.ID, 0); err == nil {
+			t.Fatal("a ring without the key of existing data must fail")
+		}
+		if e.auditCount(admin, "key_rotate", "ok") != 0 {
+			t.Fatal("a failed rewrap must not be audited as a rotation")
+		}
+
+		if n, err := svc2.RewrapAll(ctx, admin.ID, 3); err != nil || n != 1 {
 			t.Fatalf("rewrapped %d: %v", n, err)
 		}
 		var keyID string
@@ -450,11 +517,28 @@ func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 		if keyID != "manual:v2" || !bytes.Equal(before, after) {
 			t.Fatalf("key_id %s, ciphertext changed: %v", keyID, !bytes.Equal(before, after))
 		}
+		rows, err := e.log.List(ctx, audit.Filter{}, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rot []audit.Row
+		for _, r := range rows {
+			if r.Action == "key_rotate" {
+				rot = append(rot, r)
+			}
+		}
+		if len(rot) != 1 || rot[0].Principal != admin.ID || rot[0].TargetType != "key" || rot[0].Metadata["key_id"] != "manual:v2" ||
+			fmt.Sprint(rot[0].Metadata["secret_versions"]) != "1" || fmt.Sprint(rot[0].Metadata["totp"]) != "3" {
+			t.Fatalf("the rotation must be audited once, with its counts: %+v", rot)
+		}
 		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
 			t.Fatalf("readable after rewrap: %v", err)
 		}
-		if n, _ := svc2.RewrapAll(ctx); n != 0 {
+		if n, _ := svc2.RewrapAll(ctx, admin.ID, 0); n != 0 {
 			t.Fatal("nothing left to rewrap")
+		}
+		if err := e.log.Verify(ctx); err != nil {
+			t.Fatal(err)
 		}
 	})
 }
@@ -463,6 +547,7 @@ func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 // with a read-only grant is refused outright and must never be sent through a confirmation first.
 func TestAuthorizeOffChecksPermissionBeforeConfirmation(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		owner := e.human("member")
 		e.grant(owner, "write", "app:shop")
@@ -471,24 +556,202 @@ func TestAuthorizeOffChecksPermissionBeforeConfirmation(t *testing.T) {
 		e.grant(reader, "read", "app:shop")
 		off := false
 
-		if _, err := e.svc.Update(ctx, reader, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != CodeDenied {
+		if _, err := e.svc.Update(ctx, reader, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != access.CodeDenied {
 			t.Fatalf("a read-only person must be refused, not asked to confirm: %v", err)
 		}
 		if e.auditCount(reader, "update", "denied") != 1 {
 			t.Fatal("the refusal is audited")
 		}
 		stranger := e.human("member") // no grant at all: the secret does not exist for them
-		if _, err := e.svc.Update(ctx, stranger, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != CodeNotFound {
+		if _, err := e.svc.Update(ctx, stranger, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != access.CodeNotFound {
 			t.Fatalf("no grant: %v", err)
 		}
 		// the owner still needs the confirmation, and a machine can never give one
-		if _, err := e.svc.Update(ctx, owner, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != CodeStepUp {
+		if _, err := e.svc.Update(ctx, owner, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, false); code(err) != access.CodeStepUp {
 			t.Fatalf("the owner is asked to confirm: %v", err)
 		}
 		m := e.machine(owner)
 		e.grant(m, "write", "app:shop")
-		if _, err := e.svc.Update(ctx, m, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, true); code(err) != CodeDenied {
+		if _, err := e.svc.Update(ctx, m, Selector{Name: "STRIPE_KEY"}, Change{Authorize: &off}, true); code(err) != access.CodeDenied {
 			t.Fatalf("a machine can never turn confirmation off: %v", err)
+		}
+	})
+}
+
+// race runs fn n times at once and returns each call's error.
+func race(n int, fn func(i int) error) []error {
+	errs := make([]error, n)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			<-start
+			errs[i] = fn(i)
+		})
+	}
+	close(start)
+	wg.Wait()
+	return errs
+}
+
+// Writers of one secret take turns: every one of them succeeds and gets its own version number.
+func TestConcurrentSetsOfOneSecret(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+		e.set(u, "CONC", "v0-FAKE", "app:shop")
+
+		const n = 8
+		versions := make([]int, n)
+		for i, err := range race(n, func(i int) error {
+			r, err := e.svc.Set(ctx, u, SetInput{Name: "CONC", Tags: []string{"app:shop"}, Value: fmt.Appendf(nil, "v%d-FAKE", i)})
+			versions[i] = r.Version
+			return err
+		}) {
+			if err != nil {
+				t.Fatalf("writer %d: %v", i, err)
+			}
+		}
+		slices.Sort(versions)
+		for i, v := range versions {
+			if v != i+2 {
+				t.Fatalf("versions %v, want 2..%d", versions, n+1)
+			}
+		}
+		if err := e.log.Verify(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// Of several creators of one new identity, one creates it and the others either add a version to it or are told
+// to retry; none gets a database error.
+func TestConcurrentCreatesOfOneSecret(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+
+		const n = 8
+		versions := make([]int, n)
+		var created int
+		var mu sync.Mutex
+		ok := 0
+		for i, err := range race(n, func(i int) error {
+			r, err := e.svc.Set(ctx, u, SetInput{Name: "FRESH", Tags: []string{"app:shop"}, Value: fmt.Appendf(nil, "v%d-FAKE", i), Create: true})
+			mu.Lock()
+			defer mu.Unlock()
+			if err == nil {
+				ok++
+				versions[i] = r.Version
+				if r.Created {
+					created++
+				}
+			}
+			return err
+		}) {
+			if err != nil && code(err) != access.CodeClash {
+				t.Fatalf("creator %d: want success or a retryable clash, got %v", i, err)
+			}
+		}
+		var rows, vers int
+		if err := p.DB().QueryRow(`SELECT COUNT(*) FROM secrets`).Scan(&rows); err != nil {
+			t.Fatal(err)
+		}
+		if err := p.DB().QueryRow(`SELECT COUNT(*) FROM secret_versions`).Scan(&vers); err != nil {
+			t.Fatal(err)
+		}
+		if rows != 1 || created != 1 || vers != ok {
+			t.Fatalf("secrets %d, creations %d, versions %d for %d successes", rows, created, vers, ok)
+		}
+		if err := e.log.Verify(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// Two renames onto one identity: one wins, the other gets a clash, not a database error.
+func TestConcurrentRenamesClash(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+		e.set(u, "FIRST", "v", "app:shop")
+		e.set(u, "SECOND", "v", "app:shop")
+
+		errs := race(2, func(i int) error {
+			_, err := e.svc.Update(ctx, u, Selector{Name: []string{"FIRST", "SECOND"}[i]}, Change{Rename: "TARGET"}, false)
+			return err
+		})
+		wins := 0
+		for _, err := range errs {
+			switch code(err) {
+			case "<nil>":
+				wins++
+			case access.CodeClash:
+			default:
+				t.Fatalf("want success or a clash, got %v", err)
+			}
+		}
+		if wins != 1 {
+			t.Fatalf("exactly one rename wins, got %d: %v", wins, errs)
+		}
+	})
+}
+
+// lockProbe is a key provider that notes, at every unwrap, whether the audit lock is held by someone else. On
+// Postgres the lock is an advisory transaction lock; on sqlite there is none and the probe only counts.
+type lockProbe struct {
+	keys.KeyProvider
+	p       storage.Provider
+	kind    string
+	unwraps int
+	held    bool
+}
+
+func (l *lockProbe) Unwrap(ctx context.Context, keyID string, wrapped, aad []byte) ([]byte, error) {
+	l.unwraps++
+	if l.kind == "postgres" {
+		tx, err := l.p.DB().BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		var got bool
+		const auditLockKey = 7266011 // storage's LockAudit
+		if err := tx.QueryRowContext(ctx, `SELECT pg_try_advisory_xact_lock($1)`, auditLockKey).Scan(&got); err != nil {
+			return nil, err
+		}
+		l.held = l.held || !got
+	}
+	return l.KeyProvider.Unwrap(ctx, keyID, wrapped, aad)
+}
+
+// Decrypting may mean a network call to KMS; it must happen before the first audit append, which takes the global lock.
+func TestRunDecryptsBeforeTheAuditLock(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+		e.set(u, "ONE", "a-FAKE", "app:shop")
+		e.set(u, "TWO", "b-FAKE", "app:shop")
+
+		probe := &lockProbe{KeyProvider: e.svc.kp, p: p, kind: kind}
+		svc := New(p, probe, e.log)
+		vals, err := svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, false)
+		if err != nil || len(vals) != 2 || probe.unwraps != 2 {
+			t.Fatalf("run: %d values, %d unwraps, %v", len(vals), probe.unwraps, err)
+		}
+		if probe.held {
+			t.Fatal("the audit lock was held while a secret was being decrypted")
+		}
+		if e.auditCount(u, "read", "ok") != 2 {
+			t.Fatal("one audit row per secret read")
 		}
 	})
 }

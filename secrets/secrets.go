@@ -25,23 +25,19 @@ const (
 	MaxFile = 1 << 20
 )
 
-const (
-	CodeNotFound     = access.CodeNotFound
-	CodeDenied       = access.CodeDenied
-	CodeAmbiguous    = access.CodeAmbiguous
-	CodeBlocked      = access.CodeBlocked
-	CodeClash        = access.CodeClash
-	CodeStepUp       = access.CodeStepUp
-	CodeWouldCreate  = access.CodeWouldCreate
-	CodeInvalid      = access.CodeInvalid
-	CodeNeedsOne     = access.CodeNeedsOne
-	CodeKindMismatch = access.CodeKindMismatch
-)
-
 // Error is the shared domain error (see access.Error).
 type Error = access.Error
 
 func fail(code, msg string, items ...string) *Error { return access.Fail(code, msg, items...) }
+
+// conflict turns the loss of a race on a unique index (two writers creating or renaming to the same name and
+// tags, or adding the same version) into a clash the caller can retry, instead of a database error.
+func conflict(err error) error {
+	if storage.IsUniqueViolation(err) {
+		return fail(access.CodeClash, "changed at the same moment by someone else; try again")
+	}
+	return err
+}
 
 var nameRE = regexp.MustCompile(`^[A-Z0-9_]{1,128}$`)
 
@@ -61,12 +57,12 @@ func (s Selector) parse() (selector, error) {
 	if s.Name != "" {
 		out.name = strings.ToUpper(s.Name)
 		if !nameRE.MatchString(out.name) {
-			return out, fail(CodeInvalid, "invalid name")
+			return out, fail(access.CodeInvalid, "invalid name")
 		}
 	}
 	t, err := storage.NormalizeTags(s.Tags)
 	if err != nil {
-		return out, fail(CodeInvalid, err.Error())
+		return out, fail(access.CodeInvalid, err.Error())
 	}
 	out.tags = t
 	return out, nil
@@ -77,7 +73,7 @@ func uniqueKeys(t storage.Tags) error {
 	seen := map[string]bool{}
 	for _, x := range t {
 		if k := tagKey(x); seen[k] {
-			return fail(CodeInvalid, "a tag key can only be used once: "+k)
+			return fail(access.CodeInvalid, "a tag key can only be used once: "+k)
 		} else {
 			seen[k] = true
 		}
@@ -95,7 +91,12 @@ type Info struct {
 	Blocked           bool
 }
 
-func (i Info) label() string { return strings.TrimSpace(i.Name + " " + strings.Join(i.Tags, " ")) }
+// label is how a secret is named to people: "NAME tag tag".
+func label(name string, tags []string) string {
+	return strings.TrimSpace(name + " " + strings.Join(tags, " "))
+}
+
+func (i Info) label() string { return label(i.Name, i.Tags) }
 
 type Service struct {
 	p   storage.Provider
@@ -151,23 +152,22 @@ func deniedEntry(a access.Actor, action string, id uuid.UUID) audit.Entry {
 	return audit.Entry{Principal: a.ID, Action: action, SecretID: &id, Result: audit.ResultDenied, IP: a.IP}
 }
 
-// visible keeps only the secrets the actor may read; unreadable ones are treated as absent.
-func (s *Service) visible(ctx context.Context, tx storage.Querier, a access.Actor, sel selector) ([]Info, error) {
-	rows, err := s.resolve(ctx, tx, sel)
-	if err != nil {
-		return nil, err
+// readable resolves a selection and keeps the secrets the actor may read; unreadable ones are treated as absent.
+// all is everything that matched, for callers that audit a denial.
+func (s *Service) readable(ctx context.Context, tx storage.Querier, a access.Actor, sel selector) (all, rows []Info, err error) {
+	if all, err = s.resolve(ctx, tx, sel); err != nil {
+		return nil, nil, err
 	}
 	perm, err := access.For(ctx, s.p, tx, a, access.Read)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var out []Info
-	for _, r := range rows {
+	for _, r := range all {
 		if perm.Allows(r.Tags) {
-			out = append(out, r)
+			rows = append(rows, r)
 		}
 	}
-	return out, nil
+	return all, rows, nil
 }
 
 // List returns the secrets the actor can read (name, version, tags).
@@ -179,7 +179,7 @@ func (s *Service) List(ctx context.Context, a access.Actor, in Selector) ([]Info
 	var out []Info
 	err = s.run(ctx, func(tx *sql.Tx, _ *[]audit.Entry) error {
 		var err error
-		if out, err = s.visible(ctx, tx, a, sel); err != nil {
+		if _, out, err = s.readable(ctx, tx, a, sel); err != nil {
 			return err
 		}
 		return s.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: "list", IP: a.IP, Metadata: map[string]any{"count": len(out)}})
@@ -187,14 +187,14 @@ func (s *Service) List(ctx context.Context, a access.Actor, in Selector) ([]Info
 	return out, err
 }
 
-// writable is visible() plus a write check; readable-but-not-writable secrets deny.
+// writable is readable() plus a write check; readable-but-not-writable secrets deny.
 func (s *Service) writable(ctx context.Context, tx *sql.Tx, a access.Actor, sel selector, action string, denied *[]audit.Entry) ([]Info, error) {
-	rows, err := s.visible(ctx, tx, a, sel)
+	_, rows, err := s.readable(ctx, tx, a, sel)
 	if err != nil {
 		return nil, err
 	}
 	if len(rows) == 0 {
-		return nil, fail(CodeNotFound, "no matching secret")
+		return nil, fail(access.CodeNotFound, "no matching secret")
 	}
 	perm, err := access.For(ctx, s.p, tx, a, access.Write)
 	if err != nil {
@@ -208,7 +208,7 @@ func (s *Service) writable(ctx context.Context, tx *sql.Tx, a access.Actor, sel 
 		}
 	}
 	if len(bad) > 0 {
-		return nil, fail(CodeDenied, "not permitted", bad...)
+		return nil, fail(access.CodeDenied, "not permitted", bad...)
 	}
 	return rows, nil
 }
@@ -237,7 +237,7 @@ func (s *Service) Set(ctx context.Context, a access.Actor, in SetInput) (SetResu
 		return SetResult{}, err
 	}
 	if sel.name == "" {
-		return SetResult{}, fail(CodeInvalid, "name is required")
+		return SetResult{}, fail(access.CodeInvalid, "name is required")
 	}
 	if err := uniqueKeys(sel.tags); err != nil {
 		return SetResult{}, err
@@ -249,29 +249,27 @@ func (s *Service) Set(ctx context.Context, a access.Actor, in SetInput) (SetResu
 	value := in.Value
 	switch {
 	case kind != "text" && kind != "file":
-		return SetResult{}, fail(CodeInvalid, "invalid kind")
+		return SetResult{}, fail(access.CodeInvalid, "invalid kind")
 	case in.Generate && kind == "text":
 		raw := make([]byte, 32)
-		if _, err := rand.Read(raw); err != nil {
-			return SetResult{}, err
-		}
+		rand.Read(raw)
 		value = []byte(base64.RawURLEncoding.EncodeToString(raw))
 	case in.Generate:
-		return SetResult{}, fail(CodeInvalid, "cannot generate a file")
+		return SetResult{}, fail(access.CodeInvalid, "cannot generate a file")
 	}
 	if len(value) == 0 {
-		return SetResult{}, fail(CodeInvalid, "empty value")
+		return SetResult{}, fail(access.CodeInvalid, "empty value")
 	}
 	limit := MaxText
 	filename := ""
 	if kind == "file" {
 		limit = MaxFile
 		if filename = filepath.Base(in.Filename); in.Filename == "" || filename == "." || filename == "/" {
-			return SetResult{}, fail(CodeInvalid, "file name is required")
+			return SetResult{}, fail(access.CodeInvalid, "file name is required")
 		}
 	}
 	if len(value) > limit {
-		return SetResult{}, fail(CodeInvalid, fmt.Sprintf("value too large (max %d bytes)", limit))
+		return SetResult{}, fail(access.CodeInvalid, fmt.Sprintf("value too large (max %d bytes)", limit))
 	}
 
 	var res SetResult
@@ -282,7 +280,8 @@ func (s *Service) Set(ctx context.Context, a access.Actor, in SetInput) (SetResu
 		}
 		var id uuid.UUID
 		var existingKind string
-		err = tx.QueryRowContext(ctx, s.p.Rebind(`SELECT id, kind FROM secrets WHERE name = ? AND tags = ? AND archived_at IS NULL`),
+		// The row lock makes writers of one secret take turns, so each reads the version number the one before left.
+		err = tx.QueryRowContext(ctx, s.p.Rebind(`SELECT id, kind FROM secrets WHERE name = ? AND tags = ? AND archived_at IS NULL`+s.p.ForUpdate()),
 			sel.name, s.p.TagsArg(sel.tags)).Scan(&id, &existingKind)
 		exists := err == nil
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -295,24 +294,25 @@ func (s *Service) Set(ctx context.Context, a access.Actor, in SetInput) (SetResu
 				e.SecretID = &id
 			}
 			*denied = append(*denied, e)
-			return fail(CodeDenied, "not permitted")
+			return fail(access.CodeDenied, "not permitted")
 		}
 		number := 1
 		if exists {
 			if existingKind != kind {
-				return fail(CodeKindMismatch, "this secret is a different kind")
+				return fail(access.CodeKindMismatch, "this secret is a different kind")
 			}
 			if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT COALESCE(MAX(number), 0) + 1 FROM secret_versions WHERE secret_id = ?`), id).Scan(&number); err != nil {
 				return err
 			}
 		} else {
 			if !in.Create {
-				return fail(CodeWouldCreate, "secret does not exist yet")
+				return fail(access.CodeWouldCreate, "secret does not exist yet")
 			}
 			id = uuid.New()
+			// Nothing to lock yet: of two creators of one identity the second loses on the unique index.
 			if _, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO secrets (id, name, kind, description, tags, created_by) VALUES (?, ?, ?, ?, ?, ?)`),
 				id, sel.name, kind, in.Description, s.p.TagsArg(sel.tags), a.ID); err != nil {
-				return err
+				return conflict(err)
 			}
 		}
 		pl, err := keys.Seal(ctx, s.kp, id, uint32(number), value) // #nosec G115 -- version numbers are small
@@ -328,7 +328,7 @@ func (s *Service) Set(ctx context.Context, a access.Actor, in SetInput) (SetResu
 			(id, secret_id, number, ciphertext, nonce, wrapped_key, key_id, format_version, filename, created_by)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 			vid, id, number, pl.Ciphertext, pl.Nonce, pl.WrappedKey, pl.KeyID, int(pl.FormatVersion), fn, a.ID); err != nil {
-			return err
+			return conflict(err)
 		}
 		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE secrets SET current_version_id = ? WHERE id = ?`), vid, id); err != nil {
 			return err
@@ -371,23 +371,13 @@ func (s *Service) fetch(ctx context.Context, a access.Actor, in Selector, action
 		return nil, err
 	}
 	if sel.name == "" && len(sel.tags) == 0 {
-		return nil, fail(CodeInvalid, "a name or a tag is required")
+		return nil, fail(access.CodeInvalid, "a name or a tag is required")
 	}
 	var out []Value
 	err = s.run(ctx, func(tx *sql.Tx, denied *[]audit.Entry) error {
-		all, err := s.resolve(ctx, tx, sel)
+		all, rows, err := s.readable(ctx, tx, a, sel)
 		if err != nil {
 			return err
-		}
-		perm, err := access.For(ctx, s.p, tx, a, access.Read)
-		if err != nil {
-			return err
-		}
-		var rows []Info
-		for _, r := range all {
-			if perm.Allows(r.Tags) {
-				rows = append(rows, r)
-			}
 		}
 		if len(rows) == 0 {
 			// A secret the caller may not read looks exactly like one that does not exist: same error, nothing about
@@ -396,10 +386,10 @@ func (s *Service) fetch(ctx context.Context, a access.Actor, in Selector, action
 			if sel.name != "" && len(all) > 0 {
 				*denied = append(*denied, deniedEntry(a, action, all[0].ID))
 			}
-			return fail(CodeNotFound, "no matching secret")
+			return fail(access.CodeNotFound, "no matching secret")
 		}
 		if single && len(rows) > 1 {
-			return fail(CodeAmbiguous, "several secrets match", labels(rows)...)
+			return fail(access.CodeAmbiguous, "several secrets match", labels(rows)...)
 		}
 		seen := map[string][]Info{}
 		for _, r := range rows {
@@ -407,7 +397,7 @@ func (s *Service) fetch(ctx context.Context, a access.Actor, in Selector, action
 		}
 		for _, g := range seen {
 			if len(g) > 1 {
-				return fail(CodeAmbiguous, g[0].Name+" matches several secrets", labels(g)...)
+				return fail(access.CodeAmbiguous, g[0].Name+" matches several secrets", labels(g)...)
 			}
 		}
 		var blocked []string
@@ -419,27 +409,31 @@ func (s *Service) fetch(ctx context.Context, a access.Actor, in Selector, action
 			needStepUp = needStepUp || r.RequiresAuthorize
 		}
 		if len(blocked) > 0 {
-			return fail(CodeBlocked, "blocked until a new value is saved", blocked...)
+			return fail(access.CodeBlocked, "blocked until a new value is saved", blocked...)
 		}
 		if needStepUp {
 			if a.Machine {
 				*denied = append(*denied, deniedEntry(a, action, rows[0].ID))
-				return fail(CodeDenied, "not permitted")
+				return fail(access.CodeDenied, "not permitted")
 			}
 			if !stepUp {
-				return fail(CodeStepUp, "confirmation required")
+				return fail(access.CodeStepUp, "confirmation required")
 			}
 		}
+		// Decrypt everything before the first audit append: that takes the global audit lock, and decrypting can be
+		// a network call to KMS, which must not be made while other writers wait on it.
 		for _, r := range rows {
 			v, err := s.load(ctx, tx, r)
 			if err != nil {
 				return err
 			}
+			out = append(out, v)
+		}
+		for _, r := range rows {
 			n := r.Version
 			if err := s.log.Append(ctx, tx, audit.Entry{Principal: a.ID, Action: action, SecretID: &r.ID, Version: &n, IP: a.IP}); err != nil {
 				return err
 			}
-			out = append(out, v)
 		}
 		return nil
 	})
@@ -477,32 +471,33 @@ func (s *Service) load(ctx context.Context, tx *sql.Tx, r Info) (Value, error) {
 
 // Revoke marks the current version compromised; the secret stays blocked until the next Set.
 func (s *Service) Revoke(ctx context.Context, a access.Actor, in Selector) ([]string, error) {
-	return s.bulk(ctx, a, in, "mark_compromised", func(tx *sql.Tx, r Info) (map[string]any, error) {
+	return s.bulk(ctx, a, in, "mark_compromised", func(tx *sql.Tx, r Info) (bool, error) {
 		if r.Version == 0 || r.Blocked {
-			return nil, nil
+			return false, nil // nothing to do for this one
 		}
 		_, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE secret_versions SET compromised_at = ?, compromised_by = ? WHERE secret_id = ? AND number = ?`),
 			s.p.TimeArg(now()), a.ID, r.ID, r.Version)
-		return map[string]any{}, err
+		return err == nil, err
 	}, true)
 }
 
 // Archive soft-deletes; name+tags become reusable.
 func (s *Service) Archive(ctx context.Context, a access.Actor, in Selector) ([]string, error) {
-	return s.bulk(ctx, a, in, "archive", func(tx *sql.Tx, r Info) (map[string]any, error) {
+	return s.bulk(ctx, a, in, "archive", func(tx *sql.Tx, r Info) (bool, error) {
 		_, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE secrets SET archived_at = ?, archived_by = ? WHERE id = ?`), s.p.TimeArg(now()), a.ID, r.ID)
-		return map[string]any{}, err
+		return err == nil, err
 	}, false)
 }
 
-// bulk applies fn to every selected, writable secret in one transaction.
-func (s *Service) bulk(ctx context.Context, a access.Actor, in Selector, action string, fn func(*sql.Tx, Info) (map[string]any, error), withVersion bool) ([]string, error) {
+// bulk applies fn to every selected, writable secret in one transaction. fn reports whether it changed the
+// secret; only those are audited and returned.
+func (s *Service) bulk(ctx context.Context, a access.Actor, in Selector, action string, fn func(*sql.Tx, Info) (bool, error), withVersion bool) ([]string, error) {
 	sel, err := in.parse()
 	if err != nil {
 		return nil, err
 	}
 	if sel.name == "" && len(sel.tags) == 0 {
-		return nil, fail(CodeInvalid, "a name or a tag is required")
+		return nil, fail(access.CodeInvalid, "a name or a tag is required")
 	}
 	var names []string
 	err = s.run(ctx, func(tx *sql.Tx, denied *[]audit.Entry) error {
@@ -511,12 +506,12 @@ func (s *Service) bulk(ctx context.Context, a access.Actor, in Selector, action 
 			return err
 		}
 		for _, r := range rows {
-			meta, err := fn(tx, r)
+			changed, err := fn(tx, r)
 			if err != nil {
 				return err
 			}
-			if meta == nil {
-				continue // nothing to do for this one
+			if !changed {
+				continue
 			}
 			e := audit.Entry{Principal: a.ID, Action: action, SecretID: &r.ID, IP: a.IP}
 			if withVersion {
