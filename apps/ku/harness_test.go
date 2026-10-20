@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -55,25 +54,6 @@ func (s *memStore) Get(p string) (string, error) {
 func (s *memStore) Set(p, t string) error { s.mu.Lock(); s.m[p] = t; s.mu.Unlock(); return nil }
 func (s *memStore) Delete(p string) error { s.mu.Lock(); delete(s.m, p); s.mu.Unlock(); return nil }
 
-type fakeIDP struct {
-	mu     sync.Mutex
-	byCode map[string]auth.Identity
-}
-
-func (f *fakeIDP) Name() string { return "google" }
-func (f *fakeIDP) AuthURL(state, nonce, verifier string) string {
-	return "https://idp.test/?state=" + state
-}
-func (f *fakeIDP) Exchange(_ context.Context, code, _, _ string) (auth.Identity, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	id, ok := f.byCode[code]
-	if !ok {
-		return auth.Identity{}, errors.New("bad code")
-	}
-	return id, nil
-}
-
 // world is a real server (full API stack over TLS) plus fake browser, Keychain and home.
 type world struct {
 	t       *testing.T
@@ -83,7 +63,7 @@ type world struct {
 	tokens  *auth.Tokens
 	ids     *identity.Service
 	log     *audit.Log
-	idp     *fakeIDP
+	idp     *authtest.IDP
 	store   *memStore
 	home    string
 	stepUps int                                // confirmations (passkey or authenticator code) performed by the fake browser
@@ -99,7 +79,7 @@ type world struct {
 }
 
 func newWorld(t *testing.T, p storage.Provider) *world {
-	w := &world{t: t, p: p, idp: &fakeIDP{byCode: map[string]auth.Identity{}}, store: &memStore{m: map[string]string{}},
+	w := &world{t: t, p: p, idp: authtest.NewIDP(), store: &memStore{m: map[string]string{}},
 		home: t.TempDir(), devs: map[string]*authtest.Authenticator{}, emails: map[string]string{}, now: time.Now()}
 	w.log = audit.New(p)
 	w.tokens = auth.NewTokens(p)
@@ -144,9 +124,7 @@ func (w *world) onboardTOTP(invite, email string) string {
 	}
 	pu, _ := url.Parse(u)
 	code := uuid.NewString()
-	w.idp.mu.Lock()
-	w.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
-	w.idp.mu.Unlock()
+	w.idp.Allow(code, auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true})
 	pd, err := w.auth.Callback(w.t.Context(), pu.Query().Get("state"), code, "203.0.113.9")
 	if err != nil {
 		w.t.Fatal(err)
@@ -180,9 +158,7 @@ func (w *world) onboard(invite, email string) string {
 	}
 	pu, _ := url.Parse(u)
 	code := uuid.NewString()
-	w.idp.mu.Lock()
-	w.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
-	w.idp.mu.Unlock()
+	w.idp.Allow(code, auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true})
 	pd, err := w.auth.Callback(w.t.Context(), pu.Query().Get("state"), code, "203.0.113.9")
 	if err != nil {
 		w.t.Fatal(err)
@@ -378,9 +354,7 @@ func (w *world) browser(raw string) error {
 		}
 		idp, _ := url.Parse(resp.Header.Get("Location"))
 		code := uuid.NewString()
-		w.idp.mu.Lock()
-		w.idp.byCode[code] = auth.Identity{Subject: "sub-root@example.test", Email: "root@example.test", EmailVerified: true}
-		w.idp.mu.Unlock()
+		w.idp.Allow(code, auth.Identity{Subject: "sub-root@example.test", Email: "root@example.test", EmailVerified: true})
 		cb, err := hc.Get(w.srv.URL + "/auth/callback?state=" + idp.Query().Get("state") + "&code=" + code)
 		if err != nil {
 			w.t.Fatal(err)

@@ -14,11 +14,7 @@ import (
 )
 
 func principal(t *testing.T, p storage.Provider) uuid.UUID {
-	id := uuid.New()
-	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, role, status) VALUES (?, 'human', ?, 'admin', 'active')`), id, "p-"+id.String()); err != nil {
-		t.Fatal(err)
-	}
-	return id
+	return storagetest.Principal(t, p, "human", "admin", "active")
 }
 
 // unprotect lets a test edit audit rows as the table owner would, bypassing the insert-only protection.

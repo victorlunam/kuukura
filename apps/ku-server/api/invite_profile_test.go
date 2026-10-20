@@ -49,7 +49,7 @@ func TestInviterProfileNameBecomesTheSuggestion(t *testing.T) {
 		}
 		pu, _ := url.Parse(u)
 		code := uuid.NewString()
-		e.idp.byCode[code] = auth.Identity{Subject: "sub-new", Email: "new@example.test", EmailVerified: true}
+		e.idp.Allow(code, auth.Identity{Subject: "sub-new", Email: "new@example.test", EmailVerified: true})
 		pd, err := e.auth.Callback(ctx, pu.Query().Get("state"), code, "203.0.113.9")
 		if err != nil || pd.Mode != "enroll" || pd.Profile != "some_name" {
 			t.Fatalf("callback: %+v %v", pd, err)

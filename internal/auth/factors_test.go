@@ -15,10 +15,7 @@ import (
 // human stores an active person, and factor gives them a second step directly: these tests are about managing
 // factors, not about enrolling them.
 func (e *env) human() auth.Info {
-	id := uuid.New()
-	if _, err := e.p.DB().Exec(e.p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, 'member', 'active')`), id, id.String(), id.String()+"@example.test"); err != nil {
-		e.t.Fatal(err)
-	}
+	id := storagetest.Principal(e.t, e.p, "human", "member", "active")
 	return auth.Info{PrincipalID: id, Scopes: []string{auth.ScopeRead, auth.ScopeWrite}}
 }
 

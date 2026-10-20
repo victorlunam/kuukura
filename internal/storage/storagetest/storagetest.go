@@ -49,6 +49,34 @@ func EachDSN(t *testing.T, fn func(t *testing.T, kind, dsn string)) {
 	}
 }
 
+// Principal inserts a principal and returns its id. A "human" gets the role and an example.test email; a
+// "machine" has neither (see Machine for one with an owner).
+func Principal(t *testing.T, p storage.Provider, kind, role, status string) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	var err error
+	if kind == "machine" {
+		_, err = p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, status) VALUES (?, 'machine', ?, ?)`), id, "m-"+id.String()[:8], status)
+	} else {
+		name := id.String()[:8] + "@example.test"
+		_, err = p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, ?, ?, ?, ?, ?)`), id, kind, name, name, role, status)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+// Machine inserts an active machine with this name, owned by owner.
+func Machine(t *testing.T, p storage.Provider, owner uuid.UUID, name string) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', ?, ?, 'active')`), id, name, owner); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
 func newDSN(t *testing.T, kind string) string {
 	if kind == "sqlite" {
 		return filepath.Join(t.TempDir(), "kuukura.db")

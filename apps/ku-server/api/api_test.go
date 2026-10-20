@@ -2,11 +2,9 @@ package api_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http/httptest"
@@ -34,20 +32,6 @@ const (
 	fakeValue = "sk_test_FAKE_EXAMPLE"
 )
 
-type fakeIDP struct{ byCode map[string]auth.Identity }
-
-func (f *fakeIDP) Name() string { return "google" }
-func (f *fakeIDP) AuthURL(state, nonce, verifier string) string {
-	return "https://idp.test/?state=" + state
-}
-func (f *fakeIDP) Exchange(_ context.Context, code, _, _ string) (auth.Identity, error) {
-	id, ok := f.byCode[code]
-	if !ok {
-		return auth.Identity{}, errors.New("bad code")
-	}
-	return id, nil
-}
-
 type env struct {
 	t      *testing.T
 	p      storage.Provider
@@ -56,14 +40,14 @@ type env struct {
 	tokens *auth.Tokens
 	ids    *identity.Service
 	log    *audit.Log
-	idp    *fakeIDP
+	idp    *authtest.IDP
 	logs   *bytes.Buffer
 	clock  atomic.Int64 // unix seconds offset added to now
 	ipSeq  atomic.Int64
 }
 
 func setup(t *testing.T, p storage.Provider) *env {
-	e := &env{t: t, p: p, idp: &fakeIDP{map[string]auth.Identity{}}, logs: &bytes.Buffer{}}
+	e := &env{t: t, p: p, idp: authtest.NewIDP(), logs: &bytes.Buffer{}}
 	e.log = audit.New(p)
 	e.tokens = auth.NewTokens(p)
 	kf, _ := keys.GenerateMasterKey(1)
@@ -135,7 +119,7 @@ func (e *env) onboard(invite, email string) (string, *authtest.Authenticator) {
 	}
 	pu, _ := url.Parse(u)
 	code := uuid.NewString()
-	e.idp.byCode[code] = auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true}
+	e.idp.Allow(code, auth.Identity{Subject: "sub-" + email, Email: email, EmailVerified: true})
 	pd, err := e.auth.Callback(ctx, pu.Query().Get("state"), code, "203.0.113.9")
 	if err != nil {
 		e.t.Fatal(err)

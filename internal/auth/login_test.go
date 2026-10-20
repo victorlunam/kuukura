@@ -311,11 +311,7 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 }
 
 func (e *env) activeAdmin() access.Actor {
-	id := uuid.New()
-	if _, err := e.p.DB().Exec(e.p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, 'admin', 'active')`), id, id.String(), "a2@example.test"); err != nil {
-		e.t.Fatal(err)
-	}
-	return access.Actor{ID: id}
+	return access.Actor{ID: storagetest.Principal(e.t, e.p, "human", "admin", "active")}
 }
 
 func raw(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
@@ -438,10 +434,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		}
 
 		// machines never get one
-		mid := uuid.New()
-		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, si.PrincipalID); err != nil {
-			t.Fatal(err)
-		}
+		mid := storagetest.Machine(t, p, si.PrincipalID, "ci")
 		if _, _, err := e.svc.StartStepUp(ctx, auth.Info{PrincipalID: mid, Machine: true, Scopes: []string{"read"}}, "reveal", "A"); err == nil {
 			t.Fatal("machines can never get a step-up")
 		}

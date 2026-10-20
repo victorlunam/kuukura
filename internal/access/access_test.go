@@ -13,9 +13,9 @@ import (
 )
 
 func person(t *testing.T, p storage.Provider, role string) (Actor, string) {
-	id := uuid.New()
-	name := id.String()[:8] + "@example.test"
-	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, ?, 'active')`), id, name, name, role); err != nil {
+	id := storagetest.Principal(t, p, "human", role, "active")
+	var name string
+	if err := p.DB().QueryRow(p.Rebind(`SELECT name FROM principals WHERE id = ?`), id).Scan(&name); err != nil {
 		t.Fatal(err)
 	}
 	return Actor{ID: id}, name
@@ -80,10 +80,7 @@ func TestGrantsGroupsAndAdminOnly(t *testing.T) {
 		}
 
 		// machine: own grants AND owner's
-		mid := uuid.New()
-		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, user.ID); err != nil {
-			t.Fatal(err)
-		}
+		mid := storagetest.Machine(t, p, user.ID, "ci")
 		m := Actor{ID: mid, Machine: true}
 		if err := ad.Grant(ctx, admin, "ci", Read, []string{"team:pay"}); err != nil {
 			t.Fatal(err)

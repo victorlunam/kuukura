@@ -14,11 +14,7 @@ import (
 )
 
 func newPrincipal(t *testing.T, p storage.Provider, status string) uuid.UUID {
-	id := uuid.New()
-	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, 'x@example.test', 'member', ?)`), id, id.String(), status); err != nil {
-		t.Fatal(err)
-	}
-	return id
+	return storagetest.Principal(t, p, "human", "member", status)
 }
 
 func issue(t *testing.T, tk *Tokens, who uuid.UUID, kind string, scopes []string, ttl time.Duration) Issued {

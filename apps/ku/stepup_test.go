@@ -7,7 +7,24 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/victorlunam/kuukura/internal/storage"
+	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
+
+// The CLI and the server each compute the subject a confirmation is bound to. The same selector spelled another
+// way (case, order, a repeated tag) must give the same subject, or the server refuses the confirmation it just
+// received. The real server is the other half of this test.
+func TestStepUpSubjectMatchesTheServer(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		w, _ := userWorld(t, p)
+		mustOK(t, w.ku(fakeValue+"\n", false, nil, "secret", "set", "STRIPE_KEY", "app:shop", "env:prod", "team:pay", "--yes"))
+		r := mustOK(t, w.ku("", false, nil, "secret", "get", "stripe_key", "team:pay", "ENV:prod", "app:shop", "env:prod", "--reveal"))
+		if r.out != fakeValue || w.stepUps != 1 {
+			t.Fatalf("reveal with a differently spelled selector: %q steps=%d err=%q", r.out, w.stepUps, r.errOut)
+		}
+	})
+}
 
 // The OS opens whatever it is given (on Windows a file: or UNC path can launch a program), so ku opens only links
 // that point at the profile's own server and shows the rest.

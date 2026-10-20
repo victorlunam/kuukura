@@ -32,12 +32,7 @@ func setup(t *testing.T, p storage.Provider) *env {
 }
 
 func (e *env) person(role, status string) access.Actor {
-	id := uuid.New()
-	name := id.String()[:8] + "@example.test"
-	if _, err := e.p.DB().Exec(e.p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, ?, ?)`), id, name, name, role, status); err != nil {
-		e.t.Fatal(err)
-	}
-	return access.Actor{ID: id}
+	return access.Actor{ID: storagetest.Principal(e.t, e.p, "human", role, status)}
 }
 
 func (e *env) name(a access.Actor) string {
@@ -175,10 +170,7 @@ func TestDisableEndsTokensAndMachines(t *testing.T) {
 			t.Fatal(err)
 		}
 		// a machine owned by the user
-		mid := uuid.New()
-		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, user.ID); err != nil {
-			t.Fatal(err)
-		}
+		mid := storagetest.Machine(t, p, user.ID, "ci")
 		mkey, err := e.issue(mid, auth.KindMachineKey, []string{"read"})
 		if err != nil {
 			t.Fatal(err)

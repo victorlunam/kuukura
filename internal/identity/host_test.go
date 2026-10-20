@@ -112,10 +112,7 @@ func TestListDisableEnableByHost(t *testing.T) {
 		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO credentials (id, principal_id, kind, public_key) VALUES (?, ?, 'passkey', ?)`), uuid.New(), user.ID, []byte{1}); err != nil {
 			t.Fatal(err)
 		}
-		mid := uuid.New()
-		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, user.ID); err != nil {
-			t.Fatal(err)
-		}
+		mid := storagetest.Machine(t, p, user.ID, "ci")
 		people, err := e.svc.ListPeople(ctx)
 		if err != nil || len(people) != 3 {
 			t.Fatalf("%v %v", people, err)

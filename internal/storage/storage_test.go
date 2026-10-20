@@ -28,9 +28,7 @@ func mustExec(t *testing.T, p storage.Provider, q string, args ...any) {
 }
 
 func newPrincipal(t *testing.T, p storage.Provider) string {
-	id := uuid.NewString()
-	mustExec(t, p, `INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, 'a@example.test', 'admin', 'active')`, id, "p-"+id)
-	return id
+	return storagetest.Principal(t, p, "human", "admin", "active").String()
 }
 
 func newSecret(t *testing.T, p storage.Provider, by, name string, tags storage.Tags) (string, error) {

@@ -46,15 +46,11 @@ func (e *env) exec(q string, args ...any) {
 }
 
 func (e *env) human(role string) access.Actor {
-	id := uuid.New()
-	e.exec(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, ?, 'active')`, id, "h-"+id.String(), "h@example.test", role)
-	return access.Actor{ID: id, IP: "203.0.113.1"}
+	return access.Actor{ID: storagetest.Principal(e.t, e.p, "human", role, "active"), IP: "203.0.113.1"}
 }
 
 func (e *env) machine(owner access.Actor) access.Actor {
-	id := uuid.New()
-	e.exec(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', ?, ?, 'active')`, id, "m-"+id.String(), owner.ID)
-	return access.Actor{ID: id, Machine: true, IP: "203.0.113.2"}
+	return access.Actor{ID: storagetest.Machine(e.t, e.p, owner.ID, "m-"+uuid.NewString()), Machine: true, IP: "203.0.113.2"}
 }
 
 func (e *env) grant(a access.Actor, perm string, tags ...string) {

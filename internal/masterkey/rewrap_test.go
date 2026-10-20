@@ -18,16 +18,6 @@ import (
 
 const fakeValue = "sk_test_FAKE_EXAMPLE"
 
-func principal(t *testing.T, p storage.Provider, role string) uuid.UUID {
-	t.Helper()
-	id := uuid.New()
-	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, ?, ?, 'active')`),
-		id, "h-"+id.String(), "h@example.test", role); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
 func services(t *testing.T, p storage.Provider, kp keys.KeyProvider, log *audit.Log) (*secrets.Service, *auth.Service) {
 	t.Helper()
 	authSvc, err := auth.NewService(p, log, auth.NewTokens(p), nil, kp, auth.Config{RPID: "vault.example.test", RPOrigin: "https://vault.example.test", Issuer: "kuukura"})
@@ -41,7 +31,7 @@ func TestRewrapMovesEverythingToTheActiveKeyAndAudits(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		ctx := t.Context()
 		log := audit.New(p)
-		member, admin := principal(t, p, "member"), principal(t, p, "admin")
+		member, admin := storagetest.Principal(t, p, "human", "member", "active"), storagetest.Principal(t, p, "human", "admin", "active")
 		sel, err := storage.NormalizeTags([]string{"app:shop"})
 		if err != nil {
 			t.Fatal(err)
@@ -84,7 +74,7 @@ func TestRewrapMovesEverythingToTheActiveKeyAndAudits(t *testing.T) {
 
 		// Two authenticator apps sealed under key 1, in the format auth stores them.
 		for range 2 {
-			owner := principal(t, p, "member")
+			owner := storagetest.Principal(t, p, "human", "member", "active")
 			w, err := kp1.Wrap(ctx, []byte("JBSWY3DPEHPK3PXP"), append([]byte("kuukura-totp\x00"), owner[:]...))
 			if err != nil {
 				t.Fatal(err)
