@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"net/url"
 	"os"
 	"strings"
@@ -134,7 +135,11 @@ func TestAppRunsWithoutAuditWriteAccess(t *testing.T) {
 		if _, err := sv.Archive(ctx, a, secrets.Selector{Name: "K"}); err != nil {
 			t.Fatal(err)
 		}
-		if n, err := sv.RewrapAll(ctx, adminID, 0); err != nil || n != 0 {
+		n := 0
+		if err := storage.InTx(ctx, p, func(tx *sql.Tx) (err error) {
+			n, err = sv.RewrapTx(ctx, tx, adminID, 0)
+			return err
+		}); err != nil || n != 0 {
 			t.Fatalf("rewrap: %d %v", n, err)
 		}
 		if err := ids.Disable(ctx, a, "root@example.test"); err == nil {

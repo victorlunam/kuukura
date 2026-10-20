@@ -162,17 +162,8 @@ func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (En
 	})
 }
 
-// RewrapTOTP moves stored TOTP secrets to the provider's active key. Returns how many were rewrapped.
-func (s *Service) RewrapTOTP(ctx context.Context) (int, error) {
-	n := 0
-	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) (err error) {
-		n, err = s.RewrapTOTPTx(ctx, tx)
-		return err
-	})
-	return n, err
-}
-
-// RewrapTOTPTx is RewrapTOTP inside the caller's transaction, so a rotation can commit all its work together.
+// RewrapTOTPTx moves stored TOTP secrets to the provider's active key inside the caller's transaction, so a
+// rotation can commit all its work together. Returns how many were rewrapped.
 func (s *Service) RewrapTOTPTx(ctx context.Context, tx *sql.Tx) (int, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT id, principal_id, encrypted_totp_secret FROM credentials WHERE kind = 'totp'`)
 	if err != nil {

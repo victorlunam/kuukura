@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -57,7 +58,7 @@ func New(d Deps) *Server {
 		d.Now = time.Now
 	}
 	if d.Log == nil {
-		d.Log = slog.New(slog.NewJSONHandler(discardWriter{}, nil))
+		d.Log = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	s := &Server{Deps: d,
 		public: newLimiter(10, d.Now), stepUp: newLimiter(60, d.Now), authed: newLimiter(300, d.Now), reveal: newLimiter(10, d.Now)}
@@ -72,10 +73,6 @@ func New(d Deps) *Server {
 }
 
 func (s *Server) Handler() http.Handler { return s.e }
-
-type discardWriter struct{}
-
-func (discardWriter) Write(p []byte) (int, error) { return len(p), nil }
 
 func (s *Server) routes() {
 	e := s.e
@@ -234,8 +231,6 @@ func actor(c echo.Context) access.Actor {
 }
 
 // ---- helpers ----
-
-func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 
 // decode reads a JSON body strictly (unknown fields are an error).
 func decode(c echo.Context, v any) error {

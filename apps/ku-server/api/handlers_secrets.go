@@ -14,12 +14,6 @@ import (
 	"github.com/victorlunam/kuukura/internal/storage"
 )
 
-const (
-	purposeReveal       = auth.PurposeReveal
-	purposeRun          = auth.PurposeRun
-	purposeAuthorizeOff = auth.PurposeAuthorizeOff
-)
-
 type selectorJSON struct {
 	Name string   `json:"name"`
 	Tags []string `json:"tags"`
@@ -123,7 +117,7 @@ func (s *Server) revealSecret(c echo.Context) error {
 		return err
 	}
 	var v secrets.Value
-	err := s.withStepUp(c, purposeReveal, r.subject(), func(stepUp bool) error {
+	err := s.withStepUp(c, auth.PurposeReveal, r.subject(), func(stepUp bool) error {
 		var err error
 		v, err = s.Secrets.Reveal(c.Request().Context(), actor(c), r.sel(), stepUp)
 		return err
@@ -140,7 +134,7 @@ func (s *Server) runSecrets(c echo.Context) error {
 		return err
 	}
 	var vals []secrets.Value
-	err := s.withStepUp(c, purposeRun, r.subject(), func(stepUp bool) error {
+	err := s.withStepUp(c, auth.PurposeRun, r.subject(), func(stepUp bool) error {
 		var err error
 		vals, err = s.Secrets.Run(c.Request().Context(), actor(c), r.sel(), stepUp)
 		return err
@@ -189,7 +183,7 @@ func (s *Server) patchSecrets(c echo.Context) error {
 	}
 	var err error
 	if r.RequiresAuthorize != nil && !*r.RequiresAuthorize {
-		err = s.withStepUp(c, purposeAuthorizeOff, r.Selector.subject(), run)
+		err = s.withStepUp(c, auth.PurposeAuthorizeOff, r.Selector.subject(), run)
 	} else {
 		err = run(false)
 	}

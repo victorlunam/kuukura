@@ -2,6 +2,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -148,8 +149,9 @@ func (s *Server) errorHandler(err error, c echo.Context) {
 	}
 	h.Set("Cache-Control", "no-store")
 	h.Set(echo.HeaderContentType, "application/problem+json") // before the body: the header is sent with it
-	_ = c.JSONBlob(ae.status, mustJSON(problem{
+	body, _ := json.Marshal(problem{
 		Type: "/problems/" + ae.code, Title: ae.title, Status: ae.status, Detail: ae.detail,
 		Instance: "urn:uuid:" + requestID(c), Code: ae.code, Items: ae.items,
-	}))
+	})
+	_ = c.JSONBlob(ae.status, body)
 }

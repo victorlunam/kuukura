@@ -160,18 +160,18 @@ func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
 // selector (or a factor kind or id), shown as plain text: the template escapes it.
 func stepUpAsk(purpose, subject string) string {
 	switch purpose {
-	case purposeReveal:
+	case auth.PurposeReveal:
 		return "Reveal " + subject
-	case purposeRun:
+	case auth.PurposeRun:
 		return "Run with " + subject
-	case purposeAuthorizeOff:
+	case auth.PurposeAuthorizeOff:
 		return "Turn off confirmation for " + subject
-	case purposeFactorAdd:
+	case auth.PurposeFactorAdd:
 		if subject == "totp" {
 			return "Add an authenticator app"
 		}
 		return "Add a passkey"
-	case purposeFactorRemove:
+	case auth.PurposeFactorRemove:
 		return "Remove a passkey or authenticator app"
 	}
 	return ""

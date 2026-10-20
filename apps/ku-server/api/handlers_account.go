@@ -12,11 +12,6 @@ import (
 	"github.com/victorlunam/kuukura/internal/auth"
 )
 
-const (
-	purposeFactorAdd    = auth.PurposeFactorAdd
-	purposeFactorRemove = auth.PurposeFactorRemove
-)
-
 // confirmed spends the caller's confirmation for this purpose and subject, or asks for one. Machines have no
 // second factors, so none of the account endpoints is theirs.
 func (s *Server) confirmed(c echo.Context, purpose, subject string) error {
@@ -59,7 +54,7 @@ func (s *Server) addFactor(c echo.Context) error {
 	if r.Kind != "passkey" && r.Kind != "totp" {
 		return badRequest("Kind must be passkey or totp.")
 	}
-	if err := s.confirmed(c, purposeFactorAdd, r.Kind); err != nil {
+	if err := s.confirmed(c, auth.PurposeFactorAdd, r.Kind); err != nil {
 		return err
 	}
 	id, err := s.Auth.StartAddFactor(info(c), r.Kind)
@@ -78,7 +73,7 @@ func (s *Server) removeFactor(c echo.Context) error {
 	if err != nil {
 		return access.Fail(access.CodeNotFound, "no such factor")
 	}
-	if err := s.confirmed(c, purposeFactorRemove, id.String()); err != nil {
+	if err := s.confirmed(c, auth.PurposeFactorRemove, id.String()); err != nil {
 		return err
 	}
 	switch err := s.Auth.RemoveFactor(c.Request().Context(), info(c), id, c.RealIP()); {

@@ -3,6 +3,7 @@ package secrets
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -470,6 +471,15 @@ func TestLimitsAndValidation(t *testing.T) {
 	})
 }
 
+// rewrap runs RewrapTx in its own transaction, as a rotation does.
+func rewrap(ctx context.Context, p storage.Provider, svc *Service, by uuid.UUID, totp int) (n int, err error) {
+	err = storage.InTx(ctx, p, func(tx *sql.Tx) (err error) {
+		n, err = svc.RewrapTx(ctx, tx, by, totp)
+		return err
+	})
+	return n, err
+}
+
 func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		ctx := t.Context()
@@ -499,14 +509,14 @@ func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 
 		// A rewrap that fails leaves no audit row: the row and the rewrap commit together.
 		onlyV2, _ := keys.ParseMasterKeys(k2)
-		if _, err := New(p, onlyV2, e.log).RewrapAll(ctx, admin.ID, 0); err == nil {
+		if _, err := rewrap(ctx, p, New(p, onlyV2, e.log), admin.ID, 0); err == nil {
 			t.Fatal("a ring without the key of existing data must fail")
 		}
 		if e.auditCount(admin, "key_rotate", "ok") != 0 {
 			t.Fatal("a failed rewrap must not be audited as a rotation")
 		}
 
-		if n, err := svc2.RewrapAll(ctx, admin.ID, 3); err != nil || n != 1 {
+		if n, err := rewrap(ctx, p, svc2, admin.ID, 3); err != nil || n != 1 {
 			t.Fatalf("rewrapped %d: %v", n, err)
 		}
 		var keyID string
@@ -534,7 +544,7 @@ func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
 		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
 			t.Fatalf("readable after rewrap: %v", err)
 		}
-		if n, _ := svc2.RewrapAll(ctx, admin.ID, 0); n != 0 {
+		if n, _ := rewrap(ctx, p, svc2, admin.ID, 0); n != 0 {
 			t.Fatal("nothing left to rewrap")
 		}
 		if err := e.log.Verify(ctx); err != nil {

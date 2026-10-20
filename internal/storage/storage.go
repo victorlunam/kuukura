@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func migrator(kind, dsn string) (*dbmate.DB, error) {
 	m.FS = migrations
 	m.MigrationsDir = []string{"migrations/" + kind}
 	m.AutoDumpSchema = false
-	m.Log = discard{}
+	m.Log = io.Discard
 	return m, nil
 }
 
@@ -127,10 +128,6 @@ func Migrate(kind, dsn string) error {
 	}
 	return m.CreateAndMigrate()
 }
-
-type discard struct{}
-
-func (discard) Write(p []byte) (int, error) { return len(p), nil }
 
 func rebindDollar(q string) string {
 	var b strings.Builder

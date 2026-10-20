@@ -9,18 +9,7 @@ import (
 
 	"github.com/victorlunam/kuukura/internal/audit"
 	"github.com/victorlunam/kuukura/internal/keys"
-	"github.com/victorlunam/kuukura/internal/storage"
 )
-
-// RewrapAll is RewrapTx in its own transaction.
-func (s *Service) RewrapAll(ctx context.Context, by uuid.UUID, totp int) (int, error) {
-	n := 0
-	err := storage.InTx(ctx, s.p, func(tx *sql.Tx) (err error) {
-		n, err = s.RewrapTx(ctx, tx, by, totp)
-		return err
-	})
-	return n, err
-}
 
 // RewrapTx moves every DEK to the provider's active key without touching ciphertext, and records `key_rotate`
 // for `by` in the caller's transaction: the audit row exists exactly when the rewrap committed. totp is how
