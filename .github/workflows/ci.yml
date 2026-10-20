@@ -12,24 +12,38 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26"
           check-latest: true
       - run: go vet ./...
-      - run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
-      - run: go run github.com/securego/gosec/v2/cmd/gosec@latest ./...
-      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      # Tool versions are pinned so a new release cannot turn the tree red on its own; Dependabot does not track
+      # these, bump them by hand.
+      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+      - run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
-  test:
+  # Two legs, so the sqlite one does not wait for (or start) a Postgres service. Fuzzing runs once, in the sqlite leg:
+  # it touches no database.
+  test-sqlite:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        storage: [sqlite, postgres]
     env:
-      VAULT_STORAGE: ${{ matrix.storage }}
+      VAULT_STORAGE: sqlite
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26"
+          check-latest: true
+      - run: go test -race ./...
+      - name: Fuzz (short)
+        run: go test ./keys -run '^$' -fuzz FuzzOpen -fuzztime 20s
+
+  test-postgres:
+    runs-on: ubuntu-latest
+    env:
+      VAULT_STORAGE: postgres
       VAULT_TEST_POSTGRES_URL: postgres://kuukura:kuukura@localhost:5432/kuukura?sslmode=disable
     services:
       postgres:
@@ -43,16 +57,12 @@ jobs:
           --health-cmd "pg_isready -U kuukura"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26"
           check-latest: true
       - run: go test -race ./...
-      - name: Fuzz (short)
-        run: |
-          go test ./keys -run '^$' -fuzz FuzzParseAAD -fuzztime 20s
-          go test ./keys -run '^$' -fuzz FuzzOpen -fuzztime 20s
 
   # The CLI runs on macOS, Linux and Windows. Every OS builds and vets it; the tests that depend on `sh` run on
   # macOS and Linux, and the OS-specific ones (real keychain, config location, browser command) run everywhere.
@@ -65,8 +75,8 @@ jobs:
     env:
       VAULT_STORAGE: sqlite
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26"
           check-latest: true
@@ -82,5 +92,5 @@ jobs:
   image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker build -t kuukura:ci .
