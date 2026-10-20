@@ -151,7 +151,8 @@ Claims are matched by where you can check them. These are self-reviews, not thir
 | Static analysis and dependency checks in CI | [`ci.yml`](.github/workflows/ci.yml) (staticcheck, gosec, govulncheck) |
 
 Releases are built by [`release.yml`](.github/workflows/release.yml) with build provenance, a keyless cosign
-signature and an SBOM. Check what you pull (set `v` to the release you run, for example from the [releases page](https://github.com/victorlunam/kuukura/releases)):
+signature and an SBOM. Check what you pull with the GitHub CLI and cosign v3 or later (set `v` to the release you run,
+for example from the [releases page](https://github.com/victorlunam/kuukura/releases)):
 
 ```sh
 v=YEAR.MONTH.N

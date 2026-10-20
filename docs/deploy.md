@@ -257,7 +257,8 @@ v=YEAR.MONTH.N
 gh attestation verify oci://ghcr.io/victorlunam/kuukura:$v --repo victorlunam/kuukura
 gh attestation verify kuukura_${v}_linux_amd64.tar.gz --repo victorlunam/kuukura
 
-# the cosign signature: the issuer is GitHub Actions, the identity is this repository's release workflow at that tag
+# the cosign signature (cosign v3 or later: the signature is a Sigstore bundle attached to the image)
+# the issuer is GitHub Actions, the identity is this repository's release workflow at that tag
 cosign verify ghcr.io/victorlunam/kuukura:$v \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity https://github.com/victorlunam/kuukura/.github/workflows/release.yml@refs/tags/v$v
