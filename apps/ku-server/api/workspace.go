@@ -9,41 +9,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/victorlunam/kuukura/internal/audit"
-	"github.com/victorlunam/kuukura/internal/auth"
 	"github.com/victorlunam/kuukura/internal/storage"
 )
-
-type inviteReq struct {
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Machine bool   `json:"machine"`
-	Profile string `json:"profile"` // the inviter's CLI profile name: a display-only suggestion for the invitee
-}
-
-// invite creates a person invite (link, 24 h) or a machine identity (key shown once).
-func (s *Server) invite(c echo.Context) error {
-	var r inviteReq
-	if err := decode(c, &r); err != nil {
-		return err
-	}
-	ctx, a := c.Request().Context(), actor(c)
-	if r.Machine {
-		inv, err := s.Identity.InviteMachine(ctx, a, r.Name)
-		if err != nil {
-			return err
-		}
-		return c.JSON(http.StatusCreated, map[string]any{"token": inv.Token, "expires_at": inv.ExpiresAt})
-	}
-	inv, err := s.Identity.InviteHuman(ctx, a, r.Email)
-	if err != nil {
-		return err
-	}
-	link := s.BaseURL + "/invite?token=" + url.QueryEscape(inv.Token)
-	if p := auth.CleanLabel(r.Profile); p != "" {
-		link += "&profile=" + p
-	}
-	return c.JSON(http.StatusCreated, map[string]any{"link": link, "expires_at": inv.ExpiresAt})
-}
 
 type groupReq struct {
 	Add    []string `json:"add"`

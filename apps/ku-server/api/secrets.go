@@ -2,13 +2,11 @@ package api
 
 import (
 	"encoding/base64"
-	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/victorlunam/kuukura/internal/access"
 	"github.com/victorlunam/kuukura/internal/auth"
 	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
@@ -203,16 +201,4 @@ func (s *Server) revokeSecrets(c echo.Context) error {
 		return err
 	}
 	return c.JSON(http.StatusOK, map[string]any{"revoked": nonNil(names)})
-}
-
-func nonNil(s []string) []string {
-	if s == nil {
-		return []string{}
-	}
-	return s
-}
-
-func isStepUp(err error) bool {
-	var de *access.Error
-	return errors.As(err, &de) && de.Code == access.CodeStepUp
 }

@@ -18,8 +18,7 @@ func (s *Server) confirmed(c echo.Context, purpose, subject string) error {
 	if info(c).Machine {
 		return errForbidden
 	}
-	id := stepUpGrant(c)
-	if id == "" || !s.Auth.ConsumeStepUp(info(c), id, purpose, subject) {
+	if !s.spendStepUp(c, purpose, subject) {
 		return access.Fail(access.CodeStepUp, "confirm with your passkey or authenticator app")
 	}
 	return nil
@@ -61,11 +60,7 @@ func (s *Server) addFactor(c echo.Context) error {
 	if err != nil {
 		return errForbidden
 	}
-	link := s.BaseURL + "/account/add?id=" + id
-	if p := auth.CleanLabel(r.Profile); p != "" {
-		link += "&profile=" + p
-	}
-	return c.JSON(http.StatusCreated, map[string]string{"url": link})
+	return c.JSON(http.StatusCreated, map[string]string{"url": withProfile(s.BaseURL+"/account/add?id="+id, r.Profile)})
 }
 
 func (s *Server) removeFactor(c echo.Context) error {
@@ -91,10 +86,7 @@ func (s *Server) removeFactor(c echo.Context) error {
 // only its button (go=1) spends the link, so a link preview or prefetch cannot burn it.
 func (s *Server) addFactorPage(c echo.Context) error {
 	if c.QueryParam("go") == "" {
-		link := "/account/add?id=" + url.QueryEscape(c.QueryParam("id")) + "&go=1"
-		if p := auth.CleanLabel(c.QueryParam("profile")); p != "" {
-			link += "&profile=" + p
-		}
+		link := withProfile("/account/add?id="+url.QueryEscape(c.QueryParam("id"))+"&go=1", c.QueryParam("profile"))
 		return s.page(c, http.StatusOK, pageData{Title: "Add a passkey or authenticator app", Mode: "addask", Link: link, Art: art("passkey"), Label: auth.CleanLabel(c.QueryParam("profile"))})
 	}
 	p, err := s.Auth.OpenAddFactor(c.Request().Context(), c.QueryParam("id"))
