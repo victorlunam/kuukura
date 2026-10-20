@@ -6,7 +6,9 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
-## [2026.10.12] - 2026-10-20
+### Added
+
+- `ku logout` ends the session on the server and forgets it on this machine.
 
 ### Changed
 
@@ -195,8 +197,7 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.12...HEAD
-[2026.10.12]: https://github.com/victorlunam/kuukura/compare/v2026.10.11...v2026.10.12
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.11...HEAD
 [2026.10.11]: https://github.com/victorlunam/kuukura/compare/v2026.10.10...v2026.10.11
 [2026.10.10]: https://github.com/victorlunam/kuukura/compare/v2026.10.9...v2026.10.10
 [2026.10.9]: https://github.com/victorlunam/kuukura/compare/v2026.10.8...v2026.10.9

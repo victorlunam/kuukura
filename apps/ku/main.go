@@ -54,6 +54,7 @@ const usage = `Usage: ku <command> [options]
   profile list                               list servers
   profile remove <name>                      forget a server and its session
   login                                      sign in to the active server
+  logout                                     end the session and forget it here
   link [<app>]                               link this folder to an app
   run [name] [tags] -- <command>             run a command with secrets
   secret list [name] [tags]                  list secrets, never their values
@@ -87,6 +88,8 @@ func (a *app) run(args []string) int {
 	switch cmd {
 	case "login":
 		return a.cmdLogin(rest)
+	case "logout":
+		return a.cmdLogout(rest)
 	case "link":
 		return a.cmdLink(rest)
 	case "profile":

@@ -239,6 +239,7 @@ print the command's own `Usage:` line and exit 2 (`ku` uses the same two codes).
 ```sh
 ku profile add work --url https://vault.example.com   # the profile holds the server URL
 ku login                                              # signs in to the active profile
+ku logout                                             # ends the session on the server and on this machine
 ku secret set DATABASE_URL app:shop          # value from a hidden prompt
 ku workspace grant dev@example.com write app:shop
 ku link shop && ku run env:dev -- npm run dev
