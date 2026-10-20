@@ -46,9 +46,14 @@ const signals = [
   }
   .strip {
     display: grid;
-    grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 15rem) minmax(0, 36rem);
+    justify-content: center;
     gap: clamp(2rem, 6vw, 5rem);
-    align-items: center;
+    align-items: start;
+  }
+  /* the terminal lines up with the phone's screen, not its bezel */
+  .right {
+    padding-top: var(--k-space-6);
   }
   figure {
     margin: 0;
@@ -66,7 +71,11 @@ const signals = [
       grid-template-columns: minmax(0, 1fr);
     }
     .phone {
-      max-width: 15rem;
+      width: min(15rem, 72vw);
+      margin-inline: auto;
+    }
+    .right {
+      padding-top: 0;
     }
   }
 </style>

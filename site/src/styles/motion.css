@@ -4,7 +4,7 @@
    data-reveal         fades up as it enters the viewport; style="--i: n" staggers siblings
    data-dim            brightens from half to full as it crosses the viewport, and stays bright
    data-stage          a scene that plays as it crosses the screen; its parts: data-stage-part="vault | bolts |
-                       door | glow | first | second". The scene's timing is a set of variables (--turn, --open, --glow,
+                       glow | first | second". The scene's timing is a set of variables (--turn, --glow,
                        --say1 and --say2, each with an -a start and a -b end) declared below: where in the pass
                        (cover %) each part plays
    data-steps          a scroll-told sequence: captions (data-step-caption, style="view-timeline-name: --sN;
@@ -96,17 +96,6 @@
     transform: rotate(0deg);
   }
 }
-/* the door gives way: it fades as it grows past the doorway */
-@keyframes k-open {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.14);
-  }
-}
 @keyframes k-grow {
   from {
     transform: scale(0.86);
@@ -135,10 +124,8 @@
 [data-stage] {
   --turn-a: 16%;
   --turn-b: 30%;
-  --open-a: 28%;
-  --open-b: 46%;
-  --glow-a: 34%;
-  --glow-b: 50%;
+  --glow-a: 30%;
+  --glow-b: 46%;
   --say1-a: 34%;
   --say1-b: 42%;
   --say2-a: 42%;
@@ -209,11 +196,6 @@
       animation-name: k-quarter;
       animation-timing-function: linear;
       animation-range: cover var(--turn-a) cover var(--turn-b);
-    }
-    [data-stage-part='door'] {
-      animation-name: k-open;
-      animation-timing-function: var(--k-ease-inout);
-      animation-range: cover var(--open-a) cover var(--open-b);
     }
     [data-stage-part='glow'] {
       animation-name: k-show;
@@ -306,23 +288,14 @@
   [data-motion='io'] [data-stage-part='bolts'] {
     transition: transform 1s var(--k-ease);
   }
-  [data-motion='io'] [data-stage-part='door'] {
-    transition:
-      transform 1.2s var(--k-ease-inout) 0.7s,
-      opacity 1.2s ease 0.7s;
-  }
   [data-motion='io'] [data-stage-part='glow'] {
-    transition: opacity 1.2s ease 0.9s;
+    transition: opacity 1.2s ease 0.7s;
   }
   [data-motion='io'] :is([data-stage-part='first'], [data-stage-part='second']) {
     transition: opacity 0.8s ease 1.2s;
   }
   [data-motion='io'] [data-stage][data-in] [data-stage-part='bolts'] {
     transform: rotate(90deg);
-  }
-  [data-motion='io'] [data-stage][data-in] [data-stage-part='door'] {
-    opacity: 0;
-    transform: scale(1.14);
   }
   [data-motion='io'] [data-stage][data-in] :is([data-stage-part='glow'], [data-stage-part='second']) {
     opacity: 1;
@@ -367,6 +340,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  [data-stage-part='glow'],
   [data-stage-part='second'] {
     opacity: 1;
   }
