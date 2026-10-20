@@ -19,7 +19,7 @@ import (
 	"unicode"
 )
 
-// version is set at release time: -ldflags "-X main.version=2026.10.0".
+// version is set at release time: -ldflags "-X main.version=YEAR.MONTH.N".
 var version = "dev"
 
 // app holds everything a command touches, so tests can swap it.

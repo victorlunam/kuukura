@@ -90,7 +90,7 @@ You need a domain pointing at a Linux host with Docker, and a Google OAuth clien
 mkdir kuukura && cd kuukura
 curl -fsSLO https://raw.githubusercontent.com/victorlunam/kuukura/main/deploy/docker/docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/victorlunam/kuukura/main/deploy/docker/.env.example -o .env
-# edit .env: VAULT_DOMAIN, VAULT_OIDC_CLIENT_ID, and pin KUUKURA_VERSION to a release
+# edit .env: VAULT_DOMAIN, VAULT_OIDC_CLIENT_ID, and for production set KUUKURA_VERSION to a release tag (the default is latest)
 
 mkdir -p secrets
 docker run --rm -v "$PWD/secrets:/s" ghcr.io/victorlunam/kuukura key init --key-file /s/master_key
@@ -115,16 +115,27 @@ deploy, and the master key lives in Render's environment (copy it to your passwo
 
 ## Install the CLI
 
-Download the archive for your system from the [latest release](https://github.com/victorlunam/kuukura/releases/latest)
-(`kuukura_<version>_<os>_<arch>.tar.gz`, or `.zip` on Windows) for macOS, Linux or Windows (amd64 and arm64). It
-contains `kuukura` and the short name `ku`; put it on your `PATH`.
+macOS and Linux, with Homebrew:
 
 ```sh
-tar -xzf kuukura_<version>_linux_amd64.tar.gz && sudo mv ku kuukura /usr/local/bin/
-ku --version
+brew install victorlunam/tap/kuukura
 ```
 
-Where the session is stored per system, and macOS notes: [docs/install.md](docs/install.md).
+macOS and Linux, with the install script (installs into `~/.local/bin`, checks the checksum, needs no sudo):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts/install.ps1 | iex
+```
+
+Each installs `ku` and `kuukura` (the same program) for the newest release; `ku --version` prints it. You can also
+download an archive from the [releases page](https://github.com/victorlunam/kuukura/releases/latest). Pinning a
+version, verifying downloads, where the session is stored per system, and macOS notes: [docs/install.md](docs/install.md).
 
 ## Security
 
@@ -140,11 +151,10 @@ Claims are matched by where you can check them. These are self-reviews, not thir
 | Static analysis and dependency checks in CI | [`ci.yml`](.github/workflows/ci.yml) (staticcheck, gosec, govulncheck) |
 
 Releases are built by [`release.yml`](.github/workflows/release.yml) with build provenance, a keyless cosign
-signature and an SBOM. That workflow has not yet run on GitHub for a public release, so treat these commands as the
-procedure rather than as a result. After the first release, check what you pull:
+signature and an SBOM. Check what you pull (set `v` to the release you run, for example from the [releases page](https://github.com/victorlunam/kuukura/releases)):
 
 ```sh
-v=2026.10.0
+v=YEAR.MONTH.N
 gh attestation verify oci://ghcr.io/victorlunam/kuukura:$v --repo victorlunam/kuukura
 cosign verify ghcr.io/victorlunam/kuukura:$v \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -178,7 +188,7 @@ Please open an issue if a row is out of date.
 
 ## Status
 
-kuukura uses calendar versions (`YEAR.MONTH.N`, for example `2026.10.0`) and has a single maintainer. The core model
+kuukura uses calendar versions (`YEAR.MONTH.N`; see the [changelog](CHANGELOG.md)) and has a single maintainer. The core model
 (encryption, grants, audit, the CLI and server commands) is implemented and covered by tests on SQLite and Postgres in
 CI. Not yet: SSO/SAML, dynamic secrets, multi-organization instances, a third-party security audit, and a full
 requirement-by-requirement ASVS mapping (the checklist is a draft). Pin a release in production, read the release notes

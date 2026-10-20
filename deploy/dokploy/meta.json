@@ -1,7 +1,7 @@
 {
   "id": "kuukura",
   "name": "kuukura",
-  "version": "2026.10.0",
+  "version": "latest",
   "description": "A self-hosted secrets vault for small teams: envelope encryption, per-tag grants, an audit log, passkey or authenticator-app confirmations for reveals.",
   "logo": "kuukura.svg",
   "links": {

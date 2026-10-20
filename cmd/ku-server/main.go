@@ -10,7 +10,7 @@ import (
 	"unicode"
 )
 
-// version is set at release time: -ldflags "-X main.version=2026.10.0".
+// version is set at release time: -ldflags "-X main.version=YEAR.MONTH.N".
 var version = "dev"
 
 // helpText is the help: one line per command, "noun verb arguments", then what it does (same shape as `ku help`).

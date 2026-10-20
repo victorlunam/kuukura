@@ -1,0 +1,38 @@
+# Template for Formula/kuukura.rb in victorlunam/homebrew-tap. The release workflow fills in the @...@ values from
+# the release's checksums.txt (scripts/homebrew/render.sh); do not edit the tap's copy by hand.
+class Kuukura < Formula
+  desc "CLI for kuukura, a self-hosted secrets vault for small teams"
+  homepage "https://github.com/victorlunam/kuukura"
+  version "@VERSION@"
+  license "MIT"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/victorlunam/kuukura/releases/download/v@VERSION@/kuukura_@VERSION@_darwin_arm64.tar.gz"
+      sha256 "@SHA_DARWIN_ARM64@"
+    end
+    on_intel do
+      url "https://github.com/victorlunam/kuukura/releases/download/v@VERSION@/kuukura_@VERSION@_darwin_amd64.tar.gz"
+      sha256 "@SHA_DARWIN_AMD64@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/victorlunam/kuukura/releases/download/v@VERSION@/kuukura_@VERSION@_linux_arm64.tar.gz"
+      sha256 "@SHA_LINUX_ARM64@"
+    end
+    on_intel do
+      url "https://github.com/victorlunam/kuukura/releases/download/v@VERSION@/kuukura_@VERSION@_linux_amd64.tar.gz"
+      sha256 "@SHA_LINUX_AMD64@"
+    end
+  end
+
+  def install
+    bin.install "ku", "kuukura"
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/ku --version")
+  end
+end

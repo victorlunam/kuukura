@@ -8,7 +8,7 @@
 #   VAULT_DOMAIN               vault.example.com           (the same domain you add in the Domains tab)
 #   VAULT_OIDC_CLIENT_ID       000000000000-example.apps.googleusercontent.com
 #   VAULT_OIDC_CLIENT_SECRET   the Google OAuth client secret
-#   KUUKURA_VERSION            a release such as 2026.10.0 (pin one; avoid `latest` in production)
+#   KUUKURA_VERSION            a release tag (YEAR.MONTH.N, see the releases page); default `latest`, pin one in production
 #
 # The master key is generated on the first start and kept in the `kuukura-keys` volume, apart from the database
 # in `kuukura-data`. After the first start, open a terminal in the container and run `ku-server key show` once:
@@ -16,7 +16,7 @@
 # anyone who can read this service's environment (Dokploy admins, `docker inspect`) can read it.
 services:
   kuukura:
-    image: ghcr.io/victorlunam/kuukura:${KUUKURA_VERSION:-2026.10.0}
+    image: ghcr.io/victorlunam/kuukura:${KUUKURA_VERSION:-latest}
     restart: unless-stopped
     environment:
       VAULT_DOMAIN: ${VAULT_DOMAIN}

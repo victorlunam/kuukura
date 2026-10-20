@@ -43,6 +43,8 @@ go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...
 
 - Keep a change focused; add or update tests, on both backends when storage is touched.
 - Update the docs under `docs/` when behavior changes.
+- User-facing changes get a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md). Never write a release number in
+  docs or templates: the tag is the version and CI builds everything from it.
 - Sign off every commit with the [Developer Certificate of Origin](https://developercertificate.org/):
   `git commit -s`.
 - Labels drive the release notes (`security`, `feature`, `bug`, `documentation`); see `.github/release.yml`.

@@ -1,14 +1,14 @@
 # Render Blueprint: deploy kuukura from the published image with one persistent disk for the SQLite database.
 # Render terminates HTTPS. On Render the master key lives in Render's environment (VAULT_MASTER_KEY, generated once):
 # read it from the service's Environment tab and store a copy in your password manager (docs/deploy.md).
-# Pin a release in `image.url`; the OIDC values are asked for when the Blueprint is created. Set VAULT_DOMAIN to
+# `image.url` follows `latest`; for production replace it with a release tag (see docs/deploy.md). The OIDC values are asked for when the Blueprint is created. Set VAULT_DOMAIN to
 # the domain the service is served on (the onrender.com name, or your custom domain) after the first deploy.
 services:
   - type: web
     name: kuukura
     runtime: image
     image:
-      url: ghcr.io/victorlunam/kuukura:2026.10.0
+      url: ghcr.io/victorlunam/kuukura:latest
     plan: starter
     healthCheckPath: /healthz
     disk:

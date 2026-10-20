@@ -1,7 +1,51 @@
 # Installing the CLI (macOS, Linux, Windows)
 
-Download the archive for your system from the release page (`kuukura_<version>_<os>_<arch>.tar.gz`, or `.zip` for
-Windows). It holds the same program twice: `kuukura` and the short name `ku`. Put it on your `PATH`.
+Every method installs the same program twice: `kuukura` and the short name `ku`.
+
+## Install
+
+**Homebrew (macOS, Linux)**
+
+```sh
+brew install victorlunam/tap/kuukura
+brew upgrade kuukura          # later
+```
+
+**install.sh (macOS, Linux)** puts both programs in `~/.local/bin` (no sudo), after checking the archive's SHA-256
+against the release's `checksums.txt`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts/install.sh | sh
+```
+
+`KU_INSTALL_DIR=/usr/local/bin` changes the folder (and may need `sudo sh`); `KU_VERSION=<version>` installs a
+specific release instead of the newest. To read the script first, download it and run `sh install.sh`.
+
+**install.ps1 (Windows PowerShell 5.1 or 7)** installs into `%LOCALAPPDATA%\Programs\kuukura` and adds it to your user
+`PATH`; it takes the same `KU_INSTALL_DIR` and `KU_VERSION` variables:
+
+```powershell
+irm https://raw.githubusercontent.com/victorlunam/kuukura/main/scripts/install.ps1 | iex
+```
+
+**Manual download.** Pick the archive for your system on the [releases page](https://github.com/victorlunam/kuukura/releases)
+(`kuukura_<version>_<os>_<arch>.tar.gz`, or `.zip` for Windows; os is `darwin`, `linux` or `windows`, arch is `amd64`
+or `arm64`), unpack it and put `ku` and `kuukura` on your `PATH`.
+
+## Verify a download
+
+Each archive is listed in `checksums.txt` on the release and has build provenance from this repository's release
+workflow. In the folder with the downloads (`v` is the release, without the leading `v`):
+
+```sh
+sha256sum --check --ignore-missing checksums.txt      # macOS: shasum -a 256 -c --ignore-missing checksums.txt
+gh attestation verify kuukura_${v}_linux_amd64.tar.gz --repo victorlunam/kuukura
+```
+
+The installers check the checksum for you; `gh attestation verify` is the stronger check (it proves the file was built
+by the workflow at that tag). The image and the SBOM are covered in [deploy.md](deploy.md#verifying-a-release).
+
+## First run
 
 ```sh
 ku --version

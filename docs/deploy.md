@@ -7,8 +7,10 @@ Docker network). All values below are fake examples.
 
 ## Deploy targets
 
-kuukura is deployed from the published image `ghcr.io/victorlunam/kuukura:<version>` (releases are tagged
-`YEAR.MONTH.N`, e.g. `2026.10.0`; pin one in production). Nothing is built on your server.
+kuukura is deployed from the published image `ghcr.io/victorlunam/kuukura`. Releases are tagged `YEAR.MONTH.N` (the
+list is on the [releases page](https://github.com/victorlunam/kuukura/releases)); the tag `latest` is the newest
+release. The templates default to `latest`: set `KUUKURA_VERSION` to a release tag to pin one, which you should do in
+production. Nothing is built on your server.
 
 | Target | File | TLS | Master key |
 |---|---|---|---|
@@ -34,7 +36,7 @@ How to use each template:
   values (`VAULT_DOMAIN`, the two OIDC values); everything else is set. **On Render the key lives in Render's
   environment** (`VAULT_MASTER_KEY`, generated once as a bare key): read it from the Environment tab and store a copy
   in your password manager; anyone with access to the service's settings can read it. Render has one persistent
-  disk, so one instance only. Pin a release in `image.url`.
+  disk, so one instance only. `image.url` ends in `latest`; replace it with a release tag to pin one.
 - **Compose + Caddy, Swarm**: see the comments at the top of each file.
 
 For every target, `VAULT_DOMAIN` must be the domain the people use (it is also the passkey RP ID), and the Google
@@ -46,10 +48,11 @@ docker run -d --name kuukura --restart unless-stopped -p 127.0.0.1:8080:8080 \
   -e VAULT_DOMAIN=vault.example.com \
   -e VAULT_MASTER_KEY_FILE=/keys/master_key -e VAULT_MASTER_KEY_GENERATE=true \
   -e VAULT_OIDC_CLIENT_ID=... -e VAULT_OIDC_CLIENT_SECRET=... \
-  ghcr.io/victorlunam/kuukura:2026.10.0
+  ghcr.io/victorlunam/kuukura:latest      # in production use a release tag instead of latest
 ```
 
-Upgrading: change the version and redeploy (`docker compose pull && docker compose up -d`). Migrations run at start;
+Upgrading: with `latest`, pull and redeploy (`docker compose pull && docker compose up -d`); with a pinned
+`KUUKURA_VERSION`, change it first and read [CHANGELOG.md](../CHANGELOG.md). Migrations run at start;
 back up the `/data` volume (or the database) first. `ku-server version` prints the running version.
 
 Local testing without a domain: [local-testing.md](local-testing.md).
@@ -242,10 +245,10 @@ Every release is built by the `release` workflow of this repository from the tag
 - A **keyless cosign signature** on the image, made with the workflow's GitHub OIDC identity.
 - An **SBOM** of the image (`kuukura-image.spdx.json`, SPDX) and `checksums.txt` on the GitHub release.
 
-The signature and the attestation name the image by its digest, so check what you actually pull. Replace the version:
+The signature and the attestation name the image by its digest, so check what you actually pull. Set `v` to the release you run (the tag without the leading `v`, as listed on the releases page):
 
 ```sh
-v=2026.10.0
+v=YEAR.MONTH.N
 
 # provenance of the image and of a CLI archive (needs the GitHub CLI, signed in)
 gh attestation verify oci://ghcr.io/victorlunam/kuukura:$v --repo victorlunam/kuukura

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Signs the macOS binaries of a release with your Developer ID and re-uploads them.
 # Use it when the release was built without the MACOS_CERT_P12 secret. Needs: gh, codesign, the identity in your keychain.
-#   scripts/sign-macos.sh v2026.10.0
+#   scripts/sign-macos.sh vYEAR.MONTH.N
 set -eu
 tag="${1:?usage: scripts/sign-macos.sh <tag>}"
 id="${KU_SIGN_ID:-$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)}"

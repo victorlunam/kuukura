@@ -12,7 +12,7 @@
 # https://<the domain Coolify assigns>/auth/callback and fill the two OIDC variables.
 services:
   kuukura:
-    image: ghcr.io/victorlunam/kuukura:2026.10.0
+    image: ghcr.io/victorlunam/kuukura:${KUUKURA_VERSION:-latest}
     environment:
       - SERVICE_FQDN_KUUKURA_8080
       - VAULT_DOMAIN=${SERVICE_FQDN_KUUKURA}
