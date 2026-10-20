@@ -45,7 +45,7 @@ func (a *app) secretUpdate(args []string) int {
 	if name == "" && len(tags) == 0 {
 		return a.usageFail(updateUsage)
 	}
-	body := map[string]any{"selector": selReq{name, nonNilTags(tags)}}
+	body := map[string]any{"selector": nil}
 	if n := p.flags["name"]; n != "" {
 		body["rename"] = strings.ToUpper(n)
 	}
@@ -68,10 +68,12 @@ func (a *app) secretUpdate(args []string) int {
 	if len(body) == 1 {
 		return a.usageFail(updateUsage)
 	}
-	c, _, err := a.withProfile(p.flags["profile"], true)
+	c, pr, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
 		return a.fail("%v", err)
 	}
+	tags = a.withApp(pr, tags)
+	body["selector"] = selReq{name, nonNilTags(tags)}
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
 		return a.report(err, func(t string) string { return "ku secret update " + t })
@@ -117,7 +119,7 @@ func (a *app) secretUpdate(args []string) int {
 			fmt.Fprintln(a.err, "  Nothing changed.")
 			return 1
 		}
-		return a.report(err, func(t string) string { return "ku secret update " + t })
+		return a.reportWrite(err, tags, func(t string) string { return "ku secret update " + t })
 	}
 	switch {
 	case body["rename"] != nil && len(rows) == 1:
@@ -145,10 +147,11 @@ func (a *app) secretBulk(args []string, verb string) int {
 	if name == "" && len(tags) == 0 {
 		return a.usageFail(line)
 	}
-	c, _, err := a.withProfile(p.flags["profile"], true)
+	c, pr, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
 		return a.fail("%v", err)
 	}
+	tags = a.withApp(pr, tags)
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
 		return a.report(err, func(t string) string { return "ku secret " + verb + " " + t })
@@ -178,7 +181,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 		err = c.call("PATCH", "/secrets", map[string]any{"selector": sel, "archived": true}, &out)
 	}
 	if err != nil {
-		return a.report(err, func(t string) string { return "ku secret " + verb + " " + t })
+		return a.reportWrite(err, tags, func(t string) string { return "ku secret " + verb + " " + t })
 	}
 	n := len(rows)
 	switch {

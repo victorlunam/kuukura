@@ -6,6 +6,11 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Fixed
+
+- `ku secret` commands now use the linked folder's app tag, like `ku run`; a denied write says which tags and how to
+  get access.
+
 ## [2026.10.8] - 2026-10-20
 
 ### Security

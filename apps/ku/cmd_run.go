@@ -40,9 +40,7 @@ func (a *app) cmdRun(args []string) int {
 	if err != nil {
 		return a.fail("%v", err)
 	}
-	if pr.app != "" && !hasKey(tags, "app") {
-		tags = append(tags, "app:"+pr.app)
-	}
+	tags = a.withApp(pr, tags)
 	if len(tags) == 0 {
 		a.fail("This folder is not linked to an app")
 		hint := "  Run: ku link <app>"

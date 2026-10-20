@@ -92,6 +92,19 @@ func distinguishingTag(items []string) string {
 	return "key:value"
 }
 
+// reportWrite is report for a write: a denial says which tags the write was for and how to get access. Tags and
+// names are fine to print; a value never is.
+func (a *app) reportWrite(err error, tags []string, hint func(tag string) string) int {
+	var p *problem
+	if errors.As(err, &p) && p.Code == "forbidden" && len(p.Items) == 0 && len(tags) > 0 {
+		t := strings.Join(tags, " ")
+		a.fail("You can't write secrets tagged %s", t)
+		fmt.Fprintf(a.err, "  Ask an admin: ku workspace grant <you> write %s\n", t)
+		return cli.ExitFail
+	}
+	return a.report(err, hint)
+}
+
 // report prints an error in plain copy and returns exit code 1. hint builds the suggestion line for an
 // ambiguous selection from a distinguishing tag.
 func (a *app) report(err error, hint func(tag string) string) int {

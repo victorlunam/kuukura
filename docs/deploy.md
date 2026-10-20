@@ -243,6 +243,10 @@ ku workspace grant dev@example.com write app:shop
 ku link shop && ku run env:dev -- npm run dev
 ```
 
+In a linked folder every `ku secret` and `ku run` command uses `app:<app>` unless you pass another `app:` tag, and
+prints `app: <app> (linked folder)` on stderr when it does. `ku secret set NAME` there saves a secret tagged
+`app:<app>`; outside a linked folder, `ku secret set` needs at least one tag.
+
 CI: create a machine token with `ku workspace invite ci-deploy --machine` (shown once), grant it `read` on the tags it
 needs, and store it as `KU_TOKEN` next to `KU_URL`. A machine can do only what both its own grants and its owner's
 grants allow, and can never reveal a value.

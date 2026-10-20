@@ -13,7 +13,7 @@ Secrets live in a vault. You run commands *with* them; you never read them.
   `ku secret list` or `ku secret list app:shop env:dev`
 - Run a command with secrets injected as env vars (file secrets become a path in the env var):
   `ku run env:dev -- npm run dev`
-  The folder is linked to an app, so `app:<app>` is added for you. If you get "not linked", ask the user to run `ku link <app>`.
+  The folder is linked to an app, so `app:<app>` is added for you (also for `ku secret` commands). If you get "not linked", ask the user to run `ku link <app>`.
 - If a name matches several secrets, add a tag as the error suggests, for example `ku run env:dev team:web -- npm run dev`.
 - If a secret is "blocked" or you are "not permitted", stop and tell the user. Do not look for another way in.
 - If `ku run` refuses a secret named like `LD_PRELOAD`, `NODE_OPTIONS` or `PATH` (names that change how programs load code), stop and tell the user to rename it.

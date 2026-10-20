@@ -87,10 +87,11 @@ func (a *app) secretList(args []string) int {
 	if err != nil {
 		return a.argFail("%v", err)
 	}
-	c, _, err := a.withProfile(p.flags["profile"], true)
+	c, pr, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
 		return a.fail("%v", err)
 	}
+	tags = a.withApp(pr, tags)
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
 		return a.report(err, func(t string) string { return "ku secret list " + t })
@@ -123,6 +124,14 @@ func (a *app) secretSet(args []string) int {
 	if name == "" || p.has("generate") && p.has("file") {
 		return a.usageFail(setUsage)
 	}
+	c, prof, err := a.withProfile(p.flags["profile"], true)
+	if err != nil {
+		return a.fail("%v", err)
+	}
+	tags = a.withApp(prof, tags)
+	if len(tags) == 0 { // a grant always names a tag, so nobody can write a tagless secret: fail before asking for a value
+		return a.failNext("ku link <app>", "A secret needs at least one tag you can write, e.g. app:<app>")
+	}
 	body := map[string]any{"name": name, "tags": nonNilTags(tags)}
 	switch {
 	case p.has("generate"):
@@ -148,10 +157,6 @@ func (a *app) secretSet(args []string) int {
 		}
 		body["value"] = val
 	}
-	c, _, err := a.withProfile(p.flags["profile"], true)
-	if err != nil {
-		return a.fail("%v", err)
-	}
 	var res struct {
 		Name    string `json:"name"`
 		Version int    `json:"version"`
@@ -170,7 +175,7 @@ func (a *app) secretSet(args []string) int {
 		err = c.call("POST", "/secrets/versions", body, &res)
 	}
 	if err != nil {
-		return a.report(err, func(t string) string { return "ku secret set " + name + " " + t })
+		return a.reportWrite(err, tags, func(t string) string { return "ku secret set " + name + " " + t })
 	}
 	a.say("✓ Saved %s (version %d)", res.Name, res.Version)
 	if p.has("generate") {
@@ -223,10 +228,11 @@ func (a *app) secretGet(args []string) int {
 	if name == "" && len(tags) == 0 || p.has("reveal") == p.has("out") {
 		return a.usageFail(getUsage)
 	}
-	c, _, err := a.withProfile(p.flags["profile"], true)
+	c, pr, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
 		return a.fail("%v", err)
 	}
+	tags = a.withApp(pr, tags)
 	var v valueResp
 	if err := a.callStepUp(c, "reveal", subjectOf(name, tags), "POST", "/secrets/reveal", selReq{name, nonNilTags(tags)}, &v); err != nil {
 		return a.report(err, func(t string) string {

@@ -21,6 +21,16 @@ var tagPartRE = regexp.MustCompile(`^[a-z0-9._-]{1,64}$`)
 // secret value typed by mistake would otherwise land in the terminal, its scrollback and logs.
 func notATag(n int) error { return fmt.Errorf("argument %d is not a tag (key:value)", n) }
 
+// withApp adds app:<app> when the folder is linked and no app: tag was given (an explicit one always wins), and says
+// so on stderr, so the scope of the command is never a surprise.
+func (a *app) withApp(pr profile, tags []string) []string {
+	if pr.app == "" || hasKey(tags, "app") {
+		return tags
+	}
+	a.say("app: %s (linked folder)", pr.app)
+	return append(tags, "app:"+pr.app)
+}
+
 // selectorFrom turns positionals into a name (first, no colon) and tags (key:value). Everything with a colon must
 // be a valid tag: a value such as postgres://user:pw@host/db is rejected here, before it can be sent anywhere.
 func selectorFrom(pos []string) (name string, tags []string, err error) {
