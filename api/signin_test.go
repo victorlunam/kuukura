@@ -46,7 +46,7 @@ func TestSignInCardComesBeforeGoogle(t *testing.T) {
 		}
 
 		// the invite page already is the button page, so its link goes straight to Google
-		inv, _ := e.ids.BootstrapAdmin(ctx, "root@example.test")
+		inv, _ := e.ids.BootstrapAdmin(t.Context(), "root@example.test")
 		page := e.do("GET", "/invite?token="+inv.Token, "", nil)
 		if !strings.Contains(page.Body.String(), "/auth/login?go=1&amp;invite=") {
 			t.Fatalf("invite link: %s", page.Body)

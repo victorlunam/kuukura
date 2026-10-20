@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -77,8 +78,8 @@ func (s *Service) consumeTOTP(ctx context.Context, principal uuid.UUID, code str
 	}
 	for _, c := range creds {
 		secret, err := s.openTOTP(ctx, principal, c.enc)
-		if err != nil {
-			continue
+		if err != nil { // a key outage must not look like a wrong code
+			return false, fmt.Errorf("auth: open authenticator secret: %w", err)
 		}
 		step, ok := totpStep(secret, code, s.now())
 		if !ok {
@@ -136,13 +137,15 @@ func (s *Service) BeginTOTP(ctx context.Context, in Info) (secret, uri string, e
 	return key.Secret(), key.URL(), nil
 }
 
-// ConfirmTOTP verifies the first code, stores the encrypted secret, activates and completes the login.
+// ConfirmTOTP verifies the first code, stores the encrypted secret, activates and completes the login. The
+// code's step is stored as used, so the enrollment code cannot be replayed at the next sign-in.
 func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (EnrollResult, error) {
 	d, err := s.requireScope(in, ScopeEnroll)
 	if err != nil || d.totpSecret == "" || d.add != "" && d.add != "totp" {
 		return EnrollResult{}, ErrLogin
 	}
-	if _, ok := totpStep(d.totpSecret, code, s.now()); !ok {
+	step, ok := totpStep(d.totpSecret, code, s.now())
+	if !ok {
 		return EnrollResult{}, ErrLogin
 	}
 	enc, err := s.sealTOTP(ctx, in.PrincipalID, d.totpSecret)
@@ -150,9 +153,9 @@ func (s *Service) ConfirmTOTP(ctx context.Context, in Info, code, ip string) (En
 		return EnrollResult{}, err
 	}
 	return s.activate(ctx, in, ip, d.add, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, encrypted_totp_secret, is_default)
-			VALUES (?, ?, 'totp', ?, NOT EXISTS (SELECT 1 FROM credentials WHERE principal_id = ?))`),
-			uuid.New(), in.PrincipalID, enc, in.PrincipalID)
+		_, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO credentials (id, principal_id, kind, encrypted_totp_secret, last_used_at, is_default)
+			VALUES (?, ?, 'totp', ?, ?, NOT EXISTS (SELECT 1 FROM credentials WHERE principal_id = ?))`),
+			uuid.New(), in.PrincipalID, enc, s.p.TimeArg(time.Unix(step*30, 0).UTC()), in.PrincipalID)
 		return err
 	})
 }

@@ -23,6 +23,9 @@ type Authenticator struct {
 	count        uint32
 }
 
+// Rewind sets the sign count back to zero, like a copy of the key that lags behind the original.
+func (a *Authenticator) Rewind() { a.count = 0 }
+
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
 
 func (a *Authenticator) clientData(typ, challenge string) []byte {

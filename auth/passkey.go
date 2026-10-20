@@ -10,6 +10,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 
+	"github.com/victorlunam/kuukura/audit"
 	"github.com/victorlunam/kuukura/storage"
 )
 
@@ -129,25 +130,37 @@ func (s *Service) beginAssertion(ctx context.Context, principal uuid.UUID, keep 
 	return opts, nil
 }
 
-// assert verifies an assertion for a principal and records the new sign count.
-func (s *Service) assert(ctx context.Context, u waUser, stored []storedCred, sd webauthn.SessionData, body []byte, tx storage.Querier) error {
+// assert verifies an assertion for a principal and records the new sign count. cloned reports that the
+// authenticator's sign count did not advance, which may mean its key was copied: callers audit it once the
+// transaction is done (the audit log needs its own transaction, and sqlite has a single connection).
+func (s *Service) assert(ctx context.Context, u waUser, stored []storedCred, sd webauthn.SessionData, body []byte, tx storage.Querier) (cloned bool, err error) {
 	parsed, err := protocol.ParseCredentialRequestResponseBytes(body)
 	if err != nil {
-		return ErrLogin
+		return false, ErrLogin
 	}
 	cred, err := s.wa.ValidateLogin(u, sd, parsed)
 	if err != nil || !cred.Flags.UserVerified {
-		return ErrLogin
+		return false, ErrLogin
 	}
 	for _, c := range stored {
 		if string(c.cred.ID) == string(cred.ID) {
-			blob, _ := json.Marshal(cred)
-			_, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET public_key = ?, sign_count = ?, last_used_at = ? WHERE id = ?`),
+			blob, err := json.Marshal(cred)
+			if err != nil {
+				return false, err
+			}
+			_, err = tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET public_key = ?, sign_count = ?, last_used_at = ? WHERE id = ?`),
 				blob, int(cred.Authenticator.SignCount), s.p.TimeArg(s.now()), c.rowID)
-			return err
+			return cred.Authenticator.CloneWarning, err
 		}
 	}
-	return ErrLogin
+	return false, ErrLogin
+}
+
+// auditClone records a passkey whose sign count did not advance. The assertion is still accepted: the warning is
+// a hint for the operator, not proof of a copy.
+func (s *Service) auditClone(ctx context.Context, principal uuid.UUID, ip string) {
+	_ = s.log.Record(ctx, audit.Entry{Principal: principal, Action: "update", IP: ip, TargetType: "principal", TargetID: &principal,
+		Metadata: map[string]any{"factor": "passkey", "change": "clone_warning"}})
 }
 
 // FinishPasskeyLogin verifies the assertion and completes the login.
@@ -161,16 +174,20 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, in Info, body []byte, 
 		return "", err
 	}
 	var redirect string
+	var cloned bool
 	err = storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
-		if err := s.assert(ctx, u, stored, *d.session, body, tx); err != nil {
+		var err error
+		if cloned, err = s.assert(ctx, u, stored, *d.session, body, tx); err != nil {
 			return err
 		}
-		var err error
 		redirect, err = s.finish(ctx, tx, in, ip)
 		return err
 	})
 	if errors.Is(err, ErrLogin) {
 		return "", s.failed(ctx, in, ip)
+	}
+	if err == nil && cloned {
+		s.auditClone(ctx, in.PrincipalID, ip)
 	}
 	return redirect, err
 }

@@ -30,10 +30,8 @@ func (s *Service) newRecoveryCodes(ctx context.Context, tx *sql.Tx, principal uu
 	enc := base32.StdEncoding.WithPadding(base32.NoPadding)
 	codes := make([]string, recoveryCodeCount)
 	for i := range codes {
-		raw := make([]byte, 10) // 80 bits
-		if _, err := rand.Read(raw); err != nil {
-			return nil, err
-		}
+		raw := make([]byte, 10)      // 80 bits
+		_, _ = rand.Read(raw)        // never fails: crypto/rand crashes the program instead
 		c := enc.EncodeToString(raw) // 16 chars
 		codes[i] = c[:4] + "-" + c[4:8] + "-" + c[8:12] + "-" + c[12:]
 		if _, err := tx.ExecContext(ctx, s.p.Rebind(`INSERT INTO recovery_codes (id, principal_id, code_hash) VALUES (?, ?, ?)`), uuid.New(), principal, hashRecovery(codes[i])); err != nil {

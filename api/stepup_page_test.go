@@ -8,6 +8,78 @@ import (
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
+// The confirmation page says what is being confirmed, in words, and the subject (the person's own text) is escaped.
+func TestConfirmationPageSaysWhatItConfirms(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		e := setup(t, p)
+		admin, _ := e.admin()
+		user, _ := e.member(admin, "dev@example.test")
+
+		page := func(purpose, subject string) string {
+			t.Helper()
+			r := e.do("POST", "/auth/stepup", user, map[string]string{"purpose": purpose, "subject": subject})
+			if r.Code != 201 {
+				t.Fatalf("start %s: %d %s", purpose, r.Code, r.Body)
+			}
+			g := e.do("GET", "/stepup?id="+r.json()["id"].(string), "", nil)
+			if g.Code != 200 {
+				t.Fatalf("page %s: %d", purpose, g.Code)
+			}
+			return g.Body.String()
+		}
+		for _, c := range []struct{ purpose, subject, want string }{
+			{"reveal", "STRIPE_KEY env:prod", "Reveal STRIPE_KEY env:prod"},
+			{"run", "STRIPE_KEY env:prod", "Run with STRIPE_KEY env:prod"},
+			{"authorize_off", "STRIPE_KEY env:prod", "Turn off confirmation for STRIPE_KEY env:prod"},
+			{"factor_add", "passkey", "Add a passkey"},
+			{"factor_add", "totp", "Add an authenticator app"},
+			{"factor_remove", "8f14e45f-ceea-467a-9575-0cb1c3e0f4f0", "Remove a second step"},
+		} {
+			if b := page(c.purpose, c.subject); !strings.Contains(b, c.want) {
+				t.Fatalf("%s page must say %q", c.purpose, c.want)
+			}
+		}
+		if b := page("reveal", "<b>X</b> env:prod"); strings.Contains(b, "<b>X</b>") || !strings.Contains(b, "Reveal &lt;b&gt;X&lt;/b&gt; env:prod") {
+			t.Fatal("the subject is escaped")
+		}
+
+		// a request without a subject or with an unknown purpose is refused, and says which
+		r := e.do("POST", "/auth/stepup", user, map[string]string{"purpose": "reveal"})
+		e.problem(r, 400, "invalid-request")
+		if r.json()["detail"] != "Subject is required." {
+			t.Fatalf("missing subject: %v", r.json()["detail"])
+		}
+		r = e.do("POST", "/auth/stepup", user, map[string]string{"purpose": "nope", "subject": "A"})
+		e.problem(r, 400, "invalid-request")
+		if r.json()["detail"] != "Unknown purpose." {
+			t.Fatalf("unknown purpose: %v", r.json()["detail"])
+		}
+	})
+}
+
+// The confirmation pages have their own, wider rate limit: one confirmation is several calls, and the sign-in
+// limit would lock a person out after two attempts.
+func TestConfirmationRateLimitIsSeparate(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		e := setup(t, p)
+		for i := range 30 {
+			if r := e.do("GET", "/stepup?id=nope", "", nil, "IP", "203.0.113.7"); r.Code != 404 {
+				t.Fatalf("page %d: %d", i, r.Code)
+			}
+		}
+		for i := range 30 {
+			if r := e.do("POST", "/stepup/nope/totp", "", map[string]string{"code": "000000"}, "IP", "203.0.113.7"); r.Code != 404 {
+				t.Fatalf("call %d: %d", i, r.Code)
+			}
+		}
+		e.problem(e.do("GET", "/stepup?id=nope", "", nil, "IP", "203.0.113.7"), 429, "quota-exceeded")
+		// the sign-in bucket of the same address is untouched
+		if r := e.do("POST", "/auth/token", "", map[string]string{"code": "x", "verifier": "y"}, "IP", "203.0.113.7"); r.Code != 401 {
+			t.Fatalf("the sign-in limit is separate: %d", r.Code)
+		}
+	})
+}
+
 // The confirmation page offers what the account has, the start response tells the CLI which methods there are,
 // and a bad or unknown request never confirms anything.
 func TestConfirmationPageAndMethods(t *testing.T) {

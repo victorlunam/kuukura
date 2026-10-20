@@ -186,7 +186,7 @@ func TestWorkspaceAdminAndMachines(t *testing.T) {
 			t.Fatalf("logout: %d", r.Code)
 		}
 		e.problem(e.do("GET", "/secrets", admin, nil), 401, "unauthorized")
-		if err := e.log.Verify(ctx); err != nil {
+		if err := e.log.Verify(t.Context()); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -197,7 +197,7 @@ func TestRateLimits(t *testing.T) {
 		e := setup(t, p)
 		pin := "IP"
 		ip := "203.0.113.7"
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			if r := e.do("POST", "/auth/token", "", map[string]string{"code": "x", "verifier": "y"}, pin, ip); r.Code != 401 {
 				t.Fatalf("request %d: %d", i, r.Code)
 			}
@@ -220,7 +220,7 @@ func TestRateLimits(t *testing.T) {
 		// reveal: 10/min per principal
 		admin, _ := e.admin()
 		user, _ := e.member(admin, "dev@example.test")
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			if r := e.do("POST", "/secrets/reveal", user, map[string]any{"name": "NOPE"}); r.Code == 429 {
 				t.Fatalf("reveal %d limited too early", i)
 			}
@@ -235,7 +235,7 @@ func TestRateLimits(t *testing.T) {
 func TestPagesAreLockedDown(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		e := setup(t, p)
-		inv, _ := e.ids.BootstrapAdmin(ctx, "root@example.test")
+		inv, _ := e.ids.BootstrapAdmin(t.Context(), "root@example.test")
 		r := e.do("GET", "/invite?token="+inv.Token, "", nil)
 		csp := r.Header().Get("Content-Security-Policy")
 		if r.Code != 200 || !strings.Contains(csp, "default-src 'none'") || !strings.Contains(r.Body.String(), "/auth/login?go=1&amp;invite=") {

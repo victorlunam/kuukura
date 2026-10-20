@@ -174,6 +174,10 @@ func (s *Service) RemoveFactor(ctx context.Context, in Info, id uuid.UUID, ip st
 		return ErrLogin
 	}
 	return storage.InTx(ctx, s.p, func(tx *sql.Tx) error {
+		// Row lock on the principal: two removals of different factors must not both see "two left" and empty the account.
+		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE principals SET status = status WHERE id = ?`), in.PrincipalID); err != nil {
+			return err
+		}
 		var kind string
 		if err := tx.QueryRowContext(ctx, s.p.Rebind(`SELECT kind FROM credentials WHERE id = ? AND principal_id = ?`), id, in.PrincipalID).Scan(&kind); errors.Is(err, sql.ErrNoRows) {
 			return ErrNoSuchFactor
@@ -190,7 +194,7 @@ func (s *Service) RemoveFactor(ctx context.Context, in Info, id uuid.UUID, ip st
 		if _, err := tx.ExecContext(ctx, s.p.Rebind(`DELETE FROM credentials WHERE id = ? AND principal_id = ?`), id, in.PrincipalID); err != nil {
 			return err
 		}
-		// if the default went away, the oldest remaining factor takes over
+		// if the default went away, an earlier factor takes over (created_at is only second-precise on sqlite)
 		if _, err := tx.ExecContext(ctx, s.p.Rebind(`UPDATE credentials SET is_default = ? WHERE id = (SELECT id FROM credentials WHERE principal_id = ? ORDER BY created_at, id LIMIT 1)
 			AND NOT EXISTS (SELECT 1 FROM credentials WHERE principal_id = ? AND is_default = ?)`), true, in.PrincipalID, in.PrincipalID, true); err != nil {
 			return err

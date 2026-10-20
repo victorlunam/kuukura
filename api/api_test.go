@@ -29,8 +29,6 @@ import (
 	"github.com/victorlunam/kuukura/storage"
 )
 
-var ctx = context.Background()
-
 const (
 	domain    = "vault.example.test"
 	fakeValue = "sk_test_FAKE_EXAMPLE"
@@ -128,6 +126,7 @@ func (e *env) do(method, path, token string, body any, hdr ...string) resp {
 // onboard runs invite -> Google -> passkey enrollment -> CLI code exchange and returns a session.
 func (e *env) onboard(invite, email string) (string, *authtest.Authenticator) {
 	e.t.Helper()
+	ctx := e.t.Context()
 	sum := "v" + strings.Repeat("v", 42)
 	hash := sha256b64(sum)
 	u, err := e.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: hash, State: "s"})
@@ -164,7 +163,7 @@ func (e *env) onboard(invite, email string) (string, *authtest.Authenticator) {
 }
 
 func (e *env) admin() (string, *authtest.Authenticator) {
-	inv, err := e.ids.BootstrapAdmin(ctx, "root@example.test")
+	inv, err := e.ids.BootstrapAdmin(e.t.Context(), "root@example.test")
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -204,8 +203,10 @@ func (e *env) stepUp(token string, dev *authtest.Authenticator, purpose, subject
 
 func (e *env) problem(r resp, status int, code string) {
 	e.t.Helper()
-	if r.Code != status || !strings.HasPrefix(r.Header().Get("Content-Type"), "application/problem+json") {
-		e.t.Fatalf("want %d problem+json, got %d %s %s", status, r.Code, r.Header().Get("Content-Type"), r.Body)
+	// the headers that were really sent with the response, not the map a handler may still change afterwards
+	ct := r.Result().Header.Get("Content-Type")
+	if r.Code != status || !strings.HasPrefix(ct, "application/problem+json") {
+		e.t.Fatalf("want %d problem+json, got %d %s %s", status, r.Code, ct, r.Body)
 	}
 	m := r.json()
 	if m["code"] != code || m["status"] != float64(status) || m["title"] == "" || m["type"] == "" || m["instance"] == "" {

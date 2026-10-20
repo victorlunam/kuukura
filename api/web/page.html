@@ -42,7 +42,7 @@
     <form id="f-totp" autocomplete="off">
       <label for="totp">6-digit code from your authenticator app</label>
       <input class="code" id="totp" type="tel" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-describedby="m">
-      <button class="btn {{if and .HasPasskey (eq .Default "totp")}}primary{{else}}ghost{{end}}" type="submit">Verify</button>
+      <button class="btn {{if and .HasPasskey (ne .Default "totp")}}ghost{{else}}primary{{end}}" type="submit">Verify</button>
     </form>{{end}}
     <form id="f-rec" autocomplete="off"{{if .HasTOTP}} hidden{{end}}>
       <label for="rec">{{if .HasTOTP}}One of your recovery codes{{else}}Recovery code{{end}}</label>
@@ -83,6 +83,12 @@
     <button class="btn primary" id="go" type="button" disabled>Continue</button>
   </div>
 
+  {{else if eq .Mode "addask"}}
+  <h1>Add a second step</h1>
+  <p class="lead">You asked from your terminal to add a passkey or an authenticator app to your account. Continue to register it.</p>
+  <a class="btn primary" href="{{.Link}}">Continue</a>
+  <p class="note"><svg aria-hidden="true"><use href="#i-shield"/></svg><span>This link works once. If you did not ask for this, close the tab.</span></p>
+
   {{else if eq .Mode "add"}}
   {{if eq .Add "passkey"}}
   <h1>Add a passkey</h1>
@@ -109,7 +115,7 @@
   {{else if eq .Mode "stepup"}}
   <div id="ask">
     <h1>Confirm it's you</h1>
-    <p class="lead">A command in your terminal is asking you to confirm. {{if .HasPasskey}}Approve it with your passkey{{if .HasTOTP}}, or with a code from your authenticator app{{end}}.{{else}}Enter the code from your authenticator app to approve it.{{end}}</p>
+    <p class="lead">A command in your terminal is asking you to confirm{{if .Ask}}: <b class="ask">{{.Ask}}</b>{{end}}. {{if .HasPasskey}}Approve it with your passkey{{if .HasTOTP}}, or with a code from your authenticator app{{end}}.{{else}}Enter the code from your authenticator app to approve it.{{end}}</p>
     {{if and .HasPasskey (ne .Default "totp")}}<button class="btn primary" id="pk" type="button"><svg aria-hidden="true"><use href="#i-fingerprint"/></svg>Confirm with your passkey</button>
     {{if .HasTOTP}}<div class="or">or</div>{{end}}{{end}}
     {{if .HasTOTP}}<form id="f-totp" autocomplete="off">

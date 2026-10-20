@@ -28,7 +28,7 @@ func TestBrandAssetsAndPageHygiene(t *testing.T) {
 			t.Fatalf("unknown asset: %d", r.Code)
 		}
 
-		inv, _ := e.ids.BootstrapAdmin(ctx, "root@example.test")
+		inv, _ := e.ids.BootstrapAdmin(t.Context(), "root@example.test")
 		r := e.do("GET", "/invite?token="+inv.Token, "", nil)
 		body := r.Body.String()
 		if r.Code != 200 || !strings.Contains(body, `href="/favicon.svg"`) || !strings.Contains(body, "root@example.test") || !strings.Contains(body, "Continue with Google") {

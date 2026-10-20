@@ -3,11 +3,14 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+
+	"github.com/victorlunam/kuukura/audit"
 )
 
 // ---- step-up: a fresh confirmation with the account's own second step ----
@@ -21,46 +24,56 @@ type stepUp struct {
 
 // ErrStepUpGone: the confirmation request is unknown, expired, or lost in a server restart. It is still an
 // ErrLogin for callers that only care that nothing was confirmed; the pages use it to say "run it again".
-var ErrStepUpGone error = &stepUpGone{}
-
-type stepUpGone struct{}
-
-func (*stepUpGone) Error() string        { return ErrLogin.Error() }
-func (*stepUpGone) Is(target error) bool { return target == ErrLogin }
+var ErrStepUpGone = fmt.Errorf("auth: confirmation expired: %w", ErrLogin)
 
 // ErrNoFactor: the account has no second step set up, so it cannot confirm anything.
 var ErrNoFactor = errors.New("auth: no second factor")
 
-// StartStepUp opens a step-up request for the caller. Machines can never get one.
-// The returned id is a capability for the browser page and the grant for the API call.
+// StartStepUp opens a step-up request for the caller and returns its id with the methods the account can use.
+// Machines can never get one. The id is a capability for the browser page and the grant for the API call.
 // The confirmation uses whatever second step the account has: a passkey, or an authenticator code.
-func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject string) (string, error) {
+func (s *Service) StartStepUp(ctx context.Context, in Info, purpose, subject string) (string, Methods, error) {
 	if in.Machine || !in.HasScope(ScopeWrite) && !in.HasScope(ScopeRead) {
-		return "", ErrLogin
+		return "", Methods{}, ErrLogin
 	}
 	m, err := s.factorsOf(ctx, s.p.DB(), in.PrincipalID)
 	if err != nil {
-		return "", err
+		return "", Methods{}, err
 	}
 	if !m.Passkey && !m.TOTP {
-		return "", ErrNoFactor
+		return "", Methods{}, ErrNoFactor
 	}
 	id := random(32)
 	s.stepUps.Put(id, stepUp{principal: in.PrincipalID, purpose: purpose, subject: subject})
-	return id, nil
+	return id, m, nil
 }
 
-// StepUpMethods tells the confirmation page (and the CLI) which methods the request's account can use.
-func (s *Service) StepUpMethods(ctx context.Context, id string) (Methods, error) {
+// StepUpRequest is what the confirmation page shows: what is being confirmed and with which methods.
+type StepUpRequest struct {
+	Methods
+	Purpose, Subject string
+}
+
+// LookupStepUp tells the confirmation page what the request is for and which methods its account can use.
+func (s *Service) LookupStepUp(ctx context.Context, id string) (StepUpRequest, error) {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
-		return Methods{}, ErrStepUpGone
+		return StepUpRequest{}, ErrStepUpGone
 	}
-	return s.factorsOf(ctx, s.p.DB(), r.principal)
+	m, err := s.factorsOf(ctx, s.p.DB(), r.principal)
+	return StepUpRequest{Methods: m, Purpose: r.purpose, Subject: r.subject}, err
+}
+
+// stepUpDenied audits a failed confirmation for the request's principal as a failed sign-in (the audit actions
+// are a closed list); the metadata tells the two apart.
+func (s *Service) stepUpDenied(ctx context.Context, r stepUp, ip string) error {
+	_ = s.log.Record(ctx, audit.Entry{Principal: r.principal, Action: "login_failed", Result: audit.ResultDenied, IP: ip,
+		Metadata: map[string]any{"step": "confirmation", "purpose": r.purpose}})
+	return ErrLogin
 }
 
 // FinishStepUpTOTP confirms a request with an authenticator code. The code is spent, like at sign-in.
-func (s *Service) FinishStepUpTOTP(ctx context.Context, id, code string) error {
+func (s *Service) FinishStepUpTOTP(ctx context.Context, id, code, ip string) error {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
 		return ErrStepUpGone
@@ -70,7 +83,7 @@ func (s *Service) FinishStepUpTOTP(ctx context.Context, id, code string) error {
 		return err
 	}
 	if !ok {
-		return ErrLogin
+		return s.stepUpDenied(ctx, r, ip)
 	}
 	s.stepUps.Update(id, func(r *stepUp) { r.grantedAt = s.now(); r.session = nil })
 	return nil
@@ -88,20 +101,27 @@ func (s *Service) BeginStepUp(ctx context.Context, id string) (*protocol.Credent
 }
 
 // FinishStepUp verifies the assertion and marks the request granted.
-func (s *Service) FinishStepUp(ctx context.Context, id string, body []byte) error {
+func (s *Service) FinishStepUp(ctx context.Context, id string, body []byte, ip string) error {
 	r, ok := s.stepUps.Peek(id)
 	if !ok {
 		return ErrStepUpGone
 	}
 	if r.session == nil {
-		return ErrLogin
+		return s.stepUpDenied(ctx, r, ip)
 	}
 	u, stored, err := s.loadUser(ctx, r.principal)
 	if err != nil {
 		return err
 	}
-	if err := s.assert(ctx, u, stored, *r.session, body, s.p.DB()); err != nil {
-		return ErrLogin
+	cloned, err := s.assert(ctx, u, stored, *r.session, body, s.p.DB())
+	if errors.Is(err, ErrLogin) {
+		return s.stepUpDenied(ctx, r, ip)
+	}
+	if err != nil {
+		return err
+	}
+	if cloned {
+		s.auditClone(ctx, r.principal, ip)
 	}
 	s.stepUps.Update(id, func(r *stepUp) { r.grantedAt = s.now(); r.session = nil })
 	return nil

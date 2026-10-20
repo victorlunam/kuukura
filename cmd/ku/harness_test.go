@@ -264,12 +264,26 @@ func (w *world) browser(raw string) error {
 		b, _ := io.ReadAll(resp.Body)
 		return resp.StatusCode, b
 	}
+	// The person at this browser is the one whose terminal opened the link: the profile name in the link finds
+	// their session. Their devices are keyed by their email, and an added one as "<email>#added-N". Only their own
+	// devices are used, so a server that accepted somebody else's credential would fail the test, not pass it.
+	var email string
+	if profile := u.Query().Get("profile"); profile != "" {
+		if tok, err := w.sessionStore().Get(profile); err == nil {
+			if in, err := w.tokens.Validate(bg, tok); err == nil {
+				_ = w.p.DB().QueryRow(w.p.Rebind(`SELECT email FROM principals WHERE id = ?`), in.PrincipalID).Scan(&email)
+			}
+		}
+	}
+	mine := func(k string) bool { return email != "" && (k == email || strings.HasPrefix(k, email+"#")) }
 	switch {
 	case u.Path == "/stepup":
 		id := u.Query().Get("id")
 		_, opts := post("/stepup/"+id+"/begin", "", nil)
-		// the passkey belongs to whoever started the request; try every known device
-		for _, dev := range w.devs {
+		for k, dev := range w.devs {
+			if !mine(k) {
+				continue
+			}
 			if code, _ := post("/stepup/"+id+"/finish", "", dev.Assert(w.t, opts, true)); code == 204 {
 				w.stepUps++
 				return nil
@@ -277,7 +291,10 @@ func (w *world) browser(raw string) error {
 			_, opts = post("/stepup/"+id+"/begin", "", nil)
 		}
 		// or an authenticator app: each confirmation needs a code from a new 30-second step
-		for _, secret := range w.totpSecrets {
+		for k, secret := range w.totpSecrets {
+			if !mine(k) {
+				continue
+			}
 			w.mu.Lock()
 			w.skew += 31 * time.Second
 			w.mu.Unlock()
@@ -289,8 +306,18 @@ func (w *world) browser(raw string) error {
 		}
 		return errors.New("no device could confirm")
 	case u.Path == "/account/add":
-		// the link from `ku account factor add`: the page holds a short session, the browser registers the new factor
-		page, err := hc.Get(w.srv.URL + "/account/add?" + u.RawQuery)
+		// the link from `ku account factor add`: a card first (opening it spends nothing), then its button (go=1)
+		// opens the short session in which the browser registers the new factor
+		card, err := hc.Get(w.srv.URL + "/account/add?" + u.RawQuery)
+		if err != nil {
+			w.t.Fatal(err)
+		}
+		cb, _ := io.ReadAll(card.Body)
+		card.Body.Close()
+		if card.StatusCode != 200 || !strings.Contains(string(cb), `data-mode="addask"`) {
+			return errors.New("this link is not valid")
+		}
+		page, err := hc.Get(w.srv.URL + "/account/add?" + u.RawQuery + "&go=1")
 		if err != nil {
 			w.t.Fatal(err)
 		}
@@ -300,7 +327,10 @@ func (w *world) browser(raw string) error {
 		if page.StatusCode != 200 || tok == nil || !strings.Contains(string(pb), `data-mode="add"`) {
 			return errors.New("this link is not valid")
 		}
-		name := fmt.Sprintf("added-%d", len(w.devs)+len(w.totpSecrets))
+		if email == "" {
+			w.t.Fatal("the add link carries no profile name that finds the person's session")
+		}
+		name := fmt.Sprintf("%s#added-%d", email, len(w.devs)+len(w.totpSecrets))
 		if strings.Contains(string(pb), `id="pk"`) {
 			_, opts := post("/auth/enroll/passkey/begin", tok[1], nil)
 			dev := &authtest.Authenticator{RPID: testDomain, Origin: "https://" + testDomain}
