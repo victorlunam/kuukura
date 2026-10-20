@@ -7,7 +7,7 @@ kuukura stores secrets, so please report vulnerabilities privately.
 Use GitHub's private vulnerability reporting: open the repository's **Security** tab, choose **Report a
 vulnerability**, and describe what you found. Please do not open a public issue or pull request for it.
 
-Helpful to include: the version (`ku-server version`, `ku version`), how to reproduce it, and what an attacker gains.
+Helpful to include: the version (`ku-server version`, `ku --version`), how to reproduce it, and what an attacker gains.
 Use fake secrets and your own instance for testing.
 
 ## Supported versions
