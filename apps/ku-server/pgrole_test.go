@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"net/url"
 	"os"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/victorlunam/kuukura/internal/auth"
 	"github.com/victorlunam/kuukura/internal/identity"
 	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/masterkey"
 	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
 	"github.com/victorlunam/kuukura/internal/storage/storagetest"
@@ -123,6 +123,10 @@ func TestAppRunsWithoutAuditWriteAccess(t *testing.T) {
 			t.Fatal(err)
 		}
 		sv := secrets.New(p, kp, log)
+		authSvc, err := auth.NewService(p, log, tokens, nil, kp, config{Domain: "vault.example.test"}.authConfig())
+		if err != nil {
+			t.Fatal(err)
+		}
 		if _, err := sv.Set(ctx, a, secrets.SetInput{Name: "K", Tags: []string{"app:shop"}, Value: []byte("fake"), Create: true}); err != nil {
 			t.Fatal(err)
 		}
@@ -135,11 +139,7 @@ func TestAppRunsWithoutAuditWriteAccess(t *testing.T) {
 		if _, err := sv.Archive(ctx, a, secrets.Selector{Name: "K"}); err != nil {
 			t.Fatal(err)
 		}
-		n := 0
-		if err := storage.InTx(ctx, p, func(tx *sql.Tx) (err error) {
-			n, err = sv.RewrapTx(ctx, tx, adminID, 0)
-			return err
-		}); err != nil || n != 0 {
+		if n, _, err := masterkey.Rewrap(ctx, p, sv, authSvc, adminID); err != nil || n != 0 {
 			t.Fatalf("rewrap: %d %v", n, err)
 		}
 		if err := ids.Disable(ctx, a, "root@example.test"); err == nil {

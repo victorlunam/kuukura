@@ -17,6 +17,7 @@ import (
 	"github.com/victorlunam/kuukura/internal/audit"
 	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/masterkey"
 	"github.com/victorlunam/kuukura/internal/secrets"
 	"github.com/victorlunam/kuukura/internal/storage"
 )
@@ -327,10 +328,10 @@ func TestKeyShowOncePerVersion(t *testing.T) {
 	body, _ := os.ReadFile(path)
 	ring, _ := keys.ParseMasterKeys(body)
 	log := audit.New(p)
-	if _, shown, _ := keyRevealedAt(t.Context(), log, "manual:v1"); !shown {
+	if _, shown, _ := masterkey.RevealedAt(t.Context(), log, "manual:v1"); !shown {
 		t.Fatal("version 1 stays recorded as shown")
 	}
-	if _, shown, _ := keyRevealedAt(t.Context(), log, ring.KeyID()); !shown {
+	if _, shown, _ := masterkey.RevealedAt(t.Context(), log, ring.KeyID()); !shown {
 		t.Fatal("version 2 recorded")
 	}
 

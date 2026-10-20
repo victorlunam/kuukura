@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/victorlunam/kuukura/apps/ku-server/api"
 	"github.com/victorlunam/kuukura/internal/access"
 	"github.com/victorlunam/kuukura/internal/auth"
+	"github.com/victorlunam/kuukura/internal/masterkey"
 	"github.com/victorlunam/kuukura/internal/secrets"
 )
 
@@ -58,7 +58,7 @@ func runServe(args []string) error {
 		return err
 	}
 	secretsSvc := secrets.New(p, kp, a.log)
-	if err := errors.Join(secretsSvc.CheckKey(ctx), authSvc.CheckKey(ctx)); err != nil {
+	if err := masterkey.Check(ctx, secretsSvc, authSvc); err != nil {
 		return err
 	}
 	warn, err := backupWarning(ctx, a, kp, generated)

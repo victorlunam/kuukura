@@ -16,25 +16,25 @@ const module = "github.com/victorlunam/kuukura/"
 // allowed lists, per internal domain package (and packages/brand), the other local packages it may import.
 // Layering goes downward only: storage and keys are leaves.
 var allowed = map[string][]string{
-	"internal/storage":  {},
-	"internal/keys":     {},
-	"internal/cli":      {},
-	"packages/brand":    {},
-	"internal/audit":    {"internal/storage"},
-	"internal/access":   {"internal/audit", "internal/storage"},
-	"internal/auth":     {"internal/audit", "internal/keys", "internal/storage"},
-	"internal/secrets":  {"internal/access", "internal/audit", "internal/keys", "internal/storage"},
-	"internal/identity": {"internal/access", "internal/audit", "internal/auth", "internal/storage"},
+	"internal/storage":   {},
+	"internal/keys":      {},
+	"internal/cli":       {},
+	"packages/brand":     {},
+	"internal/audit":     {"internal/storage"},
+	"internal/access":    {"internal/audit", "internal/storage"},
+	"internal/auth":      {"internal/audit", "internal/keys", "internal/storage"},
+	"internal/secrets":   {"internal/access", "internal/audit", "internal/keys", "internal/storage"},
+	"internal/identity":  {"internal/access", "internal/audit", "internal/auth", "internal/storage"},
+	"internal/masterkey": {"internal/audit", "internal/auth", "internal/keys", "internal/secrets", "internal/storage"},
 }
 
 // stdlibOnly packages import nothing outside the standard library.
 var stdlibOnly = []string{"internal/cli", "packages/brand"}
 
-// sqlPackages are the only packages that may import database/sql. Apps must not; apps/ku-server (key rotate)
-// still imports it for the *sql.Tx type it passes between domain packages, with no query of its own.
+// sqlPackages are the only packages that may import database/sql. Apps must not.
 var sqlPackages = []string{
 	"internal/storage", "internal/audit", "internal/access", "internal/auth", "internal/identity", "internal/secrets",
-	"apps/ku-server", // known exception, see above: move the rewrap transaction into a domain package to remove it
+	"internal/masterkey",
 }
 
 // unit is the package a rule talks about: "apps/ku-server/api" is part of "apps/ku-server", "internal/auth/authtest"

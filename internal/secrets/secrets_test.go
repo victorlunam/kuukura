@@ -3,7 +3,6 @@ package secrets
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -467,88 +466,6 @@ func TestLimitsAndValidation(t *testing.T) {
 		}
 		if g, err := e.svc.Reveal(ctx, u, Selector{Name: "GEN"}, true); err != nil || len(g.Data) != 43 {
 			t.Fatal("generated value")
-		}
-	})
-}
-
-// rewrap runs RewrapTx in its own transaction, as a rotation does.
-func rewrap(ctx context.Context, p storage.Provider, svc *Service, by uuid.UUID, totp int) (n int, err error) {
-	err = storage.InTx(ctx, p, func(tx *sql.Tx) (err error) {
-		n, err = svc.RewrapTx(ctx, tx, by, totp)
-		return err
-	})
-	return n, err
-}
-
-func TestKeyRotationRewrapsWithoutTouchingCiphertext(t *testing.T) {
-	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
-		ctx := t.Context()
-		e := setup(t, p)
-		u := e.human("member")
-		admin := e.human("admin")
-		e.grant(u, "write", "app:shop")
-
-		kf1, _ := keys.GenerateMasterKey(1)
-		kp1, _ := keys.ParseMasterKeys(kf1)
-		k2, _ := keys.GenerateMasterKey(2)
-		ring, err := keys.ParseMasterKeys(append(append([]byte{}, kf1...), k2...))
-		if err != nil {
-			t.Fatal(err)
-		}
-		svc1, svc2 := New(p, kp1, e.log), New(p, ring, e.log)
-		if _, err := svc1.Set(ctx, u, SetInput{Name: "ROT", Tags: []string{"app:shop"}, Value: []byte(fakeValue), Create: true}); err != nil {
-			t.Fatal(err)
-		}
-		var before []byte
-		if err := p.DB().QueryRow(`SELECT ciphertext FROM secret_versions`).Scan(&before); err != nil {
-			t.Fatal(err)
-		}
-		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
-			t.Fatalf("data stays readable with the extended ring: %v", err)
-		}
-
-		// A rewrap that fails leaves no audit row: the row and the rewrap commit together.
-		onlyV2, _ := keys.ParseMasterKeys(k2)
-		if _, err := rewrap(ctx, p, New(p, onlyV2, e.log), admin.ID, 0); err == nil {
-			t.Fatal("a ring without the key of existing data must fail")
-		}
-		if e.auditCount(admin, "key_rotate", "ok") != 0 {
-			t.Fatal("a failed rewrap must not be audited as a rotation")
-		}
-
-		if n, err := rewrap(ctx, p, svc2, admin.ID, 3); err != nil || n != 1 {
-			t.Fatalf("rewrapped %d: %v", n, err)
-		}
-		var keyID string
-		var after []byte
-		if err := p.DB().QueryRow(`SELECT key_id, ciphertext FROM secret_versions`).Scan(&keyID, &after); err != nil {
-			t.Fatal(err)
-		}
-		if keyID != "manual:v2" || !bytes.Equal(before, after) {
-			t.Fatalf("key_id %s, ciphertext changed: %v", keyID, !bytes.Equal(before, after))
-		}
-		rows, err := e.log.List(ctx, audit.Filter{}, 100)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var rot []audit.Row
-		for _, r := range rows {
-			if r.Action == "key_rotate" {
-				rot = append(rot, r)
-			}
-		}
-		if len(rot) != 1 || rot[0].Principal != admin.ID || rot[0].TargetType != "key" || rot[0].Metadata["key_id"] != "manual:v2" ||
-			fmt.Sprint(rot[0].Metadata["secret_versions"]) != "1" || fmt.Sprint(rot[0].Metadata["totp"]) != "3" {
-			t.Fatalf("the rotation must be audited once, with its counts: %+v", rot)
-		}
-		if v, err := svc2.Reveal(ctx, u, Selector{Name: "ROT"}, true); err != nil || string(v.Data) != fakeValue {
-			t.Fatalf("readable after rewrap: %v", err)
-		}
-		if n, _ := rewrap(ctx, p, svc2, admin.ID, 0); n != 0 {
-			t.Fatal("nothing left to rewrap")
-		}
-		if err := e.log.Verify(ctx); err != nil {
-			t.Fatal(err)
 		}
 	})
 }

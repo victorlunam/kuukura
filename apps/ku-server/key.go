@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -18,8 +17,8 @@ import (
 	"github.com/victorlunam/kuukura/internal/auth"
 	"github.com/victorlunam/kuukura/internal/cli"
 	"github.com/victorlunam/kuukura/internal/keys"
+	"github.com/victorlunam/kuukura/internal/masterkey"
 	"github.com/victorlunam/kuukura/internal/secrets"
-	"github.com/victorlunam/kuukura/internal/storage"
 )
 
 const showHint = "run `ku-server key show` once and store the key in your password manager"
@@ -142,14 +141,7 @@ func runKeyRotate(args []string) error {
 			return err
 		}
 		sec := secrets.New(a.p, kp, a.log)
-		var nTOTP, nSecrets int
-		err = storage.InTx(ctx, a.p, func(tx *sql.Tx) (err error) {
-			if nTOTP, err = authSvc.RewrapTOTPTx(ctx, tx); err != nil {
-				return err
-			}
-			nSecrets, err = sec.RewrapTx(ctx, tx, host, nTOTP)
-			return err
-		})
+		nSecrets, nTOTP, err := masterkey.Rewrap(ctx, a.p, sec, authSvc, host)
 		if err != nil {
 			if added != "" {
 				return fmt.Errorf("rewrap failed: %w; the key file already has the new version, so fix the cause and run `ku-server key rotate --rewrap-only` (not rotate again)", err)
@@ -183,27 +175,13 @@ func (a *app) addVersion() ([]byte, error) {
 	return nil, fmt.Errorf("the master key is not in a writable key file, so it cannot add a version itself: add the line %d:<base64 of 32 random bytes, e.g. from `openssl rand -base64 32`> where the key lives, restart the server, then run `ku-server key rotate --rewrap-only`", next)
 }
 
-// keyRevealedAt is when the key with this id was last shown by `key show`.
-func keyRevealedAt(ctx context.Context, log *audit.Log, keyID string) (time.Time, bool, error) {
-	rows, err := log.Find(ctx, "read", "key")
-	if err != nil {
-		return time.Time{}, false, err
-	}
-	for _, r := range rows {
-		if r.Metadata["key_id"] == keyID {
-			return r.At, true, nil
-		}
-	}
-	return time.Time{}, false, nil
-}
-
 // backupWarning is the start-up warning while the active key version has never been shown by `key show` (a generated,
 // `key init` or rotated key alike); it is empty when there is nothing to say. With aws-kms there is no key to back up.
 func backupWarning(ctx context.Context, a *app, kp keys.KeyProvider, generated bool) (string, error) {
 	if a.c.KeyProvider != "manual" {
 		return "", nil
 	}
-	_, shown, err := keyRevealedAt(ctx, a.log, kp.KeyID())
+	_, shown, err := masterkey.RevealedAt(ctx, a.log, kp.KeyID())
 	switch {
 	case err != nil:
 		return "", err
@@ -237,7 +215,7 @@ func runKeyShow(args []string) error {
 		if err != nil {
 			return err
 		}
-		if at, shown, err := keyRevealedAt(ctx, a.log, kp.KeyID()); err != nil {
+		if at, shown, err := masterkey.RevealedAt(ctx, a.log, kp.KeyID()); err != nil {
 			return err
 		} else if shown {
 			where := "The key is in VAULT_MASTER_KEY: read it from your platform's environment settings"
@@ -250,7 +228,7 @@ func runKeyShow(args []string) error {
 		if err != nil {
 			return err
 		}
-		if err := a.log.Record(ctx, audit.Entry{Principal: host, Action: "read", TargetType: "key", Metadata: map[string]any{"key_id": kp.KeyID()}}); err != nil {
+		if err := masterkey.RecordReveal(ctx, a.log, host, kp.KeyID()); err != nil {
 			return err
 		}
 		fmt.Printf("\n%s\nStore this in your password manager now (key %s). It will not be shown again.\n", strings.TrimSpace(string(kp.Ring())), kp.KeyID())
@@ -270,15 +248,11 @@ func generateKey(ctx context.Context, a *app) error {
 	if err != nil {
 		return err
 	}
-	hasVersions, err := secrets.New(a.p, sealed, a.log).HasVersions(ctx)
+	has, err := masterkey.HasEncryptedData(ctx, secrets.New(a.p, sealed, a.log), authSvc)
 	if err != nil {
 		return err
 	}
-	hasTOTP, err := authSvc.HasTOTP(ctx)
-	if err != nil {
-		return err
-	}
-	if hasVersions || hasTOTP {
+	if has {
 		return fmt.Errorf("the master key file %s is missing but the database holds encrypted data; restore the key from your backup", c.KeyFile)
 	}
 	key, err := keys.GenerateMasterKey(1)

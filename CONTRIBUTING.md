@@ -19,7 +19,7 @@ apps/
     api/            HTTP layer: handlers, problem+json, rate limit, the server's pages (page.html, style.css, app.js)
   web/              the website (Astro)
 internal/           Go code shared by the Go apps
-  access/ audit/ auth/ identity/ keys/ secrets/   domain packages
+  access/ audit/ auth/ identity/ keys/ masterkey/ secrets/   domain packages
   storage/          the only code with SQL, and the migrations (migrations/{sqlite,postgres})
   cli/              the few conventions both CLIs share (exit codes, usage error, Sentence)
 packages/           shared across languages, or JS packages
@@ -42,10 +42,10 @@ deploy/ docs/ scripts/ .github/
 3. `apps/ku` imports no domain package, only `internal/cli`: it talks to the server over HTTP.
 4. Domain layering goes downward only, no cycles: `storage` and `keys` are leaves; `audit` uses `storage`; `access`
    uses `audit`, `storage`; `auth` uses `audit`, `keys`, `storage`; `secrets` uses `access`, `audit`, `keys`,
-   `storage`; `identity` uses `access`, `audit`, `auth`, `storage`.
+   `storage`; `identity` uses `access`, `audit`, `auth`, `storage`; `masterkey` (key rotation and the start-up key
+   check, which span `secrets` and `auth`) uses `audit`, `auth`, `keys`, `secrets`, `storage`.
 5. `internal/cli` and `packages/brand` import only the standard library.
-6. `database/sql` is imported only by `internal/storage` and the domain packages above, never by an app. (Known
-   exception: `ku-server key rotate` still holds a `*sql.Tx`; moving it into a domain package removes it.)
+6. `database/sql` is imported only by `internal/storage` and the domain packages above, never by an app.
 
 ### Rules
 
