@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -22,7 +23,7 @@ func (s *Server) confirmed(c echo.Context, purpose, subject string) error {
 	if info(c).Machine {
 		return errForbidden
 	}
-	id := c.Request().Header.Get(stepUpHeader)
+	id := stepUpGrant(c)
 	if id == "" || !s.Auth.ConsumeStepUp(info(c), id, purpose, subject) {
 		return access.Fail(access.CodeStepUp, "confirm with your passkey or authenticator app")
 	}
@@ -91,10 +92,21 @@ func (s *Server) removeFactor(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// addFactorPage opens the one-time link from `ku account factor add`.
+// addFactorPage is the one-time link from `ku account factor add`. Like the sign-in link it first shows a card:
+// only its button (go=1) spends the link, so a link preview or prefetch cannot burn it.
 func (s *Server) addFactorPage(c echo.Context) error {
+	if c.QueryParam("go") == "" {
+		link := "/account/add?id=" + url.QueryEscape(c.QueryParam("id")) + "&go=1"
+		if p := auth.CleanLabel(c.QueryParam("profile")); p != "" {
+			link += "&profile=" + p
+		}
+		return s.page(c, http.StatusOK, pageData{Title: "Add a second step", Mode: "addask", Link: link, Art: art("passkey"), Label: auth.CleanLabel(c.QueryParam("profile"))})
+	}
 	p, err := s.Auth.OpenAddFactor(c.Request().Context(), c.QueryParam("id"))
 	if err != nil {
+		if !errors.Is(err, auth.ErrLogin) {
+			s.Log.Error("add factor failed", "id", requestID(c), "err", err)
+		}
 		return s.page(c, http.StatusNotFound, pageData{
 			Title: "This link is no longer valid", Mode: "fail", Art: art("alert"),
 			Detail: "It works once and expires after 10 minutes. Run the command in your terminal again to get a new one.",

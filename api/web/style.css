@@ -93,6 +93,7 @@ body {
 h1 { font-size: 1.6rem; line-height: 1.2; letter-spacing: -.025em; margin: 10px 0 8px; font-weight: 700; }
 .lead { margin: 0 0 20px; color: var(--muted); }
 .lead b { color: var(--ink); font-weight: 600; }
+.lead .ask { overflow-wrap: anywhere; }
 
 /* ---- illustration colors (they follow the theme) ---- */
 .s-ink { stroke: var(--ink); }

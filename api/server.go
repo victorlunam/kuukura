@@ -38,14 +38,19 @@ type Deps struct {
 
 type Server struct {
 	Deps
-	log    *slog.Logger
 	e      *echo.Echo
 	public *limiter // unauthenticated, login, invite: 10/min per IP
+	stepUp *limiter // the confirmation page and its calls: 60/min per IP (one confirmation is about 4 calls)
 	authed *limiter // 300/min per token
 	reveal *limiter // 10/min per principal
 }
 
 const stepUpHeader = "X-Step-Up"
+
+// stepUpGrant is the confirmation id the caller sent with the request, if any.
+func stepUpGrant(c echo.Context) string {
+	return strings.TrimSpace(c.Request().Header.Get(stepUpHeader))
+}
 
 func New(d Deps) *Server {
 	if d.Now == nil {
@@ -54,8 +59,8 @@ func New(d Deps) *Server {
 	if d.Log == nil {
 		d.Log = slog.New(slog.NewJSONHandler(discardWriter{}, nil))
 	}
-	s := &Server{Deps: d, log: d.Log,
-		public: newLimiter(10, d.Now), authed: newLimiter(300, d.Now), reveal: newLimiter(10, d.Now)}
+	s := &Server{Deps: d,
+		public: newLimiter(10, d.Now), stepUp: newLimiter(60, d.Now), authed: newLimiter(300, d.Now), reveal: newLimiter(10, d.Now)}
 	e := echo.New()
 	e.HideBanner, e.HidePort = true, true
 	e.IPExtractor = echo.ExtractIPFromXFFHeader() // trusts loopback and private (proxy) ranges only
@@ -88,10 +93,11 @@ func (s *Server) routes() {
 	e.POST("/auth/token", s.token, s.httpsOnly, pub)
 	e.GET("/account/add", s.addFactorPage, s.httpsOnly, pub)
 	e.GET("/account/added", s.addedPage, s.httpsOnly)
-	e.GET("/stepup", s.stepUpPage, s.httpsOnly, pub)
-	e.POST("/stepup/:id/begin", s.stepUpBegin, s.httpsOnly, pub)
-	e.POST("/stepup/:id/finish", s.stepUpFinish, s.httpsOnly, pub)
-	e.POST("/stepup/:id/totp", s.stepUpTOTP, s.httpsOnly, pub)
+	su := s.limit(s.stepUp, ip) // a person who mistypes a few codes must not lock themselves out of confirming
+	e.GET("/stepup", s.stepUpPage, s.httpsOnly, su)
+	e.POST("/stepup/:id/begin", s.stepUpBegin, s.httpsOnly, su)
+	e.POST("/stepup/:id/finish", s.stepUpFinish, s.httpsOnly, su)
+	e.POST("/stepup/:id/totp", s.stepUpTOTP, s.httpsOnly, su)
 
 	// mid-login sessions (mfa / enroll scopes): same IP limit
 	mid := e.Group("/auth", s.httpsOnly, pub, s.authenticate)
@@ -151,7 +157,7 @@ func (s *Server) recoverNoValues(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				s.log.Error("panic", "id", requestID(c), "path", c.Path())
+				s.Log.Error("panic", "id", requestID(c), "path", c.Path())
 				err = &apiError{500, "internal", "Something went wrong", "", nil, nil}
 			}
 		}()
@@ -178,7 +184,7 @@ func (s *Server) accessLog(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil {
 			c.Error(err)
 		}
-		s.log.Info("request", "id", requestID(c), "method", c.Request().Method, "route", c.Path(),
+		s.Log.Info("request", "id", requestID(c), "method", c.Request().Method, "route", c.Path(),
 			"status", c.Response().Status, "ms", time.Since(start).Milliseconds(), "ip", c.RealIP())
 		return nil
 	}

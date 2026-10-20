@@ -42,6 +42,7 @@ func TestInviterProfileNameBecomesTheSuggestion(t *testing.T) {
 		}
 
 		// the whole invitation: Google -> passkey -> "all set" page for that name
+		ctx := t.Context()
 		u, err := e.auth.StartLogin(tok, auth.CLIParams{Profile: "some_name"})
 		if err != nil {
 			t.Fatal(err)

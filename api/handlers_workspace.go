@@ -109,7 +109,7 @@ func (s *Server) identity(c echo.Context) error {
 	}
 	name, err := url.PathUnescape(c.Param("id"))
 	if err != nil {
-		return errBadRequest
+		return badRequest("")
 	}
 	if err := s.Identity.Disable(c.Request().Context(), actor(c), name); err != nil {
 		return err

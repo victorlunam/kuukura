@@ -26,8 +26,6 @@ import (
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-var ctx = context.Background()
-
 const (
 	rpID   = "vault.example.test"
 	origin = "https://vault.example.test"
@@ -96,13 +94,13 @@ func (e *env) login(invite string, id auth.Identity) (auth.Pending, cli, error) 
 	state, _ := url.Parse(u)
 	code := uuid.NewString()
 	e.idp.byCode[code] = id
-	pd, err := e.svc.Callback(ctx, state.Query().Get("state"), code, "203.0.113.9")
+	pd, err := e.svc.Callback(e.t.Context(), state.Query().Get("state"), code, "203.0.113.9")
 	return pd, c, err
 }
 
 func (e *env) info(raw string) auth.Info {
 	e.t.Helper()
-	in, err := e.tokens.Validate(ctx, raw)
+	in, err := e.tokens.Validate(e.t.Context(), raw)
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -115,11 +113,11 @@ func (e *env) finishCLI(redirect string, c cli) (auth.Issued, error) {
 	if err != nil || u.Host != "127.0.0.1:"+strconv.Itoa(c.params.Port) || u.Query().Get("state") != c.params.State {
 		e.t.Fatalf("bad redirect %q", redirect)
 	}
-	return e.svc.ExchangeCode(ctx, u.Query().Get("code"), c.verifier)
+	return e.svc.ExchangeCode(e.t.Context(), u.Query().Get("code"), c.verifier)
 }
 
 func (e *env) bootstrap(email string) string {
-	inv, err := e.ids.BootstrapAdmin(ctx, email)
+	inv, err := e.ids.BootstrapAdmin(e.t.Context(), email)
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -136,6 +134,7 @@ func (e *env) count(q string, args ...any) int {
 
 func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		invite := e.bootstrap("boss@example.test")
 		g := auth.Identity{Subject: "sub-boss", Email: "Boss@Example.test", EmailVerified: true}
@@ -170,8 +169,8 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 		if _, err := e.svc.ConfirmTOTP(ctx, in, "000000", "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("wrong code must not enroll")
 		}
-		code, _ := totp.GenerateCode(secret, time.Now())
-		res, err := e.svc.ConfirmTOTP(ctx, in, code, "203.0.113.9")
+		enrollCode, _ := totp.GenerateCode(secret, e.clock)
+		res, err := e.svc.ConfirmTOTP(ctx, in, enrollCode, "203.0.113.9")
 		if err != nil || len(res.RecoveryCodes) != 10 {
 			t.Fatalf("confirm: %v", err)
 		}
@@ -203,17 +202,21 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 		if err != nil || pd2.Mode != "mfa" {
 			t.Fatalf("second login: %+v %v", pd2, err)
 		}
-		if !pd2.HasTOTP || pd2.HasPasskey {
+		if !pd2.TOTP || pd2.Passkey {
 			t.Fatalf("an authenticator-app account must not be offered a passkey: %+v", pd2)
 		}
 		in2 := e.info(pd2.Token)
+		if _, err := e.svc.VerifyTOTP(ctx, in2, enrollCode, "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
+			t.Fatal("the code that enrolled the app must not sign in (replay)")
+		}
 		if _, err := e.svc.VerifyTOTP(ctx, in2, "123456", "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("wrong code")
 		}
-		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'login_failed'`) != 1 {
+		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'login_failed'`) != 2 {
 			t.Fatal("failed login must be audited")
 		}
-		code, _ = totp.GenerateCode(secret, time.Now())
+		e.clock = e.clock.Add(31 * time.Second) // the next 30-second step
+		code, _ := totp.GenerateCode(secret, e.clock)
 		redirect, err := e.svc.VerifyTOTP(ctx, in2, code, "203.0.113.9")
 		if err != nil {
 			t.Fatal(err)
@@ -239,38 +242,49 @@ func TestInviteTOTPEnrollmentAndLogin(t *testing.T) {
 			t.Fatal("a recovery code works once")
 		}
 		var hash []byte
-		_ = p.DB().QueryRow(`SELECT code_hash FROM recovery_codes LIMIT 1`).Scan(&hash)
+		if err := p.DB().QueryRow(`SELECT code_hash FROM recovery_codes LIMIT 1`).Scan(&hash); err != nil {
+			t.Fatal(err)
+		}
 		if bytes.Contains(hash, []byte(res.RecoveryCodes[0])) {
 			t.Fatal("recovery codes are stored hashed")
 		}
 
 		// an account with only an authenticator app confirms with a code, and a code works only once
-		sid, err := e.svc.StartStepUp(ctx, si, "reveal", "A")
+		sid, m, err := e.svc.StartStepUp(ctx, si, "reveal", "A")
 		if err != nil {
 			t.Fatalf("an authenticator-app account can confirm: %v", err)
 		}
-		if m, err := e.svc.StepUpMethods(ctx, sid); err != nil || m.Passkey || !m.TOTP || m.Default != "totp" {
-			t.Fatalf("methods must be the account's own, with its only factor as the default: %+v %v", m, err)
+		if m.Passkey || !m.TOTP || m.Default != "totp" {
+			t.Fatalf("methods must be the account's own, with its only factor as the default: %+v", m)
 		}
-		if err := e.svc.FinishStepUpTOTP(ctx, sid, code); !errors.Is(err, auth.ErrLogin) {
+		if req, err := e.svc.LookupStepUp(ctx, sid); err != nil || req.Purpose != "reveal" || req.Subject != "A" || req.Methods != m {
+			t.Fatalf("the request knows what it is for: %+v %v", req, err)
+		}
+		if err := e.svc.FinishStepUpTOTP(ctx, sid, code, "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("the code that was just used to sign in must not confirm (replay)")
 		}
-		if err := e.svc.FinishStepUpTOTP(ctx, sid, "000000"); !errors.Is(err, auth.ErrLogin) {
+		if err := e.svc.FinishStepUpTOTP(ctx, sid, "000000", "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("a wrong code must not confirm")
+		}
+		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'login_failed' AND result = 'denied'`) != 5 {
+			t.Fatal("failed confirmations must be audited like failed sign-ins (3 sign-ins + 2 confirmations)")
+		}
+		if err := e.svc.FinishStepUpTOTP(ctx, "no-such-request", "000000", "203.0.113.9"); !errors.Is(err, auth.ErrStepUpGone) || !errors.Is(err, auth.ErrLogin) {
+			t.Fatalf("an unknown request is gone, and still a failed login: %v", err)
 		}
 		if e.svc.StepUpDone(si, sid) {
 			t.Fatal("nothing was confirmed yet")
 		}
 		e.clock = e.clock.Add(31 * time.Second) // the next 30-second step
 		fresh, _ := totp.GenerateCode(secret, e.clock)
-		if err := e.svc.FinishStepUpTOTP(ctx, sid, fresh); err != nil {
+		if err := e.svc.FinishStepUpTOTP(ctx, sid, fresh, "203.0.113.9"); err != nil {
 			t.Fatalf("a fresh code confirms: %v", err)
 		}
 		if !e.svc.StepUpDone(si, sid) || !e.svc.ConsumeStepUp(si, sid, "reveal", "A") || e.svc.ConsumeStepUp(si, sid, "reveal", "A") {
 			t.Fatal("the grant is single use and bound to the request")
 		}
-		sid2, _ := e.svc.StartStepUp(ctx, si, "run", "A")
-		if err := e.svc.FinishStepUpTOTP(ctx, sid2, fresh); !errors.Is(err, auth.ErrLogin) {
+		sid2, _, _ := e.svc.StartStepUp(ctx, si, "run", "A")
+		if err := e.svc.FinishStepUpTOTP(ctx, sid2, fresh, "203.0.113.9"); !errors.Is(err, auth.ErrLogin) {
 			t.Fatal("a code works once, across confirmations too")
 		}
 
@@ -308,6 +322,7 @@ func raw(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 
 func TestPasskeyLoginAndStepUp(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		g := auth.Identity{Subject: "sub-1", Email: "pk@example.test", EmailVerified: true}
 		pd, c, err := e.login(e.bootstrap("pk@example.test"), g)
@@ -338,7 +353,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 
 		// second factor with the passkey
 		pd2, c2, _ := e.login("", g)
-		if !pd2.HasPasskey || pd2.HasTOTP {
+		if !pd2.Passkey || pd2.TOTP {
 			t.Fatalf("a passkey account must not be offered an authenticator code: %+v", pd2)
 		}
 		in2 := e.info(pd2.Token)
@@ -361,7 +376,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		si := e.info(sess.Raw)
 
 		// step-up: bound to principal, purpose and subject; single use; 60 s
-		id, err := e.svc.StartStepUp(ctx, si, "reveal", "STRIPE_KEY env:prod")
+		id, _, err := e.svc.StartStepUp(ctx, si, "reveal", "STRIPE_KEY env:prod")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -372,35 +387,54 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), false)); err == nil {
+		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), false), "203.0.113.9"); err == nil {
 			t.Fatal("step-up needs user verification")
 		}
+		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'login_failed' AND result = 'denied'`) != 2 {
+			t.Fatal("a failed confirmation must be audited like a failed sign-in (1 sign-in + 1 confirmation)")
+		}
 		a, _ = e.svc.BeginStepUp(ctx, id)
-		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true)); err != nil {
+		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true), "203.0.113.9"); err != nil {
 			t.Fatal(err)
 		}
 		if !e.svc.StepUpDone(si, id) {
 			t.Fatal("poll must see the grant")
 		}
+		// someone else's session can neither poll nor spend it
+		other := auth.Info{PrincipalID: uuid.New(), Scopes: []string{auth.ScopeRead, auth.ScopeWrite}}
+		if e.svc.StepUpDone(other, id) || e.svc.ConsumeStepUp(other, id, "reveal", "STRIPE_KEY env:prod") {
+			t.Fatal("another principal cannot see or spend my confirmation")
+		}
 		if e.svc.ConsumeStepUp(si, id, "reveal", "OTHER") {
 			t.Fatal("grant is bound to its request")
 		}
 		// start over for the happy path and expiry
-		id, _ = e.svc.StartStepUp(ctx, si, "reveal", "A")
+		id, _, _ = e.svc.StartStepUp(ctx, si, "reveal", "A")
 		a, _ = e.svc.BeginStepUp(ctx, id)
-		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true))
+		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true), "203.0.113.9")
 		if !e.svc.ConsumeStepUp(si, id, "reveal", "A") {
 			t.Fatal("valid grant")
 		}
 		if e.svc.ConsumeStepUp(si, id, "reveal", "A") {
 			t.Fatal("grants are single use")
 		}
-		id, _ = e.svc.StartStepUp(ctx, si, "run", "A")
+		id, _, _ = e.svc.StartStepUp(ctx, si, "run", "A")
 		a, _ = e.svc.BeginStepUp(ctx, id)
-		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true))
+		_ = e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true), "203.0.113.9")
 		e.clock = e.clock.Add(61 * time.Second)
 		if e.svc.ConsumeStepUp(si, id, "run", "A") {
 			t.Fatal("grants expire after 60 seconds")
+		}
+
+		// a passkey whose sign count goes back may have been copied: the sign-in works but the audit trail says so
+		dev.Rewind()
+		id, _, _ = e.svc.StartStepUp(ctx, si, "run", "A")
+		a, _ = e.svc.BeginStepUp(ctx, id)
+		if err := e.svc.FinishStepUp(ctx, id, dev.Assert(t, raw(a), true), "203.0.113.9"); err != nil {
+			t.Fatal(err)
+		}
+		if e.count(`SELECT COUNT(*) FROM audit_log WHERE action = 'update' AND target_type = 'principal'`) != 1 {
+			t.Fatal("a sign count that did not advance must be audited")
 		}
 
 		// machines never get one
@@ -408,7 +442,7 @@ func TestPasskeyLoginAndStepUp(t *testing.T) {
 		if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, owner_id, status) VALUES (?, 'machine', 'ci', ?, 'active')`), mid, si.PrincipalID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := e.svc.StartStepUp(ctx, auth.Info{PrincipalID: mid, Machine: true, Scopes: []string{"read"}}, "reveal", "A"); err == nil {
+		if _, _, err := e.svc.StartStepUp(ctx, auth.Info{PrincipalID: mid, Machine: true, Scopes: []string{"read"}}, "reveal", "A"); err == nil {
 			t.Fatal("machines can never get a step-up")
 		}
 	})

@@ -24,7 +24,7 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 400 | `https-required` | request was not HTTPS |
 | 401 | `unauthorized` | any authentication failure (always generic) |
 | 403 | `forbidden` | not permitted (deny by default; every denial is audited) |
-| 403 | `step-up-required` | a passkey confirmation is needed (see Step-up) |
+| 403 | `step-up-required` | a confirmation with the account's second step is needed (see Step-up) |
 | 403 | `second-factor-required` | `POST /auth/stepup` on an account with no passkey and no authenticator app |
 | 404 | `not-found` | nothing matches, archived, or a secret the caller may not read (indistinguishable) |
 | 404 | `confirmation-expired` | the confirmation request is unknown, expired, or was lost in a server restart; run the command again |
@@ -38,8 +38,10 @@ RFC 9457 `application/problem+json`, with a stable `code` (the CLI maps it to pl
 | 429 | `quota-exceeded` | rate limit; has `Retry-After` and `RateLimit: limit=10, remaining=0, reset=6` |
 | 500 | `internal` | nothing else is exposed |
 
-Rate limits (in-process token bucket): unauthenticated, login and invite endpoints 10/min per IP;
-authenticated 300/min per token; `POST /secrets/reveal` 10/min per principal.
+Rate limits (in-process token bucket): unauthenticated, login, token exchange and invite endpoints 10/min per IP;
+the confirmation page and its calls (`GET /stepup`, `POST /stepup/{id}/...`) have their own bucket, 60/min per IP,
+because one confirmation is several calls; authenticated 300/min per token; `POST /secrets/reveal` 10/min per
+principal. The error body's `Content-Type` is `application/problem+json`.
 
 ## Selectors
 
@@ -76,13 +78,21 @@ confirmations alike, so a code that was just used to sign in has to be replaced 
 1. `POST /auth/stepup` `{ "purpose": "reveal" | "run" | "authorize_off" | "factor_add" | "factor_remove", "subject": "STRIPE_KEY env:prod", "profile": "work" }`
    (`profile` optional, display-only, same rules as `cli_profile`) ->
    201 `{ "id": "...", "url": "https://vault.example.com/stepup?id=...", "methods": ["passkey", "totp"] }`.
-   `methods` lists what the account can use (the CLI words its prompt from it). `subject` is the selector as
-   `NAME tag tag` (name uppercased, tags sorted).
-2. The CLI opens `url`; the page offers only the account's methods: a WebAuthn assertion
+   `methods` lists what the account can use (the CLI words its prompt from it). `subject` is required (400 `invalid-request`,
+   "Subject is required." when empty) and is the selector as `NAME tag tag` (name uppercased, tags sorted); for
+   `factor_add` it is the kind, for `factor_remove` the credential id. The server keeps `purpose` and `subject` with the request.
+2. The CLI opens `url`; the page says what is being confirmed ("Reveal STRIPE_KEY env:prod", "Run with ...",
+   "Turn off confirmation for ...", "Add a passkey", "Add an authenticator app", "Remove a second step"; the subject is
+   shown as escaped plain text) and offers only the account's methods: a WebAuthn assertion
    (`POST /stepup/{id}/begin`, `/finish`) or an authenticator code (`POST /stepup/{id}/totp` `{ "code": "123456" }` -> 204).
 3. The CLI polls `GET /auth/stepup/{id}` -> `{ "done": true }`.
 4. The CLI repeats the original call with header `X-Step-Up: <id>`. The grant is single use, valid 60 s after
    the assertion, and bound to the principal, purpose and subject.
+
+A wrong code or a failed assertion is audited like a failed sign-in: action `login_failed`, result `denied`, for the
+request's principal, with metadata `{ "step": "confirmation", "purpose": "reveal" }`. A passkey whose sign count did
+not advance (it may have been copied) still works, and is audited as `update` on the principal with metadata
+`{ "factor": "passkey", "change": "clone_warning" }`.
 
 ## Account: second steps
 
@@ -94,10 +104,13 @@ Humans only (machines get 403). Adding or removing needs a confirmation (Step-up
   confirmation pages offer its method first (every factor keeps working), and `methods` in the step-up response
   lists it first.
 - `PATCH /account/factors/{id}` `{ "default": true }` -> 204. No confirmation is needed (it only changes the order).
-  An id that is not the caller's is 404 `not-found`. Removing the default hands the mark to the oldest remaining factor.
+  An id that is not the caller's is 404 `not-found`. Removing the default hands the mark to an earlier remaining factor.
 - `POST /account/factors` `{ "kind": "passkey" | "totp", "profile": "work" }` -> 201 `{ "url": "https://.../account/add?id=..." }`.
-  The link works once and lasts 10 minutes. The page registers the new factor with a short enroll session that only
-  accepts that kind; it is not a login and issues no recovery codes. Then the browser goes to `/account/added`.
+  The link works once and lasts 10 minutes. `GET` on it shows a card with a "Continue" button and spends nothing,
+  so a link preview or prefetch cannot burn it; the button (`go=1`) spends the link. The page then registers the
+  new factor with a short enroll session that only accepts that kind; it is not a login and issues no recovery
+  codes. Then the browser goes to `/account/added`. Removals of different factors are serialized per account, so
+  two at once cannot leave it with none.
 - `DELETE /account/factors/{id}` -> 204. The last remaining factor is refused with 409 `last-factor`; an id that is
   not the caller's is 404 `not-found`.
 

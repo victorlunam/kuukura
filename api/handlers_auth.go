@@ -38,16 +38,25 @@ func (s *Server) login(c echo.Context) error {
 
 func (s *Server) callback(c echo.Context) error {
 	if e := c.QueryParam("error"); e != "" { // Google reported a problem (access_denied, ...)
-		s.log.Warn("login denied", "id", requestID(c), "reason", "provider_returned_error", "detail", auth.CleanLabel(strings.ToLower(e)))
+		s.Log.Warn("login denied", "id", requestID(c), "reason", "provider_returned_error", "detail", auth.CleanLabel(strings.ToLower(e)))
 		return s.failPage(c)
 	}
 	p, err := s.Auth.Callback(c.Request().Context(), c.QueryParam("state"), c.QueryParam("code"), c.RealIP())
 	if err != nil {
 		reason, detail := auth.LoginReason(err)
-		s.log.Warn("login denied", "id", requestID(c), "reason", reason, "detail", detail) // codes only, no user data
+		s.Log.Warn("login denied", "id", requestID(c), "reason", reason, "detail", detail) // codes only, no user data
 		return s.loginFailedPage(c, reason, auth.LoginEmail(err))
 	}
 	return s.factorPage(c, p)
+}
+
+// denied answers a failed login or confirmation step with the generic 401. An ordinary failure (ErrLogin) is
+// already in the audit log; anything else is a broken dependency, and the operator needs its cause.
+func (s *Server) denied(c echo.Context, err error) error {
+	if !errors.Is(err, auth.ErrLogin) {
+		s.Log.Error("login step failed", "id", requestID(c), "route", c.Path(), "err", err)
+	}
+	return errUnauthorized
 }
 
 type tokenReq struct {
@@ -63,7 +72,7 @@ func (s *Server) token(c echo.Context) error {
 	}
 	iss, err := s.Auth.ExchangeCode(c.Request().Context(), r.Code, r.Verifier)
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"token": iss.Raw, "expires_at": iss.ExpiresAt})
 }
@@ -87,7 +96,7 @@ type redirectResp struct {
 func (s *Server) mfaPasskeyBegin(c echo.Context) error {
 	o, err := s.Auth.BeginPasskeyLogin(c.Request().Context(), info(c))
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, o)
 }
@@ -107,7 +116,7 @@ func (s *Server) mfaPasskeyFinish(c echo.Context) error {
 	}
 	r, err := s.Auth.FinishPasskeyLogin(c.Request().Context(), info(c), b, c.RealIP())
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, redirectResp{Redirect: r})
 }
@@ -119,7 +128,7 @@ func (s *Server) mfaTOTP(c echo.Context) error {
 	}
 	red, err := s.Auth.VerifyTOTP(c.Request().Context(), info(c), r.Code, c.RealIP())
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, redirectResp{Redirect: red})
 }
@@ -131,7 +140,7 @@ func (s *Server) mfaRecovery(c echo.Context) error {
 	}
 	red, err := s.Auth.VerifyRecovery(c.Request().Context(), info(c), r.Code, c.RealIP())
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, redirectResp{Redirect: red})
 }
@@ -139,7 +148,7 @@ func (s *Server) mfaRecovery(c echo.Context) error {
 func (s *Server) enrollPasskeyBegin(c echo.Context) error {
 	o, err := s.Auth.BeginPasskeyRegistration(c.Request().Context(), info(c))
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, o)
 }
@@ -151,7 +160,7 @@ func (s *Server) enrollPasskeyFinish(c echo.Context) error {
 	}
 	r, err := s.Auth.FinishPasskeyRegistration(c.Request().Context(), info(c), b, c.RealIP())
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, redirectResp{r.Redirect, r.RecoveryCodes})
 }
@@ -159,7 +168,7 @@ func (s *Server) enrollPasskeyFinish(c echo.Context) error {
 func (s *Server) enrollTOTPBegin(c echo.Context) error {
 	secret, uri, err := s.Auth.BeginTOTP(c.Request().Context(), info(c))
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	qr, err := qrSVG(uri)
 	if err != nil {
@@ -175,7 +184,7 @@ func (s *Server) enrollTOTPConfirm(c echo.Context) error {
 	}
 	res, err := s.Auth.ConfirmTOTP(c.Request().Context(), info(c), r.Code, c.RealIP())
 	if err != nil {
-		return errUnauthorized
+		return s.denied(c, err)
 	}
 	return c.JSON(http.StatusOK, redirectResp{res.Redirect, res.RecoveryCodes})
 }
@@ -199,23 +208,22 @@ func (s *Server) stepUpStart(c echo.Context) error {
 		return badRequest("Unknown purpose.")
 	}
 	if r.Subject == "" {
-		return badRequest("Unknown purpose.")
+		return badRequest("Subject is required.")
 	}
-	id, err := s.Auth.StartStepUp(c.Request().Context(), info(c), r.Purpose, r.Subject)
+	id, m, err := s.Auth.StartStepUp(c.Request().Context(), info(c), r.Purpose, r.Subject)
 	if errors.Is(err, auth.ErrNoFactor) {
 		return &apiError{http.StatusForbidden, "second-factor-required", "No way to confirm",
 			"This account has no passkey or authenticator app set up.", nil, nil}
 	}
 	if err != nil {
+		if !errors.Is(err, auth.ErrLogin) {
+			s.Log.Error("step-up failed", "id", requestID(c), "err", err)
+		}
 		return errForbidden
 	}
 	link := s.BaseURL + "/stepup?id=" + id
 	if p := auth.CleanLabel(r.Profile); p != "" {
 		link += "&profile=" + p
-	}
-	m, err := s.Auth.StepUpMethods(c.Request().Context(), id)
-	if err != nil {
-		return err
 	}
 	var methods []string // the CLI words its prompt from this ("Touch ID" vs "your browser"); the default comes first
 	if m.Passkey {
@@ -236,18 +244,18 @@ func (s *Server) stepUpStatus(c echo.Context) error {
 
 // stepUpErr: a confirmation that no longer exists (expired, or lost when the server restarted) is a 404 the page
 // can explain ("run the command again"); every other failure stays the generic 401.
-func stepUpErr(err error) error {
+func (s *Server) stepUpErr(c echo.Context, err error) error {
 	if errors.Is(err, auth.ErrStepUpGone) {
 		return &apiError{http.StatusNotFound, "confirmation-expired", "This confirmation expired",
 			"Run the command in your terminal again to get a new one.", nil, nil}
 	}
-	return errUnauthorized
+	return s.denied(c, err)
 }
 
 func (s *Server) stepUpBegin(c echo.Context) error {
 	o, err := s.Auth.BeginStepUp(c.Request().Context(), c.Param("id"))
 	if err != nil {
-		return stepUpErr(err)
+		return s.stepUpErr(c, err)
 	}
 	return c.JSON(http.StatusOK, o)
 }
@@ -258,8 +266,8 @@ func (s *Server) stepUpTOTP(c echo.Context) error {
 	if err := decode(c, &r); err != nil {
 		return err
 	}
-	if err := s.Auth.FinishStepUpTOTP(c.Request().Context(), c.Param("id"), r.Code); err != nil {
-		return stepUpErr(err)
+	if err := s.Auth.FinishStepUpTOTP(c.Request().Context(), c.Param("id"), r.Code, c.RealIP()); err != nil {
+		return s.stepUpErr(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -269,8 +277,8 @@ func (s *Server) stepUpFinish(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := s.Auth.FinishStepUp(c.Request().Context(), c.Param("id"), b); err != nil {
-		return stepUpErr(err)
+	if err := s.Auth.FinishStepUp(c.Request().Context(), c.Param("id"), b, c.RealIP()); err != nil {
+		return s.stepUpErr(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -282,7 +290,7 @@ func (s *Server) withStepUp(c echo.Context, purpose, subject string, fn func(ste
 	if !isStepUp(err) {
 		return err
 	}
-	id := strings.TrimSpace(c.Request().Header.Get(stepUpHeader))
+	id := stepUpGrant(c)
 	if id == "" || !s.Auth.ConsumeStepUp(info(c), id, purpose, subject) {
 		return err
 	}

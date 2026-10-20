@@ -37,7 +37,6 @@ func (e *apiError) Error() string { return e.code }
 var (
 	errUnauthorized = &apiError{http.StatusUnauthorized, "unauthorized", "Authentication required", "Sign in with `ku login`.", nil, nil}
 	errForbidden    = &apiError{http.StatusForbidden, "forbidden", "Not permitted", "", nil, nil}
-	errBadRequest   = &apiError{http.StatusBadRequest, "invalid-request", "Invalid request", "", nil, nil}
 )
 
 func badRequest(detail string) *apiError {
@@ -93,22 +92,24 @@ func toAPIError(err error) *apiError {
 	return &apiError{500, "internal", "Something went wrong", "", nil, nil}
 }
 
-// errorHandler renders every error as problem+json. Internals are never exposed.
+// errorHandler renders every error as problem+json. Internals are never exposed to the client; the cause of a
+// 500 goes to the server log (error values here never carry secret values or tokens).
 func (s *Server) errorHandler(err error, c echo.Context) {
 	if c.Response().Committed {
 		return
 	}
 	ae := toAPIError(err)
 	if ae.code == "internal" {
-		s.log.Error("request failed", "id", requestID(c), "method", c.Request().Method, "path", c.Path())
+		s.Log.Error("request failed", "id", requestID(c), "method", c.Request().Method, "path", c.Path(), "err", err)
 	}
+	h := c.Response().Header()
 	for k, v := range ae.header {
-		c.Response().Header().Set(k, v)
+		h.Set(k, v)
 	}
-	c.Response().Header().Set("Cache-Control", "no-store")
+	h.Set("Cache-Control", "no-store")
+	h.Set(echo.HeaderContentType, "application/problem+json") // before the body: the header is sent with it
 	_ = c.JSONBlob(ae.status, mustJSON(problem{
 		Type: "/problems/" + ae.code, Title: ae.title, Status: ae.status, Detail: ae.detail,
 		Instance: "urn:uuid:" + requestID(c), Code: ae.code, Items: ae.items,
 	}))
-	c.Response().Header().Set(echo.HeaderContentType, "application/problem+json")
 }

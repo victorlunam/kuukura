@@ -63,9 +63,7 @@ func hash(raw string) []byte {
 // Issue creates a token for a principal inside the caller's transaction.
 func (t *Tokens) Issue(ctx context.Context, q storage.Querier, principal uuid.UUID, kind string, scopes []string, ttl time.Duration) (Issued, error) {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return Issued{}, err
-	}
+	_, _ = rand.Read(b) // never fails: crypto/rand crashes the program instead
 	raw := prefix + base64.RawURLEncoding.EncodeToString(b)
 	id := uuid.New()
 	exp := t.Now().UTC().Add(ttl)

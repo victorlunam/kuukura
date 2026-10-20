@@ -2,17 +2,35 @@ package auth_test
 
 import (
 	"errors"
+	"net/url"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/victorlunam/kuukura/auth"
 	"github.com/victorlunam/kuukura/storage"
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
+// callbackFor plays the provider redirect for the URL StartLogin returned.
+func (e *env) callbackFor(authURL string, id auth.Identity) (auth.Pending, error) {
+	u, _ := url.Parse(authURL)
+	code := uuid.NewString()
+	e.idp.byCode[code] = id
+	return e.svc.Callback(e.t.Context(), u.Query().Get("state"), code, "203.0.113.9")
+}
+
+// stateOf extracts the state parameter from the provider URL StartLogin returned.
+func stateOf(authURL string) string {
+	u, _ := url.Parse(authURL)
+	return u.Query().Get("state")
+}
+
 // A failed login is one generic error for the user, but the server log gets a reason code, so an operator can tell
 // "wrong Google account" from "expired link" from "Google rejected the code" without guessing.
 func TestLoginDenialReasons(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		e := setup(t, p)
 		good := auth.Identity{Subject: "sub-ok", Email: "ok@example.test", EmailVerified: true}
 

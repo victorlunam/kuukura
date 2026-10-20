@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"strings"
@@ -14,8 +13,6 @@ import (
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-var ctx = context.Background()
-
 func newPrincipal(t *testing.T, p storage.Provider, status string) uuid.UUID {
 	id := uuid.New()
 	if _, err := p.DB().Exec(p.Rebind(`INSERT INTO principals (id, kind, name, email, role, status) VALUES (?, 'human', ?, 'x@example.test', 'member', ?)`), id, id.String(), status); err != nil {
@@ -26,9 +23,9 @@ func newPrincipal(t *testing.T, p storage.Provider, status string) uuid.UUID {
 
 func issue(t *testing.T, tk *Tokens, who uuid.UUID, kind string, scopes []string, ttl time.Duration) Issued {
 	var iss Issued
-	err := storage.InTx(ctx, tk.p, func(tx *sql.Tx) error {
+	err := storage.InTx(t.Context(), tk.p, func(tx *sql.Tx) error {
 		var err error
-		iss, err = tk.Issue(ctx, tx, who, kind, scopes, ttl)
+		iss, err = tk.Issue(t.Context(), tx, who, kind, scopes, ttl)
 		return err
 	})
 	if err != nil {
@@ -39,6 +36,7 @@ func issue(t *testing.T, tk *Tokens, who uuid.UUID, kind string, scopes []string
 
 func TestTokenLifecycle(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		tk := NewTokens(p)
 		clock := time.Now().UTC()
 		tk.Now = func() time.Time { return clock }
@@ -71,15 +69,19 @@ func TestTokenLifecycle(t *testing.T) {
 			t.Fatal("idle session must expire")
 		}
 
-		// absolute expiry, even with constant use
+		// absolute expiry, even with constant use: 9 uses 50 minutes apart stay inside the 8 hours (450 min), and the
+		// next one is past them although the session was used less than an hour before (never idle)
 		clock = time.Now().UTC()
 		s2 := issue(t, tk, who, KindSession, []string{ScopeRead}, SessionTTL)
-		for i := 0; i < 9; i++ {
+		for range 9 {
 			clock = clock.Add(50 * time.Minute)
-			_, err = tk.Validate(ctx, s2.Raw)
-			if i < 9 && clock.Sub(s2.ExpiresAt.Add(-SessionTTL)) >= SessionTTL && err == nil {
-				t.Fatal("session must expire after 8h absolute")
+			if _, err := tk.Validate(ctx, s2.Raw); err != nil {
+				t.Fatalf("a session in constant use stays valid within 8h: %v", err)
 			}
+		}
+		clock = clock.Add(50 * time.Minute)
+		if _, err := tk.Validate(ctx, s2.Raw); !errors.Is(err, ErrInvalid) {
+			t.Fatal("session must expire after 8h absolute")
 		}
 
 		// revoke
@@ -112,6 +114,7 @@ func TestTokenLifecycle(t *testing.T) {
 
 func TestInviteSingleUseAndExpiry(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
 		tk := NewTokens(p)
 		clock := time.Now().UTC()
 		tk.Now = func() time.Time { return clock }

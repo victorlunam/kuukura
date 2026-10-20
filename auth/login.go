@@ -31,7 +31,8 @@ const (
 	pendingEnrollTTL = 30 * time.Minute
 	flowTTL          = 10 * time.Minute
 	cliCodeTTL       = time.Minute
-	stepUpWindow     = 60 * time.Second
+	stepUpTTL        = 5 * time.Minute  // how long a confirmation request waits for the person
+	stepUpWindow     = 60 * time.Second // how long after the confirmation its grant can still be spent
 )
 
 // Config is the instance identity used for WebAuthn.
@@ -68,7 +69,7 @@ func NewService(p storage.Provider, log *audit.Log, tokens *Tokens, prov AuthPro
 	s.flows = newTTL[flow](flowTTL, now)
 	s.pending = newTTL[pendingData](pendingEnrollTTL, now)
 	s.codes = newTTL[cliCode](cliCodeTTL, now)
-	s.stepUps = newTTL[stepUp](5*time.Minute, now)
+	s.stepUps = newTTL[stepUp](stepUpTTL, now)
 	s.adds = newTTL[addReq](addFactorTTL, now)
 	return s, nil
 }
@@ -108,11 +109,10 @@ type cliCode struct {
 	cli       CLIParams
 }
 
+// random returns n random bytes, base64url encoded: the format of the one-time capabilities (CLI codes, step-up ids).
 func random(n int) string {
 	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		panic(err) // crypto/rand failing is unrecoverable
-	}
+	_, _ = rand.Read(b) // never fails: crypto/rand crashes the program instead
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
@@ -131,21 +131,20 @@ func (s *Service) StartLogin(invite string, cli CLIParams) (string, error) {
 	if !ValidCLIParams(invite, cli) {
 		return "", ErrLogin
 	}
-	state, nonce, verifier := random(32), random(32), oauth2.GenerateVerifier()
+	state, nonce, verifier := rand.Text(), rand.Text(), oauth2.GenerateVerifier()
 	s.flows.Put(state, flow{nonce: nonce, verifier: verifier, invite: invite, cli: cli})
 	return s.provider.AuthURL(state, nonce, verifier), nil
 }
 
-// Pending is a mid-login session: Mode "mfa" (verify a second factor) or "enroll" (register one).
+// Pending is a mid-login session: Mode "mfa" (verify a second factor), "enroll" (register the first one) or
+// "add" (register another one on an active account).
 type Pending struct {
 	Token       string
 	PrincipalID uuid.UUID
 	Mode        string
 	Profile     string // CLI profile name to display, if the CLI sent one
-	// What this account can use for the second step (mode "mfa"), so the page offers only real options.
-	HasPasskey, HasTOTP bool
-	Default             string // kind of the account's default factor: the page offers it first
-	Add                 string // mode "add": the kind of factor being added ("passkey" or "totp")
+	Methods            // what this account can use for the second step (mode "mfa"), so the page offers only real options
+	Add         string // mode "add": the kind of factor being added ("passkey" or "totp")
 }
 
 // Callback handles the provider redirect. Only an invited email or an existing identity gets through.
@@ -216,11 +215,9 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		}
 		out = Pending{Token: iss.Raw, PrincipalID: pid, Mode: mode, Profile: f.cli.Profile}
 		if mode == "mfa" {
-			m, err := s.factorsOf(ctx, tx, pid)
-			if err != nil {
+			if out.Methods, err = s.factorsOf(ctx, tx, pid); err != nil {
 				return err
 			}
-			out.HasPasskey, out.HasTOTP, out.Default = m.Passkey, m.TOTP, m.Default
 		}
 		s.pending.Put(iss.ID.String(), pendingData{cli: f.cli})
 		return nil
@@ -233,7 +230,7 @@ func (s *Service) Callback(ctx context.Context, state, code, ip string) (Pending
 		if errors.As(err, &le) {
 			return Pending{}, le
 		}
-		return Pending{}, deny("internal", "")
+		return Pending{}, deny("internal", err.Error()) // the cause goes to the server log through the detail
 	}
 	return out, nil
 }

@@ -3,7 +3,6 @@ package api
 import (
 	"crypto/rand"
 	"embed"
-	"encoding/base64"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -15,7 +14,8 @@ import (
 	"github.com/victorlunam/kuukura/auth"
 )
 
-// The only web pages: invite acceptance, second factor, passkey/TOTP enrollment, step-up, and their result pages.
+// The only web pages: the sign-in and invite cards, second factor (sign-in), first enrollment, adding a factor to
+// an active account, the step-up confirmation, and their result pages (done, added, failures).
 // Everything is embedded (templates, CSS, JS, SVG art): no external resources and a strict CSP with one nonce.
 
 //go:embed web
@@ -51,6 +51,7 @@ type pageData struct {
 	Title, Mode, Token, ID, Nonce string
 	Link, Email, Detail, Suggest  string
 	Add                           string // mode "add": passkey or totp
+	Ask                           string // mode "stepup": what is being confirmed
 	Default                       string // the account's default factor kind: its method is offered first
 	Label, Origin                 string
 	Step                          int
@@ -63,9 +64,7 @@ type pageData struct {
 }
 
 func (s *Server) page(c echo.Context, status int, d pageData) error {
-	n := make([]byte, 16)
-	_, _ = rand.Read(n)
-	d.Nonce = base64.RawURLEncoding.EncodeToString(n)
+	d.Nonce = rand.Text()
 	d.CSS, d.JS, d.Sprite, d.Mark = pageCSS, pageJS, pageSprite, pageMark
 	d.Origin = s.BaseURL
 	if d.Label == "" { // the CLI's profile name when it sent one, else the instance name, else the host
@@ -148,20 +147,42 @@ func (s *Server) factorPage(c echo.Context, p auth.Pending) error {
 		return s.page(c, http.StatusOK, pageData{Title: "Secure your account", Mode: "enroll", Token: p.Token, Art: art("passkey"), Step: 2, Label: p.Profile})
 	}
 	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "mfa", Token: p.Token, Art: art("shield"), Label: p.Profile,
-		HasPasskey: p.HasPasskey, HasTOTP: p.HasTOTP, Default: p.Default})
+		HasPasskey: p.Passkey, HasTOTP: p.TOTP, Default: p.Default})
+}
+
+// stepUpAsk words what a confirmation is for, from its purpose and subject. The subject is the person's own
+// selector (or a factor kind or id), shown as plain text: the template escapes it.
+func stepUpAsk(purpose, subject string) string {
+	switch purpose {
+	case purposeReveal:
+		return "Reveal " + subject
+	case purposeRun:
+		return "Run with " + subject
+	case purposeAuthorizeOff:
+		return "Turn off confirmation for " + subject
+	case purposeFactorAdd:
+		if subject == "totp" {
+			return "Add an authenticator app"
+		}
+		return "Add a passkey"
+	case purposeFactorRemove:
+		return "Remove a second step"
+	}
+	return ""
 }
 
 func (s *Server) stepUpPage(c echo.Context) error {
 	id := c.QueryParam("id")
-	m, err := s.Auth.StepUpMethods(c.Request().Context(), id)
-	if err != nil || !m.Passkey && !m.TOTP { // unknown, expired or already used request
+	r, err := s.Auth.LookupStepUp(c.Request().Context(), id)
+	if err != nil || !r.Passkey && !r.TOTP { // unknown, expired or already used request
 		return s.page(c, http.StatusNotFound, pageData{
 			Title: "This confirmation is no longer valid", Mode: "fail", Art: art("alert"),
 			Detail: "It may have expired or already been used. Run the command in your terminal again to get a new one.",
 		})
 	}
 	return s.page(c, http.StatusOK, pageData{Title: "Confirm it's you", Mode: "stepup", ID: id, Art: art("confirm"),
-		Label: auth.CleanLabel(c.QueryParam("profile")), HasPasskey: m.Passkey, HasTOTP: m.TOTP, Default: m.Default})
+		Label: auth.CleanLabel(c.QueryParam("profile")), HasPasskey: r.Passkey, HasTOTP: r.TOTP, Default: r.Default,
+		Ask: stepUpAsk(r.Purpose, r.Subject)})
 }
 
 func (s *Server) invitePage(c echo.Context) error {
