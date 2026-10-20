@@ -6,22 +6,18 @@
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
   <circle class="f-soft" cx="120" cy="80" r="62"/>
-  <ellipse class="f-hollow" cx="120" cy="147" rx="40" ry="6" opacity=".7"/>
+  <ellipse class="f-soft" cx="120" cy="147" rx="74" ry="6.5"/>
   <path class="f-amber" d="M52 38l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
   <circle class="f-acc" cx="196" cy="44" r="3"/>
+  <circle class="f-acc" cx="204" cy="108" r="2.5"/>
   <!-- phone -->
   <rect class="f-card s-ink" x="88" y="22" width="64" height="116" rx="16" stroke-width="2.5"/>
   <rect class="f-ink" x="109" y="29" width="22" height="4.5" rx="2.25"/>
   <rect class="f-soft" x="97" y="42" width="46" height="86" rx="8"/>
   <!-- fingerprint -->
-  <g class="s-acc" fill="none" stroke-width="3" stroke-linecap="round">
-    <path d="M104 101v-9a16 16 0 0 1 32 0v4"/>
-    <path d="M111 106v-14a9 9 0 0 1 18 0v8"/>
-    <path d="M118 108v-16a2 2 0 0 1 4 0v12"/>
-    <path d="M97.5 90a22.5 22.5 0 0 1 45 0"/>
-  </g>
+  <g class="s-acc" fill="none" stroke-width="3" stroke-linecap="round" transform="translate(120 83) scale(1)"><path d="M-16 18v-9a16 16 0 0 1 32 0v4"/><path d="M-9 23v-14a9 9 0 0 1 18 0v8"/><path d="M-2 25v-16a2 2 0 0 1 4 0v12"/><path d="M-22.5 7a22.5 22.5 0 0 1 45 0"/></g>
   <!-- key badge -->
-  <circle class="f-amber s-card" cx="158" cy="116" r="17" stroke-width="4"/>
+  <circle class="f-amber s-card" cx="158" cy="116" r="18" stroke-width="4"/>
   <g transform="translate(158 116) rotate(45)" fill="none" stroke="#0b1220" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="-5.5" cy="0" r="4"/>
     <path d="M-1.5 0H9M5 0v3.6M9 0v3"/>

@@ -5,14 +5,14 @@
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
-  <ellipse class="f-soft" cx="120" cy="147" rx="76" ry="7"/>
-  <circle class="f-acc" cx="34" cy="56" r="3"/>
-  <circle class="f-acc" cx="210" cy="104" r="2.5"/>
+  <ellipse class="f-soft" cx="120" cy="147" rx="74" ry="6.5"/>
+  <circle class="f-acc" cx="32" cy="56" r="3"/>
+  <circle class="f-acc" cx="210" cy="108" r="2.5"/>
   <rect class="f-ink" x="82" y="135" width="16" height="7" rx="2.5"/>
   <rect class="f-ink" x="142" y="135" width="16" height="7" rx="2.5"/>
   <rect class="f-card s-ink" x="60" y="30" width="120" height="106" rx="18" stroke-width="2.5"/>
   <circle class="f-soft s-ink" cx="120" cy="83" r="38" stroke-width="2.5"/>
-  <path class="s-ink" d="M120 83V62M120 83l18.2 10.5M120 83l-18.2 10.5" fill="none" stroke-width="3.4" stroke-linecap="round"/>
+  <path class="s-ink" d="M120 83L120 62M120 83L138.19 93.5M120 83L101.81 93.5" fill="none" stroke-width="3.4" stroke-linecap="round"/>
   <circle class="f-card s-ink" cx="120" cy="83" r="5" stroke-width="2.5"/>
   <circle class="f-amber s-card" cx="176" cy="40" r="18" stroke-width="4"/>
   <path d="M176 31.5v10" fill="none" stroke="#0b1220" stroke-width="4" stroke-linecap="round"/>

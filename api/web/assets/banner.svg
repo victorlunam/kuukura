@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="kuukura: secrets for your team, self-hosted">
   <defs>
-    <radialGradient id="glow" cx="76%" cy="38%" r="60%">
+    <radialGradient id="glow" cx="76%" cy="46%" r="58%">
       <stop offset="0" stop-color="#14B8A6" stop-opacity=".26"/>
       <stop offset="1" stop-color="#14B8A6" stop-opacity="0"/>
     </radialGradient>
@@ -12,34 +12,35 @@
   <rect width="1200" height="630" fill="url(#dots)"/>
   <rect width="1200" height="630" fill="url(#glow)"/>
 
-  <!-- the empty vault, same drawing as the invite page (dark palette), scaled -->
-  <g transform="translate(560 100) scale(2.55)" stroke-linejoin="round">
-    <ellipse cx="128" cy="147" rx="80" ry="7" fill="#12302F"/>
-    <path d="M206 30l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z" fill="#FBBF24"/>
-    <circle cx="220" cy="84" r="3" fill="#2DD4BF"/>
-    <circle cx="30" cy="40" r="2.5" fill="#2DD4BF"/>
-    <rect x="104" y="135" width="16" height="7" rx="2.5" fill="#EEF2F7"/>
-    <rect x="148" y="135" width="16" height="7" rx="2.5" fill="#EEF2F7"/>
-    <rect x="82" y="30" width="104" height="106" rx="22" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
-    <circle cx="134" cy="83" r="36" fill="#0A1F1F" stroke="#EEF2F7" stroke-width="2.5"/>
-    <circle cx="134" cy="83" r="26" fill="#EEF2F7" fill-opacity=".08"/>
-    <circle cx="134" cy="83" r="16" fill="#EEF2F7" fill-opacity=".1"/>
-    <circle cx="134" cy="83" r="7" fill="#EEF2F7" fill-opacity=".14"/>
-    <rect x="60" y="52" width="26" height="9" rx="3" fill="#EEF2F7"/>
-    <rect x="60" y="105" width="26" height="9" rx="3" fill="#EEF2F7"/>
-    <ellipse cx="60" cy="83" rx="12" ry="40" fill="#101827" stroke="#EEF2F7" stroke-width="2.5"/>
-    <ellipse cx="60" cy="83" rx="6" ry="27" fill="#12302F"/>
-    <circle cx="60" cy="83" r="3" fill="#FBBF24"/>
+  <!-- the empty vault, same drawing as the empty-state illustration (dark palette), scaled -->
+  <g transform="translate(610 118) scale(2.4)" stroke-linejoin="round">
+    <ellipse fill="#12302F" cx="122" cy="147" rx="74" ry="6.5"/>
+    <path fill="#FBBF24" d="M208 25l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+    <circle fill="#2DD4BF" cx="222" cy="88" r="3"/>
+    <circle fill="#2DD4BF" cx="30" cy="44" r="2.5"/>
+    <rect fill="#EEF2F7" x="104" y="135" width="16" height="7" rx="2.5"/>
+  <rect fill="#EEF2F7" x="148" y="135" width="16" height="7" rx="2.5"/>
+    <rect fill="#101827" stroke="#EEF2F7" x="82" y="30" width="104" height="106" rx="22" stroke-width="2.5"/>
+    <circle fill="#0A1F1F" stroke="#EEF2F7" cx="134" cy="83" r="36" stroke-width="2.5"/>
+    <circle fill="#EEF2F7" cx="134" cy="83" r="26" fill-opacity=".08"/>
+    <circle fill="#EEF2F7" cx="134" cy="83" r="16" fill-opacity=".1"/>
+    <circle fill="#EEF2F7" cx="134" cy="83" r="7" fill-opacity=".14"/>
+    <rect fill="#EEF2F7" x="60" y="52" width="26" height="9" rx="3"/>
+    <rect fill="#EEF2F7" x="60" y="105" width="26" height="9" rx="3"/>
+    <ellipse fill="#101827" stroke="#EEF2F7" cx="60" cy="83" rx="12" ry="40" stroke-width="2.5"/>
+    <ellipse fill="#12302F" cx="60" cy="83" rx="6" ry="27"/>
+    <circle fill="#FBBF24" cx="60" cy="83" r="3"/>
   </g>
 
-  <!-- lockup -->
-  <g transform="translate(96 190)">
-    <rect width="104" height="104" rx="26" fill="#0B1220" stroke="#fff" stroke-opacity=".2" stroke-width="2"/>
-    <circle cx="52" cy="52" r="30.9" fill="none" stroke="#fff" stroke-width="5.7"/>
-    <path d="M52 34.2V52M66.8 61.3 52 52M37.2 61.3 52 52" fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/>
-    <circle cx="52" cy="52" r="6.8" fill="#F5A524"/>
-    <text x="136" y="76" fill="#fff" font-family="ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="76" font-weight="700" letter-spacing="-2">kuukura</text>
+  <!-- lockup: the mark and the monoline wordmark (outlined, so it looks the same everywhere) -->
+  <g transform="translate(96 176) scale(1.625)">
+    <rect width="64" height="64" rx="16" fill="#0B1220"/>
+  <rect x=".75" y=".75" width="62.5" height="62.5" rx="15.25" stroke="#fff" stroke-opacity=".12" stroke-width="1.5"/>
+    <circle cx="32" cy="32" r="19" stroke="#fff" stroke-width="3.5"/>
+  <path d="M32 21.5V32M41.1 37.25 32 32M22.9 37.25 32 32" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="4.2" fill="#F5A524"/>
   </g>
-  <text x="96" y="388" fill="#fff" fill-opacity=".94" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="40" font-weight="600">Secrets for your team.</text>
-  <text x="96" y="440" fill="#fff" fill-opacity=".6" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="30">Self-hosted. Decrypted only on your server.</text>
+  <path transform="translate(236 246.05) scale(1.9)" d="M0 -31V0M10.5 -18.5L0 -7M3.3 -10.2L10.5 0M19.7 -19V-8a8 8 0 0 0 16 0M35.7 -19V0M45.9 -19V-8a8 8 0 0 0 16 0M61.9 -19V0M71.1 -31V0M81.6 -18.5L71.1 -7M74.4 -10.2L81.6 0M90.8 -19V-8a8 8 0 0 0 16 0M106.8 -19V0M117 -19V0M117 -9.5a9.5 9.5 0 0 1 9.5 -9.5M151.3 -19V0M151.3 -9.5a9.5 9.5 0 1 0 -19 0a9.5 9.5 0 1 0 19 0" fill="none" stroke="#fff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="96" y="388" fill="#fff" fill-opacity=".94" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="42" font-weight="600" letter-spacing="-.4">Secrets for your team.</text>
+  <text x="96" y="436" fill="#fff" fill-opacity=".62" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="28">Self-hosted. Decrypted only on your server.</text>
 </svg>

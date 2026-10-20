@@ -5,14 +5,12 @@
     .s-ink{stroke:var(--ink)}.s-mut{stroke:var(--muted)}.s-acc{stroke:var(--acc)}.s-card{stroke:var(--card)}
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
-  <ellipse class="f-soft" cx="128" cy="147" rx="80" ry="7"/>
-  <path class="f-amber" d="M206 30l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
-  <circle class="f-acc" cx="220" cy="84" r="3"/>
-  <circle class="f-acc" cx="30" cy="40" r="2.5"/>
-  <!-- feet -->
+  <ellipse class="f-soft" cx="122" cy="147" rx="74" ry="6.5"/>
+  <path class="f-amber" d="M208 25l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="222" cy="88" r="3"/>
+  <circle class="f-acc" cx="30" cy="44" r="2.5"/>
   <rect class="f-ink" x="104" y="135" width="16" height="7" rx="2.5"/>
   <rect class="f-ink" x="148" y="135" width="16" height="7" rx="2.5"/>
-  <!-- body -->
   <rect class="f-card s-ink" x="82" y="30" width="104" height="106" rx="22" stroke-width="2.5"/>
   <!-- the round doorway: rings getting darker toward the middle read as an empty, deep interior -->
   <circle class="f-hollow s-ink" cx="134" cy="83" r="36" stroke-width="2.5"/>

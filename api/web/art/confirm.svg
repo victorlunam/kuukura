@@ -8,13 +8,8 @@
   <circle class="s-acc pulse" cx="120" cy="80" r="68" fill="none" stroke-width="2" stroke-dasharray="1 9" stroke-linecap="round"/>
   <circle class="f-soft" cx="120" cy="80" r="54"/>
   <circle class="f-card s-ink" cx="120" cy="80" r="40" stroke-width="2.5"/>
-  <g class="s-acc" fill="none" stroke-width="3" stroke-linecap="round">
-    <path d="M102 98v-9a18 18 0 0 1 36 0v5"/>
-    <path d="M110 103v-14a10 10 0 0 1 20 0v9"/>
-    <path d="M118 105v-16a2 2 0 0 1 4 0v13"/>
-    <path d="M94 88a26 26 0 0 1 52 0"/>
-  </g>
-  <path class="f-amber" d="M196 36l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
-  <circle class="f-acc" cx="40" cy="48" r="3"/>
-  <circle class="f-acc" cx="204" cy="112" r="2.5"/>
+  <g class="s-acc" fill="none" stroke-width="2.68" stroke-linecap="round" transform="translate(120 75) scale(1.12)"><path d="M-16 18v-9a16 16 0 0 1 32 0v4"/><path d="M-9 23v-14a9 9 0 0 1 18 0v8"/><path d="M-2 25v-16a2 2 0 0 1 4 0v12"/><path d="M-22.5 7a22.5 22.5 0 0 1 45 0"/></g>
+  <path class="f-amber" d="M198 29l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <circle class="f-acc" cx="40" cy="52" r="3"/>
+  <circle class="f-acc" cx="204" cy="116" r="2.5"/>
 </svg>

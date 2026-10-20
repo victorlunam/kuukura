@@ -24,5 +24,18 @@ SVG, system fonts and no external resources, so the strict CSP (`default-src 'no
 | amber | `#f5a524` | `#fbbf24` | the dial marker and sparkles (use sparingly) |
 | surface | `#ffffff` on `#f3f5f8` | `#101827` on `#080d16` | card and page |
 
-**Type:** the system UI stack for the pages; the wordmark prefers a rounded system face (`ui-rounded`, SF Pro Rounded, Nunito).
+**Type:** the system UI stack for the pages. The wordmark in the logo and banner is outlined monoline lettering (round caps, stroke
+about 5 on an x-height of 19, hand-spaced), so it looks the same on every platform and never depends on an installed font.
+The banner's two lines of copy are live system text.
+
+**Drawing rules (illustrations, 240x160)**
+
+- Outline 2.5, wheel spokes 3.4, badge ring 4 in the card color, fingerprint 3; round caps and joins everywhere.
+- Every picture has the same ground shadow (soft, rx 74) and the same set of extras: one amber sparkle, two teal dots.
+  Objects that are not a vault (phone, shield) also sit on a soft circular halo (r 62); vaults do not, their body is wide enough.
+- Corner radii: vault body 18 (22 for the open one), phone 16, feet 2.5.
+- Colors come only from the tokens above. Each file carries its own `<style>` so it renders alone, and the page CSS
+  (`.s-*` / `.f-*`) themes it when inlined.
+- The mark's geometry (ring r19, three spokes, hub r4.2) is pinned by `cmd/ku/signedin_test.go`; change both together.
+- Icons (sprite) are 24x24, stroke 1.75, round caps and joins, `currentColor`.
 **Voice:** short, plain, calm. Say what happened and what to do next.

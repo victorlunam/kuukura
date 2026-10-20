@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 252 64" fill="none" role="img" aria-label="kuukura">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 238.9 64" fill="none" role="img" aria-label="kuukura">
   <style>
-    .word { fill: #0B1220 }
-    @media (prefers-color-scheme: dark) { .word { fill: #EEF2F7 } }
+    .word { stroke: #0B1220 }
+    @media (prefers-color-scheme: dark) { .word { stroke: #EEF2F7 } }
   </style>
   <rect width="64" height="64" rx="16" fill="#0B1220"/>
   <rect x=".75" y=".75" width="62.5" height="62.5" rx="15.25" stroke="#fff" stroke-opacity=".12" stroke-width="1.5"/>
   <circle cx="32" cy="32" r="19" stroke="#fff" stroke-width="3.5"/>
   <path d="M32 21.5V32M41.1 37.25 32 32M22.9 37.25 32 32" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="32" cy="32" r="4.2" fill="#F5A524"/>
-  <text class="word" x="82" y="44" font-family="ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="36" font-weight="700" letter-spacing="-0.8">kuukura</text>
+  <path class="word" transform="translate(86.6 41.5)" d="M0 -31V0M10.5 -18.5L0 -7M3.3 -10.2L10.5 0M19.7 -19V-8a8 8 0 0 0 16 0M35.7 -19V0M45.9 -19V-8a8 8 0 0 0 16 0M61.9 -19V0M71.1 -31V0M81.6 -18.5L71.1 -7M74.4 -10.2L81.6 0M90.8 -19V-8a8 8 0 0 0 16 0M106.8 -19V0M117 -19V0M117 -9.5a9.5 9.5 0 0 1 9.5 -9.5M151.3 -19V0M151.3 -9.5a9.5 9.5 0 1 0 -19 0a9.5 9.5 0 1 0 19 0" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

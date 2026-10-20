@@ -6,8 +6,8 @@
     .f-ink{fill:var(--ink)}.f-card{fill:var(--card)}.f-soft{fill:var(--soft)}.f-hollow{fill:var(--hollow)}.f-acc{fill:var(--acc)}.f-amber{fill:var(--amber)}
   </style>
   <circle class="f-soft" cx="120" cy="80" r="62"/>
-  <ellipse class="f-hollow" cx="120" cy="147" rx="36" ry="6" opacity=".7"/>
-  <path class="f-amber" d="M190 34l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
+  <ellipse class="f-soft" cx="120" cy="147" rx="74" ry="6.5"/>
+  <path class="f-amber" d="M192 33l3.2 7.8 7.8 3.2-7.8 3.2-3.2 7.8-3.2-7.8-7.8-3.2 7.8-3.2z"/>
   <circle class="f-acc" cx="50" cy="50" r="3"/>
   <circle class="f-acc" cx="198" cy="112" r="2.5"/>
   <!-- shield -->
