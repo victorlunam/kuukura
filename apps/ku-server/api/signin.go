@@ -24,12 +24,19 @@ func (s *Server) login(c echo.Context) error {
 	if !auth.ValidCLIParams(invite, cli) {
 		return s.failPage(c)
 	}
+	// A link works once: after its login finished, the card says so instead of offering another sign-in.
+	if s.Auth.LinkUsed(cli) {
+		return s.linkUsedPage(c)
+	}
 	// Opening the link from the terminal shows the sign-in card first; only the button (go=1) goes to Google.
 	// A page that merely loads never starts a login.
 	if c.QueryParam("go") == "" {
 		return s.signInPage(c, cli.Profile, "/auth/login?"+c.QueryString()+"&go=1")
 	}
 	u, err := s.Auth.StartLogin(invite, cli)
+	if errors.Is(err, auth.ErrLinkUsed) { // finished between the check above and here
+		return s.linkUsedPage(c)
+	}
 	if err != nil {
 		return s.failPage(c)
 	}
@@ -93,6 +100,15 @@ func (s *Server) failPage(c echo.Context) error {
 	return s.page(c, http.StatusUnauthorized, pageData{
 		Title: "That did not work", Mode: "fail", Art: art("alert"), Hint: true,
 		Detail: "The link may have expired or been used already. Ask your admin for a new invite, or start again from your terminal:",
+	})
+}
+
+// linkUsedPage answers a CLI sign-in link that already completed a login. 410 says it is gone for good, unlike
+// the 401 of a link that may merely have expired.
+func (s *Server) linkUsedPage(c echo.Context) error {
+	return s.page(c, http.StatusGone, pageData{
+		Title: "This sign-in link was already used", Mode: "fail", Art: art("alert"), Hint: true,
+		Detail: "Run `ku login` again in your terminal.",
 	})
 }
 

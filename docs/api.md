@@ -55,6 +55,7 @@ tags optional and ANDed (`key:value`, each part `^[a-z0-9._-]{1,64}$`, max 10, o
 1. CLI generates a verifier, listens on `127.0.0.1:<port>`, opens
    `GET /auth/login?cli_port=53682&cli_challenge=<base64url sha256(verifier)>&cli_state=<random>&cli_profile=work`.
    `cli_profile` is optional, display-only (`^[a-z0-9._-]{1,32}$`, anything else is ignored): the pages show it in the header.
+   The link works once: after a completed sign-in, reopening it shows "already used" (410).
 2. The server redirects to Google (code flow + PKCE, `email_verified` required). `GET /auth/callback` shows a
    page for the passkey, authenticator app code or recovery code (enrollment on first login).
 3. On success the browser goes to `http://127.0.0.1:<port>/callback?code=<one-time>&state=<cli_state>`.

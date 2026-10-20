@@ -118,7 +118,7 @@ func sha(s string) string {
 func (w *world) onboardTOTP(invite, email string) string {
 	w.t.Helper()
 	verifier := strings.Repeat("v", 43)
-	u, err := w.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: sha(verifier), State: "s"})
+	u, err := w.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: sha(verifier), State: uuid.NewString()}) // a CLI picks a fresh state per run: a link works once
 	if err != nil {
 		w.t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func (w *world) onboardTOTP(invite, email string) string {
 func (w *world) onboard(invite, email string) string {
 	w.t.Helper()
 	verifier := strings.Repeat("v", 43)
-	u, err := w.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: sha(verifier), State: "s"})
+	u, err := w.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: sha(verifier), State: uuid.NewString()}) // a CLI picks a fresh state per run: a link works once
 	if err != nil {
 		w.t.Fatal(err)
 	}

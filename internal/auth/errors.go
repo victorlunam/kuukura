@@ -5,6 +5,10 @@ import "errors"
 // ErrLogin is the one error for every failed login step; it says nothing about why.
 var ErrLogin = errors.New("auth: login failed")
 
+// ErrLinkUsed means the CLI sign-in link already completed a login. It is not an ErrLogin: the page can say so
+// plainly, because the person holding the link is the one who used it.
+var ErrLinkUsed = errors.New("auth: sign-in link already used")
+
 // LoginError is ErrLogin plus a machine-readable reason for the server log. The user never sees the reason
 // (it could reveal which accounts exist); operators find it in the logs.
 type LoginError struct {

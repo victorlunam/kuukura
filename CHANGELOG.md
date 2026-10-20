@@ -6,6 +6,11 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Security
+
+- A CLI sign-in link works once: after the sign-in completes, reopening it shows 'already used' instead of starting
+  another sign-in.
+
 ## [2026.10.7] - 2026-10-20
 
 ### Fixed

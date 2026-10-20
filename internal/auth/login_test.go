@@ -64,7 +64,7 @@ type cli struct {
 func newCLI() cli {
 	v := strings.Repeat("v", 43)
 	sum := sha256.Sum256([]byte(v))
-	return cli{v, auth.CLIParams{Port: 53682, Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), State: "st4te"}}
+	return cli{v, auth.CLIParams{Port: 53682, Challenge: base64.RawURLEncoding.EncodeToString(sum[:]), State: uuid.NewString()}} // a CLI picks a fresh state per run: a link works once
 }
 
 // login runs StartLogin + Callback for an identity.

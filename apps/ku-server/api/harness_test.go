@@ -113,7 +113,7 @@ func (e *env) onboard(invite, email string) (string, *authtest.Authenticator) {
 	ctx := e.t.Context()
 	sum := "v" + strings.Repeat("v", 42)
 	hash := sha256b64(sum)
-	u, err := e.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: hash, State: "s"})
+	u, err := e.auth.StartLogin(invite, auth.CLIParams{Port: 53682, Challenge: hash, State: uuid.NewString()}) // a CLI picks a fresh state per run: a link works once
 	if err != nil {
 		e.t.Fatal(err)
 	}

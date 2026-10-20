@@ -54,6 +54,9 @@ type Service struct {
 	codes   *ttlStore[cliCode]
 	stepUps *ttlStore[stepUp]
 	adds    *ttlStore[addReq]
+	// usedLinks holds the CLI sign-in links whose login finished (see linkKey). An entry lives for flowTTL: a link
+	// used longer ago than that points at a CLI that stopped listening long since, so forgetting it is harmless.
+	usedLinks *ttlStore[struct{}]
 }
 
 func NewService(p storage.Provider, log *audit.Log, tokens *Tokens, prov AuthProvider, kp keys.KeyProvider, cfg Config) (*Service, error) {
@@ -68,6 +71,7 @@ func NewService(p storage.Provider, log *audit.Log, tokens *Tokens, prov AuthPro
 	s.codes = newTTL[cliCode](cliCodeTTL, now)
 	s.stepUps = newTTL[stepUp](stepUpTTL, now)
 	s.adds = newTTL[addReq](addFactorTTL, now)
+	s.usedLinks = newTTL[struct{}](flowTTL, now)
 	return s, nil
 }
 
@@ -122,11 +126,32 @@ func ValidCLIParams(invite string, cli CLIParams) bool {
 	return cli.Port >= 1024 && cli.Port <= 65535 && len(cli.Challenge) == 43 && cli.State != "" && len(cli.State) <= 128
 }
 
+// linkKey identifies a CLI sign-in link by the two values that are unique to one `ku login` run. The key is
+// derived from both so that neither alone (a reused state, a repeated challenge) marks another link as used.
+func linkKey(cli CLIParams) string {
+	sum := sha256.Sum256([]byte(cli.State + "\x00" + cli.Challenge))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// LinkUsed reports whether the login that this CLI link started has finished. A link is used only once a CLI code
+// was issued for it: pressing the button again before that (back button, a failed Google step) must still work.
+// A login without a CLI (an invite acceptance) has no link to spend.
+func (s *Service) LinkUsed(cli CLIParams) bool {
+	if cli.Port == 0 {
+		return false
+	}
+	_, used := s.usedLinks.Peek(linkKey(cli))
+	return used
+}
+
 // StartLogin returns the provider URL. invite is optional (invite acceptance).
 func (s *Service) StartLogin(invite string, cli CLIParams) (string, error) {
 	cli.Profile = CleanLabel(cli.Profile)
 	if !ValidCLIParams(invite, cli) {
 		return "", ErrLogin
+	}
+	if s.LinkUsed(cli) {
+		return "", ErrLinkUsed
 	}
 	state, nonce, verifier := rand.Text(), rand.Text(), oauth2.GenerateVerifier()
 	s.flows.Put(state, flow{nonce: nonce, verifier: verifier, invite: invite, cli: cli})
@@ -284,6 +309,7 @@ func (s *Service) finish(ctx context.Context, tx *sql.Tx, in Info, ip string) (s
 	}
 	code := random(32)
 	s.codes.Put(code, cliCode{in.PrincipalID, d.cli})
+	s.usedLinks.Put(linkKey(d.cli), struct{}{}) // the link has done its job: reopening it must not sign in again
 	q := url.Values{"code": {code}, "state": {d.cli.State}}
 	return fmt.Sprintf("http://127.0.0.1:%d/callback?%s", d.cli.Port, q.Encode()), nil
 }

@@ -125,6 +125,49 @@ func TestLoginCallbackNeedsTheStateAndACode(t *testing.T) {
 	})
 }
 
+// A sign-in link works once. Pressing its button again before the sign-in finishes still works (back button, a
+// failed Google step); after it finished, the link shows "already used" and never reaches the provider. Another
+// `ku login` has a new link and works.
+func TestLoginLinkWorksOnce(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		w := newWorld(t, p)
+		w.admin()
+		mustOK(t, w.ku("", false, nil, "profile", "add", "default", "--url", w.srv.URL))
+		hc := &http.Client{Transport: w.srv.Client().Transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		get := func(link string) (int, string, string) {
+			resp, err := hc.Get(link)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			b, _ := io.ReadAll(resp.Body)
+			return resp.StatusCode, resp.Header.Get("Location"), string(b)
+		}
+		var link string
+		w.opener = func(raw string) error {
+			link = raw
+			for range 2 { // before the sign-in finishes, the button can be pressed again
+				if code, loc, _ := get(raw + "&go=1"); code != 302 || !strings.HasPrefix(loc, "https://idp.test/") {
+					t.Errorf("a retry before completion: %d %q", code, loc)
+				}
+			}
+			return w.browser(raw)
+		}
+		mustOK(t, w.ku("", false, nil, "login"))
+
+		for _, l := range []string{link, link + "&go=1"} {
+			code, loc, body := get(l)
+			if code != 410 || loc != "" || !strings.Contains(body, "This sign-in link was already used") ||
+				!strings.Contains(body, "Run `ku login` again") || !strings.Contains(body, `id="cmd">ku login<`) || strings.Contains(body, "Continue with Google") {
+				t.Fatalf("a used link (%s): %d %q %s", l, code, loc, body)
+			}
+		}
+
+		w.opener = nil // a new run of `ku login` makes a new link
+		mustOK(t, w.ku("", false, nil, "login"))
+	})
+}
+
 // If the code cannot be exchanged the browser says so, the terminal says so, and nothing is saved.
 func TestLoginFailsWhenTheTokenExchangeFails(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
