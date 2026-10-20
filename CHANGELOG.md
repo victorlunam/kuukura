@@ -6,6 +6,10 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Changed
+
+- Release images build much faster: Go cross-compiles for arm64 instead of running under emulation, with layer caching.
+
 ## [2026.10.4] - 2026-10-20
 
 ### Security
