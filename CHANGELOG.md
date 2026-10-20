@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.8] - 2026-10-20
+
 ### Security
 
 - A CLI sign-in link works once: after the sign-in completes, reopening it shows 'already used' instead of starting
@@ -160,7 +162,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.7...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.8...HEAD
+[2026.10.8]: https://github.com/victorlunam/kuukura/compare/v2026.10.7...v2026.10.8
 [2026.10.7]: https://github.com/victorlunam/kuukura/compare/v2026.10.6...v2026.10.7
 [2026.10.6]: https://github.com/victorlunam/kuukura/compare/v2026.10.5...v2026.10.6
 [2026.10.5]: https://github.com/victorlunam/kuukura/compare/v2026.10.4...v2026.10.5
