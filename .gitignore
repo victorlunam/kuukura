@@ -5,3 +5,11 @@
 .env
 *.bak
 .claude/
+
+# site/ (Astro + Starlight)
+/site/node_modules/
+/site/dist/
+/site/.astro/
+/site/.wrangler/
+/site/src/content/docs/docs/
+/site/public/brand/
