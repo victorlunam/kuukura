@@ -171,8 +171,9 @@ Being admin does not grant secret access.
   (an admin must grant access); 400 `invalid-request` for a name outside `a-z 0-9 . _ -` (1 to 64); 403 `forbidden`
   for a machine.
 - `POST /workspace/invites` `{ "email": "dev@example.com", "profile": "work" }` -> 201 `{ "link": "https://.../invite?token=ku_...&profile=work", "expires_at": "..." }`
-  (`profile` is optional and display-only: the inviter's CLI profile name, offered to the invitee as the suggested name in
-  `ku profile add <name> --url ...` on the final page. The invitee can name theirs anything; the URL is what matters.)
+  (`profile` is optional and display-only: the inviter's CLI profile name, shown in the pages' header. The final page
+  shows `ku profile add <alias> --url ...` with a literal `<alias>`: each person names their own profile, and the command
+  fails in a shell if pasted unchanged.)
   (24 h, single use, bound to the email); `{ "name": "ci-deploy", "machine": true }` -> 201
   `{ "token": "ku_...", "expires_at": "..." }` (shown once; ~90 days).
 - `PATCH /workspace/groups/{g}` `{ "add": ["dev@example.com"], "remove": [] }` -> 204 (creates the group on first use).

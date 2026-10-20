@@ -10,7 +10,7 @@ import (
 // homePage answers a browser that opens the server's address. It says what this is and how to connect the CLI,
 // and shows nothing about accounts or secrets, so it needs no sign-in.
 func (s *Server) homePage(c echo.Context) error {
-	return s.page(c, http.StatusOK, pageData{Title: "kuukura server", Mode: "home", Art: art("vault-empty"), Suggest: s.suggestProfile("")})
+	return s.page(c, http.StatusOK, pageData{Title: "kuukura server", Mode: "home", Art: art("vault-empty")})
 }
 
 // httpsPage replaces the https-required problem for a person who typed the address in a browser: the problem+json

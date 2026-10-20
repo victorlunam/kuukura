@@ -136,16 +136,16 @@
   {{else if eq .Mode "done"}}
   <h1>You're all set</h1>
   <p class="lead">Your account is ready. In your terminal, add this server and sign in:</p>
-  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add {{.Suggest}} --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add &lt;alias&gt; --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
   <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd2">ku login</code><button type="button" data-copy="#cmd2" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>The profile name is just a label on your machine. The address is what matters.</span></p>
+  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>Replace <b>&lt;alias&gt;</b> with a name you choose for this server, for example <b>work</b>. It is only a label on your machine; the address is what matters.</span></p>
 
   {{else if eq .Mode "home"}}
   <h1>kuukura server</h1>
   <p class="lead">This is your team's kuukura server. To use it, add it to the CLI and sign in:</p>
-  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add {{.Suggest}} --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add &lt;alias&gt; --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
   <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd2">ku login</code><button type="button" data-copy="#cmd2" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>No CLI yet? <a href="https://kuukura-main-landing.neodev-f72.workers.dev/docs/install/">Install it</a>. More in the <a href="https://kuukura-main-landing.neodev-f72.workers.dev/docs/">docs</a>. Access is by invite only.</span></p>
+  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>Replace <b>&lt;alias&gt;</b> with a name you choose, for example <b>work</b>. No CLI yet? <a href="https://kuukura-main-landing.neodev-f72.workers.dev/docs/install/">Install it</a>. More in the <a href="https://kuukura-main-landing.neodev-f72.workers.dev/docs/">docs</a>. Access is by invite only.</span></p>
 
   {{else if eq .Mode "https"}}
   <h1>This kuukura server only works over HTTPS</h1>

@@ -14,9 +14,9 @@ import (
 	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
-// The inviter's profile name travels with the invite and ends up as the suggestion on the "all set" page.
-// It is only a suggestion: the invitee's profile name is theirs to choose.
-func TestInviterProfileNameBecomesTheSuggestion(t *testing.T) {
+// The inviter's profile name travels with the invite as the header label only. The "all set" page never picks
+// the invitee's profile name: it shows a literal <alias> to replace (pasted unchanged, a shell rejects the `<`).
+func TestAllSetPageLeavesTheProfileNameToTheInvitee(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		e := setup(t, p)
 		admin, _ := e.admin()
@@ -66,13 +66,12 @@ func TestInviterProfileNameBecomesTheSuggestion(t *testing.T) {
 			t.Fatalf("redirect: %q %v", res.Redirect, err)
 		}
 
-		done := e.do("GET", res.Redirect, "", nil)
-		if !strings.Contains(done.Body.String(), "ku profile add some_name --url https://"+domain) || !strings.Contains(done.Body.String(), ">ku login<") {
-			t.Fatalf("done page: %s", done.Body)
-		}
-		// without a name from the inviter it falls back to the instance name or the host
-		if plain := e.do("GET", "/auth/done", "", nil); !strings.Contains(plain.Body.String(), "ku profile add vault.example.test --url") {
-			t.Fatalf("fallback suggestion: %s", plain.Body)
+		for _, path := range []string{res.Redirect, "/auth/done", "/"} {
+			b := e.do("GET", path, "", nil).Body.String()
+			if !strings.Contains(b, "ku profile add &lt;alias&gt; --url https://"+domain) || !strings.Contains(b, ">ku login<") ||
+				strings.Contains(b, "ku profile add some_name") {
+				t.Fatalf("%s: the command must leave the profile name to the person: %s", path, b)
+			}
 		}
 	})
 }

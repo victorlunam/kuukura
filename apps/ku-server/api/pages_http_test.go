@@ -27,7 +27,7 @@ func TestPagesAreLockedDown(t *testing.T) {
 		r = e.do("GET", "/", "", nil)
 		if r.Code != 200 || !strings.HasPrefix(r.Header().Get("Content-Type"), "text/html") ||
 			!strings.Contains(r.Header().Get("Content-Security-Policy"), "default-src 'none'") ||
-			!strings.Contains(r.Body.String(), "ku profile add vault.example.test --url https://vault.example.test") {
+			!strings.Contains(r.Body.String(), "ku profile add &lt;alias&gt; --url https://vault.example.test") {
 			t.Fatalf("home page: %d %s", r.Code, r.Body)
 		}
 		if r := e.do("HEAD", "/", "", nil); r.Code != 200 {

@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -93,7 +92,7 @@ func (s *Server) logout(c echo.Context) error {
 
 func (s *Server) donePage(c echo.Context) error {
 	return s.page(c, http.StatusOK, pageData{Title: "You're all set", Mode: "done", Art: art("done"), Step: 3,
-		Suggest: s.suggestProfile(auth.CleanLabel(c.QueryParam("profile")))})
+		Label: auth.CleanLabel(c.QueryParam("profile"))})
 }
 
 func (s *Server) failPage(c echo.Context) error {
@@ -133,28 +132,4 @@ func (s *Server) loginFailedPage(c echo.Context, reason, email string) error {
 		})
 	}
 	return s.failPage(c)
-}
-
-var slugRE = regexp.MustCompile(`[^a-z0-9._-]+`)
-
-// suggestProfile picks the name shown in `ku profile add <name> --url ...`. It is only a suggestion: the
-// name is a local label and the URL is what matters. Order: the inviter's profile name, the instance name,
-// the host.
-func (s *Server) suggestProfile(fromInviter string) string {
-	if fromInviter != "" {
-		return fromInviter
-	}
-	base := s.Name
-	if base == "" {
-		base = strings.TrimPrefix(strings.TrimPrefix(s.BaseURL, "https://"), "http://")
-		base, _, _ = strings.Cut(base, ":") // drop a port
-	}
-	slug := strings.Trim(slugRE.ReplaceAllString(strings.ToLower(base), "-"), "-.")
-	if len(slug) > 32 {
-		slug = slug[:32]
-	}
-	if slug == "" {
-		return "vault"
-	}
-	return slug
 }

@@ -59,7 +59,7 @@ func art(name string) template.HTML {
 
 type pageData struct {
 	Title, Mode, Token, ID, Nonce string
-	Link, Email, Detail, Suggest  string
+	Link, Email, Detail           string
 	Add                           string // mode "add": passkey or totp
 	Ask                           string // mode "stepup": what is being confirmed
 	Default                       string // the account's default factor kind: its method is offered first
