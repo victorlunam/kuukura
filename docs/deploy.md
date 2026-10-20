@@ -250,6 +250,20 @@ grants allow, and can never reveal a value.
 Confirmations (reveal, `--out`, `--authorize off`, secrets marked `requires_authorize`) open a browser page on your
 instance and use what your account has: your passkey (with user verification) or a code from your authenticator app.
 
+## Troubleshooting: HTTPS behind Cloudflare (or another CDN)
+
+kuukura only answers requests that reached your proxy over HTTPS. With Cloudflare's proxy (orange cloud) in front of
+Dokploy, Coolify or Caddy, the SSL/TLS mode decides what your server sees:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "This kuukura server only works over HTTPS" although the browser shows https:// | Cloudflare SSL mode **Flexible**: Cloudflare talks to your server over plain HTTP | Set SSL/TLS mode to **Full (strict)** |
+| `ERR_TOO_MANY_REDIRECTS` after turning HTTPS on in the platform | Flexible again: the platform redirects HTTP to HTTPS, Cloudflare asks over HTTP again, forever | Same: **Full (strict)** |
+
+With **Full (strict)** the server needs a valid certificate: in Dokploy set the domain's certificate to Let's Encrypt
+(not "none"), or install a Cloudflare Origin Certificate. **Full** (not strict) also works with the platform's
+self-signed certificate. Never use Flexible: the hop between Cloudflare and your server would carry secrets unencrypted.
+
 ## Verifying a release
 
 Every release is built by the `release` workflow of this repository from the tagged commit. It publishes:
