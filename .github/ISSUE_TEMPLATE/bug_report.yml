@@ -1,0 +1,63 @@
+name: Bug report
+description: Something does not work as documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problem? Do not file it here: use the private report link on the issue chooser.
+        Never paste secret values, tokens, master keys or invite links.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Commands and fake values only.
+    validations:
+      required: true
+  - type: input
+    id: ku
+    attributes:
+      label: ku version
+      description: Output of `ku --version`
+    validations:
+      required: true
+  - type: input
+    id: server
+    attributes:
+      label: ku-server version
+      description: Output of `ku-server version`
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage backend
+      options:
+        - SQLite
+        - Postgres
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture of the CLI and of the server host
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output or logs
+      render: text
+  - type: checkboxes
+    id: clean
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed every secret value and token from this report.
+          required: true
