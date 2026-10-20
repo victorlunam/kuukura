@@ -9,7 +9,7 @@ import (
 	"github.com/victorlunam/kuukura/storage/storagetest"
 )
 
-var factorLine = regexp.MustCompile(`(?m)^([0-9a-f]{8})  (\S+)`)
+var factorLine = regexp.MustCompile(`(?m)^([0-9a-f]{8})  (passkey|authenticator app)`)
 
 // A person with a passkey can add an authenticator app and another passkey, see them, and remove one; the last
 // one stays. Each change needs a confirmation with a current second step.
@@ -29,7 +29,7 @@ func TestAccountFactors(t *testing.T) {
 
 		// add an authenticator app: confirms first, then the browser registers it
 		r := mustOK(t, w.ku("", false, nil, "account", "factor", "add", "totp"))
-		if w.stepUps != 1 || !strings.Contains(r.errOut, "✓ Added app") || !strings.Contains(r.errOut, "/account/add?id=") {
+		if w.stepUps != 1 || !strings.Contains(r.errOut, "✓ Added the authenticator app") || !strings.Contains(r.errOut, "/account/add?id=") {
 			t.Fatalf("add totp: steps=%d out=%q err=%q", w.stepUps, r.out, r.errOut)
 		}
 		mustOK(t, w.ku("", false, nil, "account", "factor", "add", "passkey"))
@@ -38,7 +38,7 @@ func TestAccountFactors(t *testing.T) {
 		}
 		l := list()
 		if len(l) != 3 {
-			t.Fatalf("three second steps: %v", l)
+			t.Fatalf("three factors: %v", l)
 		}
 
 		// the added factor really works: it can confirm a command on its own
@@ -50,7 +50,7 @@ func TestAccountFactors(t *testing.T) {
 		}
 
 		// remove: asks first, confirms, and an unknown or ambiguous id changes nothing
-		if r := w.ku("", false, nil, "account", "factor", "remove", "zzzz", "--yes"); r.code == 0 || !strings.Contains(r.errOut, "No second step starts with") {
+		if r := w.ku("", false, nil, "account", "factor", "remove", "zzzz", "--yes"); r.code == 0 || !strings.Contains(r.errOut, "No passkey or authenticator app starts with") || !strings.Contains(r.errOut, "  Run: ku account factor list") {
 			t.Fatalf("unknown id: %q", r.errOut)
 		}
 		if r := w.ku("", false, nil, "account", "factor", "remove", "", "--yes"); r.code == 0 || !strings.Contains(r.errOut, "more than one") {
@@ -69,7 +69,7 @@ func TestAccountFactors(t *testing.T) {
 		// the last one cannot be removed, and no confirmation is wasted on it
 		before = w.stepUps
 		last := list()[0][1]
-		if r := w.ku("", false, nil, "account", "factor", "remove", last, "--yes"); r.code == 0 || !strings.Contains(r.errOut, "only second step") || w.stepUps != before {
+		if r := w.ku("", false, nil, "account", "factor", "remove", last, "--yes"); r.code == 0 || !strings.Contains(r.errOut, "only passkey or authenticator app") || w.stepUps != before {
 			t.Fatalf("last factor: %q", r.errOut)
 		}
 

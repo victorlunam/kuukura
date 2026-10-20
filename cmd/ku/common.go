@@ -83,7 +83,7 @@ func distinguishingTag(items []string) string {
 func (a *app) report(err error, hint func(tag string) string) int {
 	var p *problem
 	if !errors.As(err, &p) {
-		return a.fail("%s", plain(err))
+		return a.fail("%v", err)
 	}
 	switch p.Code {
 	case "ambiguous":
@@ -106,15 +106,18 @@ func (a *app) report(err error, hint func(tag string) string) int {
 	case "blocked":
 		for _, it := range p.Items {
 			n, t := splitItem(it)
-			a.fail("%s is blocked. Save a new value: ku secret set %s", n, strings.TrimSpace(n+" "+strings.Join(t, " ")))
+			a.failNext("ku secret set "+strings.TrimSpace(n+" "+strings.Join(t, " ")), "%s is blocked until you save a new value", n)
 		}
-		return 1
+		return exitFail
 	case "forbidden":
 		if len(p.Items) > 0 {
 			a.fail("You don't have access to:")
 			fmt.Fprintln(a.err, itemLines(p.Items, "    "))
 			return 1
 		}
+	}
+	if p.Code == "unauthorized" {
+		return a.failNext("ku login", "%s", plain(err))
 	}
 	return a.fail("%s", plain(err))
 }

@@ -47,15 +47,15 @@ func TestDefaultFactor(t *testing.T) {
 
 		var app string // created within the same second, so the list order is not the creation order
 		for _, l := range list() {
-			if l[2] == "app" {
+			if l[2] == "authenticator app" {
 				app = l[1]
 			}
 		}
 		r := mustOK(t, w.ku("", false, nil, "account", "factor", "default", app))
-		if !strings.Contains(r.errOut, "✓ The app is now your default") {
+		if !strings.Contains(r.errOut, "✓ The authenticator app is now your default") {
 			t.Fatalf("default: %q", r.errOut)
 		}
-		if n, k := defaults(); n != 1 || k != "app" {
+		if n, k := defaults(); n != 1 || k != "authenticator" { // the first word of "authenticator app"
 			t.Fatalf("exactly one default, now the app: %d %s", n, k)
 		}
 		_, st = w.api(user, "POST", "/auth/stepup", map[string]string{"purpose": "reveal", "subject": "A"})

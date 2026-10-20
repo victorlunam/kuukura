@@ -60,18 +60,18 @@ func TestFailClosedAndMasking(t *testing.T) {
 		// a stale session says to log in again
 		_ = w.store.Set("default", "ku_expired")
 		r = w.ku("", false, nil, "secret", "list")
-		if r.code != 1 || !strings.Contains(r.errOut, "Your session ended. Run: ku login") {
+		if r.code != 1 || !strings.Contains(r.errOut, "✗ Your session ended.\n  Run: ku login\n") {
 			t.Fatalf("expired: %q", r.errOut)
 		}
 		_ = w.store.Delete("default")
 		r = w.ku("", false, nil, "secret", "list")
-		if r.code != 1 || !strings.Contains(r.errOut, "not logged in") {
+		if r.code != 1 || !strings.Contains(r.errOut, "You are not logged in") {
 			t.Fatalf("logged out: %q", r.errOut)
 		}
 		// values are never accepted as arguments: an extra word is a bad tag, not a value
 		_ = w.store.Set("default", dev)
 		r = w.ku("", false, nil, "secret", "set", "X", fakeValue, "--yes")
-		if r.code != 1 || strings.Contains(r.out+r.errOut, "Saved") {
+		if r.code != 2 || strings.Contains(r.out+r.errOut, "Saved") {
 			t.Fatalf("argument values must be rejected: %v", r)
 		}
 	})
@@ -98,7 +98,7 @@ func TestUnreadableSessionIsNotReportedAsLoggedOut(t *testing.T) {
 		}
 
 		w.altStore = &memStore{m: map[string]string{}}
-		if r := w.ku("", false, nil, "secret", "list"); r.code != 1 || !strings.Contains(r.errOut, "not logged in. Run: ku login") {
+		if r := w.ku("", false, nil, "secret", "list"); r.code != 1 || !strings.Contains(r.errOut, "✗ You are not logged in.\n  Run: ku login\n") {
 			t.Fatalf("no session: %q", r.errOut)
 		}
 

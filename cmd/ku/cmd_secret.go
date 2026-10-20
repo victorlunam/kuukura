@@ -33,9 +33,19 @@ func (v valueResp) bytes() ([]byte, error) {
 	return []byte(v.Value), nil
 }
 
+const (
+	secretVerbs  = "ku secret list|set|get|update|revoke|archive"
+	listUsage    = "ku secret list [name] [tags]"
+	setUsage     = "ku secret set <name> [tags] [--generate | --file <path>] [--yes]"
+	getUsage     = "ku secret get <name> [tags] --reveal | --out <path>"
+	updateUsage  = "ku secret update <name|tags> [--name <new>] [+tag -tag] [--authorize on|off] [--yes]"
+	revokeUsage  = "ku secret revoke <name|tags> [--yes]"
+	archiveUsage = "ku secret archive <name|tags> [--yes]"
+)
+
 func (a *app) cmdSecret(args []string) int {
 	if len(args) == 0 {
-		return a.fail("Use: ku secret list|set|get|update|revoke|archive")
+		return a.usageFail(secretVerbs)
 	}
 	switch args[0] {
 	case "list":
@@ -51,7 +61,7 @@ func (a *app) cmdSecret(args []string) int {
 	case "archive":
 		return a.secretBulk(args[1:], "archive")
 	}
-	return a.fail("Use: ku secret list|set|get|update|revoke|archive")
+	return a.usageFail(secretVerbs)
 }
 
 func (a *app) listSecrets(c *client, name string, tags []string) ([]secretRow, error) {
@@ -67,17 +77,17 @@ func (a *app) listSecrets(c *client, name string, tags []string) ([]secretRow, e
 
 // secretList shows name, version and tags. Never a value, not even masked.
 func (a *app) secretList(args []string) int {
-	p, err := parseArgs(args, []string{"profile"})
-	if err != nil {
-		return a.fail("%v", err)
+	p, ok := a.parse(listUsage, args, []string{"profile"})
+	if !ok {
+		return exitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
@@ -100,19 +110,16 @@ func (a *app) secretList(args []string) int {
 
 // secretSet reads the value from a hidden prompt, stdin (no terminal), --generate or --file. Never an argument.
 func (a *app) secretSet(args []string) int {
-	p, err := parseArgs(args, []string{"file", "profile"}, "generate", "yes")
-	if err != nil {
-		return a.fail("%v", err)
+	p, ok := a.parse(setUsage, args, []string{"file", "profile"}, "generate", "yes")
+	if !ok {
+		return exitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
-	if name == "" {
-		return a.fail("Use: ku secret set <name> [tags] [--generate | --file <path>]")
-	}
-	if p.has("generate") && p.has("file") {
-		return a.fail("Use --generate or --file, not both.")
+	if name == "" || p.has("generate") && p.has("file") {
+		return a.usageFail(setUsage)
 	}
 	body := map[string]any{"name": name, "tags": nonNilTags(tags)}
 	switch {
@@ -122,26 +129,26 @@ func (a *app) secretSet(args []string) int {
 		path := p.flags["file"]
 		st, err := os.Stat(path)
 		if err != nil || !st.Mode().IsRegular() {
-			return a.fail("Cannot read %s.", path)
+			return a.fail("Cannot read that file")
 		}
 		if st.Size() > 1<<20 {
-			return a.fail("Files can be at most 1 MB.")
+			return a.fail("Files can be at most 1 MB")
 		}
 		data, err := os.ReadFile(path) // #nosec G304 -- the user chose this path
 		if err != nil {
-			return a.fail("Cannot read %s.", path)
+			return a.fail("Cannot read that file")
 		}
 		body["kind"], body["filename"], body["value_base64"] = "file", filepath.Base(path), base64.StdEncoding.EncodeToString(data)
 	default:
 		val, err := a.readValue()
 		if err != nil {
-			return a.fail("%v.", err)
+			return a.fail("%v", err)
 		}
 		body["value"] = val
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	var res struct {
 		Name    string `json:"name"`
@@ -152,10 +159,10 @@ func (a *app) secretSet(args []string) int {
 	if errors.As(err, &pr) && pr.Code == "needs-confirmation" {
 		ok, cerr := a.confirm(name+" is new. Create it?", p.has("yes"))
 		if cerr != nil {
-			return a.fail("%s is new. %v.", name, cerr)
+			return a.fail("%s is new, and there is no terminal to ask: %v", name, cerr)
 		}
 		if !ok {
-			return a.fail("Nothing saved.")
+			return a.fail("Nothing saved")
 		}
 		body["create"] = true
 		err = c.call("POST", "/secrets/versions", body, &res)
@@ -201,28 +208,22 @@ func (a *app) readValue() (string, error) {
 	return val, nil
 }
 
-// secretGet needs --reveal or --out, and always a confirmation with the account's second step.
+// secretGet needs --reveal or --out, and always a confirmation with the account's passkey or authenticator app.
 func (a *app) secretGet(args []string) int {
-	p, err := parseArgs(args, []string{"out", "profile"}, "reveal")
-	if err != nil {
-		return a.fail("%v", err)
+	p, ok := a.parse(getUsage, args, []string{"out", "profile"}, "reveal")
+	if !ok {
+		return exitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
-	if name == "" && len(tags) == 0 {
-		return a.fail("Use: ku secret get <name> [tags] --reveal | --out <path>")
-	}
-	if !p.has("reveal") && !p.has("out") {
-		return a.fail("Choose how to get it: --reveal or --out <file>")
-	}
-	if p.has("reveal") && p.has("out") {
-		return a.fail("Use --reveal or --out, not both.")
+	if name == "" && len(tags) == 0 || p.has("reveal") == p.has("out") {
+		return a.usageFail(getUsage)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	var v valueResp
 	if err := a.callStepUp(c, "reveal", subjectOf(name, tags), "POST", "/secrets/reveal", selReq{name, nonNilTags(tags)}, &v); err != nil {
@@ -236,7 +237,7 @@ func (a *app) secretGet(args []string) int {
 	}
 	if p.has("out") {
 		if err := writePrivate(p.flags["out"], data); err != nil {
-			return a.fail("Cannot write %s.", p.flags["out"])
+			return a.fail("Cannot write that file")
 		}
 		a.say("✓ Saved to %s", p.flags["out"])
 		return 0
@@ -272,20 +273,20 @@ func splitUpdateArgs(pos []string) (sel, add, rem []string, err error) {
 }
 
 func (a *app) secretUpdate(args []string) int {
-	p, err := parseArgs(args, []string{"name", "authorize", "profile"}, "yes")
-	if err != nil {
-		return a.fail("%v", err)
+	p, ok := a.parse(updateUsage, args, []string{"name", "authorize", "profile"}, "yes")
+	if !ok {
+		return exitUsage
 	}
 	selPos, add, rem, err := splitUpdateArgs(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
 	name, tags, err := selectorFrom(selPos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
 	if name == "" && len(tags) == 0 {
-		return a.fail("Use: ku secret update <name|tags> [--name <new>] [+tag -tag] [--authorize on|off]")
+		return a.usageFail(updateUsage)
 	}
 	body := map[string]any{"selector": selReq{name, nonNilTags(tags)}}
 	if n := p.flags["name"]; n != "" {
@@ -305,14 +306,14 @@ func (a *app) secretUpdate(args []string) int {
 	case "off":
 		body["requires_authorize"] = false
 	default:
-		return a.fail("--authorize takes on or off.")
+		return a.usageFail(updateUsage)
 	}
 	if len(body) == 1 {
-		return a.fail("Nothing to change. Use --name, +tag, -tag or --authorize.")
+		return a.usageFail(updateUsage)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
@@ -322,7 +323,7 @@ func (a *app) secretUpdate(args []string) int {
 		return a.fail("No matching secret.")
 	}
 	if p.flags["name"] != "" && len(rows) != 1 {
-		return a.fail("--name works on exactly one secret. Add a tag to pick one.")
+		return a.fail("--name works on exactly one secret. Add a tag to pick one")
 	}
 	if n := len(rows); n > 1 {
 		fmt.Fprintln(a.err, previewLines(rows))
@@ -335,10 +336,10 @@ func (a *app) secretUpdate(args []string) int {
 		}
 		ok, cerr := a.confirm(what+" Continue?", p.has("yes"))
 		if cerr != nil {
-			return a.fail("%v.", cerr)
+			return a.fail("%v", cerr)
 		}
 		if !ok {
-			return a.fail("Nothing changed.")
+			return a.fail("Nothing changed")
 		}
 	}
 	var res struct {
@@ -375,20 +376,21 @@ func (a *app) secretUpdate(args []string) int {
 
 // secretBulk is revoke and archive: preview the list and confirm when several secrets are selected.
 func (a *app) secretBulk(args []string, verb string) int {
-	p, err := parseArgs(args, []string{"profile"}, "yes")
-	if err != nil {
-		return a.fail("%v", err)
+	line := map[string]string{"revoke": revokeUsage, "archive": archiveUsage}[verb]
+	p, ok := a.parse(line, args, []string{"profile"}, "yes")
+	if !ok {
+		return exitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
 	if name == "" && len(tags) == 0 {
-		return a.fail("Use: ku secret %s <name|tags>", verb)
+		return a.usageFail(line)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
@@ -402,10 +404,10 @@ func (a *app) secretBulk(args []string, verb string) int {
 		past := map[string]string{"revoke": "revoked", "archive": "archived"}[verb]
 		ok, cerr := a.confirm(fmt.Sprintf("%d secrets will be %s. Continue?", len(rows), past), p.has("yes"))
 		if cerr != nil {
-			return a.fail("%v.", cerr)
+			return a.fail("%v", cerr)
 		}
 		if !ok {
-			return a.fail("Nothing changed.")
+			return a.fail("Nothing changed")
 		}
 	}
 	sel := selReq{name, nonNilTags(tags)}

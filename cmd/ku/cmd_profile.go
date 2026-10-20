@@ -16,9 +16,14 @@ import (
 	"time"
 )
 
+const (
+	profileVerbs = "ku profile add|use|list|remove"
+	profileAdd   = "ku profile add <name> --url <url>"
+)
+
 func (a *app) cmdProfile(args []string) int {
 	if len(args) == 0 {
-		return a.fail("Use: ku profile add|use|list|remove")
+		return a.usageFail(profileVerbs)
 	}
 	cfg, err := a.loadConfig()
 	if err != nil {
@@ -27,20 +32,20 @@ func (a *app) cmdProfile(args []string) int {
 	sub, rest := args[0], args[1:]
 	switch sub {
 	case "add":
-		p, err := parseArgs(rest, []string{"url"})
-		if err != nil {
-			return a.fail("%v", err)
+		p, ok := a.parse(profileAdd, rest, []string{"url"})
+		if !ok {
+			return exitUsage
 		}
 		if len(p.pos) != 1 || p.flags["url"] == "" {
-			return a.fail("Use: ku profile add <name> --url <url>")
+			return a.usageFail(profileAdd)
 		}
 		name := p.pos[0]
 		if !profileRE.MatchString(name) {
-			return a.fail("Profile names use a-z, 0-9, dot, dash and underscore.")
+			return a.argFail("Profile names use a-z, 0-9, dot, dash and underscore")
 		}
 		u, err := validateURL(p.flags["url"])
 		if err != nil {
-			return a.fail("%v.", err)
+			return a.argFail("%v", err)
 		}
 		if _, exists := cfg.Profiles[name]; exists {
 			return a.fail("Profile %s already exists.", name)
@@ -55,10 +60,10 @@ func (a *app) cmdProfile(args []string) int {
 		a.say("✓ Added profile %s", name)
 	case "use":
 		if len(rest) != 1 {
-			return a.fail("Use: ku profile use <name>")
+			return a.usageFail("ku profile use <name>")
 		}
 		if _, ok := cfg.Profiles[rest[0]]; !ok {
-			return a.fail("Unknown profile %s.", rest[0])
+			return a.failNext("ku profile list", "Unknown profile %s", rest[0])
 		}
 		cfg.Active = rest[0]
 		if err := a.saveConfig(cfg); err != nil {
@@ -75,11 +80,11 @@ func (a *app) cmdProfile(args []string) int {
 		}
 	case "remove":
 		if len(rest) != 1 {
-			return a.fail("Use: ku profile remove <name>")
+			return a.usageFail("ku profile remove <name>")
 		}
 		name := rest[0]
 		if _, ok := cfg.Profiles[name]; !ok {
-			return a.fail("Unknown profile %s.", name)
+			return a.failNext("ku profile list", "Unknown profile %s", name)
 		}
 		if err := a.store.Delete(name); err != nil {
 			return a.fail("Could not remove the saved session: %v", err)
@@ -93,19 +98,20 @@ func (a *app) cmdProfile(args []string) int {
 		}
 		a.say("✓ Removed profile %s", name)
 	default:
-		return a.fail("Use: ku profile add|use|list|remove")
+		return a.usageFail(profileVerbs)
 	}
 	return 0
 }
 
 // cmdLink links the current folder to an app (local alias only; nothing in the repo or on the server).
 func (a *app) cmdLink(args []string) int {
-	p, err := parseArgs(args, []string{"profile"})
-	if err != nil {
-		return a.fail("%v", err)
+	const linkUsage = "ku link [<app>] [--profile <name>]"
+	p, ok := a.parse(linkUsage, args, []string{"profile"})
+	if !ok {
+		return exitUsage
 	}
 	if len(p.pos) > 1 {
-		return a.fail("Use: ku link <app> [--profile <name>]")
+		return a.usageFail(linkUsage)
 	}
 	if len(p.pos) == 0 {
 		l, ok, err := a.currentLink(a.cwd)
@@ -113,14 +119,14 @@ func (a *app) cmdLink(args []string) int {
 			return a.fail("%v", err)
 		}
 		if !ok {
-			return a.fail("This folder is not linked to an app. Run: ku link <app>")
+			return a.failNext("ku link <app>", "This folder is not linked to an app")
 		}
 		fmt.Fprintf(a.out, "This folder is linked to %s\n", l.App)
 		return 0
 	}
 	app := strings.ToLower(p.pos[0])
 	if !tagPartRE.MatchString(app) {
-		return a.fail("App names use a-z, 0-9, dot, dash and underscore.")
+		return a.argFail("App names use a-z, 0-9, dot, dash and underscore")
 	}
 	l := link{App: app, Profile: p.flags["profile"]}
 	if l.Profile != "" {
@@ -129,7 +135,7 @@ func (a *app) cmdLink(args []string) int {
 			return a.fail("%v", err)
 		}
 		if _, ok := cfg.Profiles[l.Profile]; !ok {
-			return a.fail("Unknown profile %s.", l.Profile)
+			return a.failNext("ku profile list", "Unknown profile %s", l.Profile)
 		}
 	}
 	links, err := a.loadLinks()
@@ -146,20 +152,21 @@ func (a *app) cmdLink(args []string) int {
 
 // cmdLogin signs in through the browser with a localhost PKCE callback and saves the token (keychain or private file).
 func (a *app) cmdLogin(args []string) int {
-	p, err := parseArgs(args, []string{"profile"})
-	if err != nil {
-		return a.fail("%v", err)
+	const loginUsage = "ku login [--profile <name>]"
+	p, ok := a.parse(loginUsage, args, []string{"profile"})
+	if !ok {
+		return exitUsage
 	}
 	if len(p.pos) != 0 {
-		return a.fail("Use: ku login")
+		return a.usageFail(loginUsage)
 	}
 	if a.getenv("KU_URL") != "" || a.getenv("KU_TOKEN") != "" {
-		return a.fail("KU_URL or KU_TOKEN is set, so there is nothing to log in to. Unset it to sign in with a profile.")
+		return a.fail("KU_URL or KU_TOKEN is set, so there is nothing to log in to. Unset it to sign in with a profile")
 	}
 	// The server URL lives in the profile: add one first with `ku profile add <name> --url <url>`.
 	pr, err := a.resolve(p.flags["profile"])
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	a.say("profile: %s", pr.name)
 
@@ -180,7 +187,7 @@ func (a *app) cmdLogin(args []string) int {
 			Token string `json:"token"`
 		}
 		if err := c.call("POST", "/auth/token", map[string]string{"code": code, "verifier": verifier}, &tok); err != nil {
-			return "Sign-in failed. Try again: ku login"
+			return "Sign-in failed"
 		}
 		if err := a.store.Set(pr.name, tok.Token); err != nil {
 			return fmt.Sprintf("Could not save the session: %v", err)
@@ -221,10 +228,10 @@ func (a *app) cmdLogin(args []string) int {
 	select {
 	case failure := <-got:
 		if failure != "" {
-			return a.fail("%s", failure)
+			return a.failNext("ku login", "%s", failure)
 		}
 	case <-time.After(5 * time.Minute):
-		return a.fail("Sign-in timed out. Try again: ku login")
+		return a.failNext("ku login", "Sign-in timed out")
 	}
 	a.say("✓ Signed in to %s", pr.name)
 	return 0

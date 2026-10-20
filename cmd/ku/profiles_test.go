@@ -212,7 +212,7 @@ func TestLoginFlow(t *testing.T) {
 		}
 		mustOK(t, w.ku("", false, nil, "profile", "add", "default", "--url", w.srv.URL))
 		// the server URL belongs to the profile; with one in place, --url is the only thing wrong here
-		if r := w.ku("", false, nil, "login", "--url", w.srv.URL); r.code != 1 || !strings.Contains(r.errOut, "unknown flag --url") {
+		if r := w.ku("", false, nil, "login", "--url", w.srv.URL); r.code != 2 || r.errOut != "Usage: ku login [--profile <name>]\n" {
 			t.Fatalf("login does not take --url: %q", r.errOut)
 		}
 		r := w.ku("", false, nil, "login")
@@ -294,7 +294,7 @@ func TestLoginFailsWhenTheTokenExchangeFails(t *testing.T) {
 			return nil
 		}
 		r := w.ku("", false, nil, "login")
-		if r.code != 1 || !strings.Contains(r.errOut, "✗ Sign-in failed. Try again: ku login") || r.out != "" {
+		if r.code != 1 || !strings.Contains(r.errOut, "✗ Sign-in failed.\n  Run: ku login\n") || r.out != "" {
 			t.Fatalf("login: %d %q %q", r.code, r.out, r.errOut)
 		}
 		if !strings.Contains(page, "Sign-in did not finish") || strings.Contains(page, "You're signed in") {

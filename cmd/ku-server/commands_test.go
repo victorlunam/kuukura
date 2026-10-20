@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,11 +41,42 @@ func asTerminal(t *testing.T, is bool) {
 }
 
 func TestCommandTree(t *testing.T) {
-	for _, args := range [][]string{nil, {"help"}} {
+	for _, args := range [][]string{{"help"}, {"--help"}, {"-h"}} {
 		out, err := runOut(t, args...)
-		if err != nil || !strings.Contains(out, "ku-server key") || !strings.Contains(out, "reset-factors") || !strings.Contains(out, "audit verify") {
+		if err != nil || out != helpText {
 			t.Fatalf("%v: %q %v", args, out, err)
 		}
+	}
+	// every command of the tree is in the help, one "noun verb" line each, and the description column is aligned
+	col := -1
+	for l := range strings.SplitSeq(helpText, "\n") {
+		if !strings.HasPrefix(l, "  ") {
+			continue
+		}
+		i := strings.Index(l[2:], "  ") + 2
+		j := i + len(l[i:]) - len(strings.TrimLeft(l[i:], " "))
+		if col == -1 {
+			col = j
+		}
+		if i < 2 || j != col {
+			t.Errorf("description of %q starts at column %d, not %d", l, j, col)
+		}
+	}
+	for _, c := range []string{"serve", "healthcheck", "version", "key init", "key rotate", "key show", "user list", "user invite",
+		"user disable", "user enable", "user reset-factors", "audit verify"} {
+		if !strings.Contains(helpText, "\n  "+c) {
+			t.Errorf("%q is not in the help", c)
+		}
+	}
+	if err := run(nil); !errors.Is(err, errUnknown) {
+		t.Errorf("no command: %v", err)
+	}
+	if err := run([]string{"nope"}); !errors.Is(err, errUnknown) || strings.Contains(err.Error(), "nope") {
+		t.Errorf("an unknown command is not echoed: %v", err)
+	}
+	var u usageError
+	if err := run([]string{"user", "invite"}); !errors.As(err, &u) || u != "ku-server user invite <email> [--admin]" {
+		t.Errorf("each command prints its own usage line: %v", err)
 	}
 	if out := mustRun(t, "version"); strings.TrimSpace(out) != version {
 		t.Fatal(out)
@@ -56,6 +88,29 @@ func TestCommandTree(t *testing.T) {
 	} {
 		if out, err := runOut(t, args...); err == nil || out != "" || strings.Contains(err.Error(), "\n") {
 			t.Errorf("%v: one plain error line and no data, got %q %v", args, out, err)
+		}
+	}
+}
+
+// Exit 0 on success, 1 when a command ran and failed, 2 when the arguments were wrong (`ku` does the same).
+func TestExitCodes(t *testing.T) {
+	for err, want := range map[error]int{
+		nil:                             0,
+		errors.New("it broke"):          exitFail,
+		usageError("ku-server x"):       exitUsage,
+		fmt.Errorf("x: %w", errUnknown): exitUsage,
+	} {
+		if got := report(err); got != want {
+			t.Errorf("%v: exit %d, want %d", err, got, want)
+		}
+	}
+	for in, want := range map[string]string{
+		"cannot connect to the database: refused": "Cannot connect to the database: refused.",
+		"Already a sentence.":                     "Already a sentence.",
+		"":                                        "",
+	} {
+		if got := sentence(in); got != want {
+			t.Errorf("sentence(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -290,7 +345,7 @@ func TestKeyShowOncePerVersion(t *testing.T) {
 	// aws-kms: the key never leaves KMS
 	t.Setenv("VAULT_KEY_PROVIDER", "aws-kms")
 	t.Setenv("VAULT_KMS_KEY_ARN", "arn:aws:kms:eu-west-1:111122223333:key/fake")
-	if out := mustRun(t, "key", "show"); !strings.Contains(out, "not applicable: the key never leaves KMS") {
+	if out := mustRun(t, "key", "show"); !strings.Contains(out, "Not applicable: the key never leaves KMS.") {
 		t.Fatal(out)
 	}
 }

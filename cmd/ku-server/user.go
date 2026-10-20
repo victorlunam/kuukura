@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -15,11 +14,8 @@ import (
 // positional parses args into exactly n positional arguments plus the flags declared on fs.
 func positional(fs *flag.FlagSet, usage string, args []string, n int) ([]string, error) {
 	pos, err := parseArgs(fs, args)
-	if err != nil {
-		return nil, fmt.Errorf("%w (usage: ku-server %s)", err, usage)
-	}
-	if len(pos) != n {
-		return nil, errors.New("usage: ku-server " + usage)
+	if err != nil || len(pos) != n { // the flag package's error would name what was typed
+		return nil, usageError("ku-server " + usage)
 	}
 	return pos, nil
 }

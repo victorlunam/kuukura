@@ -1,45 +1,66 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 )
 
+// workspaceUsage is the usage line of each `ku workspace` verb.
+var workspaceUsage = map[string]string{
+	"invite":  "ku workspace invite <email> | <name> --machine",
+	"group":   "ku workspace group <group> +<identity> -<identity>",
+	"grant":   "ku workspace grant <identity|group> <read|write> <tags>",
+	"ungrant": "ku workspace ungrant <identity|group> <tags>",
+	"disable": "ku workspace disable <identity>",
+	"enable":  "ku workspace enable <identity>",
+	"audit":   "ku workspace audit [name] [tags]",
+}
+
+// workspaceArity reports whether n positional arguments fit the verb.
+func workspaceArity(sub string, n int) bool {
+	switch sub {
+	case "invite", "disable", "enable":
+		return n == 1
+	case "group", "ungrant":
+		return n >= 2
+	case "grant":
+		return n >= 3
+	}
+	return true // audit takes an optional selector
+}
+
+const workspaceVerbs = "ku workspace invite|group|grant|ungrant|disable|enable|audit"
+
 func (a *app) cmdWorkspace(args []string) int {
 	if len(args) == 0 {
-		return a.fail("Use: ku workspace invite|group|grant|ungrant|disable|enable|audit")
+		return a.usageFail(workspaceVerbs)
 	}
 	sub := args[0]
-	p, err := parseArgs(args[1:], []string{"profile"}, "machine")
-	if err != nil {
-		return a.fail("%v", err)
+	line, known := workspaceUsage[sub]
+	if !known {
+		return a.usageFail(workspaceVerbs)
+	}
+	p, ok := a.parse(line, args[1:], []string{"profile"}, "machine")
+	if !ok {
+		return exitUsage
 	}
 	pos := p.pos
-	switch sub {
-	case "invite", "group", "grant", "ungrant", "disable", "enable", "audit":
-	default:
-		return a.fail("Use: ku workspace invite|group|grant|ungrant|disable|enable|audit")
-	}
-	if p.has("machine") && sub != "invite" {
-		return a.fail("unknown flag --machine")
+	if p.has("machine") && sub != "invite" || !workspaceArity(sub, len(pos)) {
+		return a.usageFail(line)
 	}
 	if sub == "audit" {
 		return a.workspaceAudit(p)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	report := func(err error) int {
 		return a.report(err, func(t string) string { return "ku workspace " + sub + " ..." })
 	}
 	switch sub {
 	case "invite":
-		if len(pos) != 1 {
-			return a.fail("Use: ku workspace invite <email> or ku workspace invite <name> --machine")
-		}
 		if p.has("machine") {
 			var r struct {
 				Token string `json:"token"`
@@ -60,9 +81,6 @@ func (a *app) cmdWorkspace(args []string) int {
 		a.say("✓ Invited %s. Send them this link (valid 24 hours, works once):", pos[0])
 		fmt.Fprintln(a.out, r.Link)
 	case "group":
-		if len(pos) < 2 {
-			return a.fail("Use: ku workspace group <group> +<identity> -<identity>")
-		}
 		var add, remove []string
 		for _, t := range pos[1:] {
 			switch {
@@ -71,7 +89,7 @@ func (a *app) cmdWorkspace(args []string) int {
 			case strings.HasPrefix(t, "-") && len(t) > 1:
 				remove = append(remove, t[1:])
 			default:
-				return a.fail("Use +<identity> to add and -<identity> to remove.")
+				return a.usageFail(line)
 			}
 		}
 		if err := c.call("PATCH", "/workspace/groups/"+url.PathEscape(pos[0]), map[string]any{"add": nonNilTags(add), "remove": nonNilTags(remove)}, nil); err != nil {
@@ -79,43 +97,27 @@ func (a *app) cmdWorkspace(args []string) int {
 		}
 		a.say("✓ Updated group %s", pos[0])
 	case "grant":
-		if len(pos) < 3 {
-			return a.fail("Use: ku workspace grant <identity|group> <read|write> <tags>")
-		}
 		if err := checkTags(pos, 2); err != nil {
-			return a.fail("%v.", err)
+			return a.argFail("%v", err)
 		}
 		if err := c.call("POST", "/workspace/grants", map[string]any{"subject": pos[0], "permission": pos[1], "tags": pos[2:]}, nil); err != nil {
 			return report(err)
 		}
 		a.say("✓ %s can now %s secrets tagged %s", pos[0], pos[1], strings.Join(pos[2:], " "))
 	case "ungrant":
-		if len(pos) < 2 {
-			return a.fail("Use: ku workspace ungrant <identity|group> <tags>")
-		}
 		if err := checkTags(pos, 1); err != nil {
-			return a.fail("%v.", err)
+			return a.argFail("%v", err)
 		}
 		if err := c.call("DELETE", "/workspace/grants", map[string]any{"subject": pos[0], "tags": pos[1:]}, nil); err != nil {
 			return report(err)
 		}
 		a.say("✓ Removed access for %s to %s", pos[0], strings.Join(pos[1:], " "))
 	case "disable":
-		if len(pos) != 1 {
-			return a.fail("Use: ku workspace disable <identity>")
-		}
 		if err := c.call("PATCH", "/workspace/identities/"+url.PathEscape(pos[0]), map[string]string{"status": "disabled"}, nil); err != nil {
-			var pr *problem
-			if errors.As(err, &pr) && pr.Code == "last-admin" {
-				return a.fail("That is the last admin. Make someone else an admin first.")
-			}
 			return report(err)
 		}
 		a.say("✓ Disabled %s. Their sessions have ended.", pos[0])
 	case "enable":
-		if len(pos) != 1 {
-			return a.fail("Use: ku workspace enable <identity>")
-		}
 		var r struct {
 			Status string `json:"status"`
 		}
@@ -144,11 +146,11 @@ func checkTags(pos []string, first int) error {
 func (a *app) workspaceAudit(p parsed) int {
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
 	c, _, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	q := url.Values{}
 	if name != "" {

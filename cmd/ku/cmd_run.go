@@ -22,32 +22,33 @@ func (a *app) cmdRun(args []string) int {
 			break
 		}
 	}
+	const runUsage = "ku run [name] [tags] [--profile <name>] -- <command>"
 	if len(command) == 0 {
-		return a.fail("Use: ku run [name] [tags] -- <command>")
+		return a.usageFail(runUsage)
 	}
-	p, err := parseArgs(before, []string{"profile"})
-	if err != nil {
-		return a.fail("%v", err)
+	p, ok := a.parse(runUsage, before, []string{"profile"})
+	if !ok {
+		return exitUsage
 	}
 	name, tags, err := selectorFrom(p.pos)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.argFail("%v", err)
 	}
 	c, pr, err := a.withProfile(p.flags["profile"], true)
 	if err != nil {
-		return a.fail("%v.", err)
+		return a.fail("%v", err)
 	}
 	if pr.app != "" && !hasKey(tags, "app") {
 		tags = append(tags, "app:"+pr.app)
 	}
 	if len(tags) == 0 {
-		a.fail("This folder is not linked to an app.")
+		a.fail("This folder is not linked to an app")
 		hint := "  Run: ku link <app>"
 		if apps := a.knownApps(c); len(apps) > 0 {
 			hint += "   (your apps: " + strings.Join(apps, ", ") + ")"
 		}
 		fmt.Fprintln(a.err, hint)
-		return 1
+		return exitFail
 	}
 
 	var res struct {

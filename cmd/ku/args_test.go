@@ -22,7 +22,7 @@ func TestUnknownFlagsAreRejected(t *testing.T) {
 			{"login", "--url", "https://x.example.test"},
 		} {
 			r := w.ku("", false, nil, args...)
-			if r.code != 1 || !strings.Contains(r.errOut, "unknown flag --") {
+			if r.code != 2 || !strings.HasPrefix(r.errOut, "Usage: ku ") || strings.Count(r.errOut, "\n") != 1 {
 				t.Errorf("%v: %d %q", args, r.code, r.errOut)
 			}
 			if strings.Contains(r.errOut, "profile:") {
@@ -50,7 +50,7 @@ func TestValuesAreNotMistakenForTags(t *testing.T) {
 			{"workspace", "ungrant", "dev@example.test", fake},
 		} {
 			r := w.ku("v\n", false, nil, args...)
-			if r.code != 1 || !strings.Contains(r.errOut, "is not a tag (key:value)") {
+			if r.code != 2 || !strings.Contains(r.errOut, "is not a tag (key:value)") {
 				t.Errorf("%v: %d %q", args, r.code, r.errOut)
 			}
 			noValue(t, r, fake, "FAKEPW", "fakeuser")
@@ -58,7 +58,7 @@ func TestValuesAreNotMistakenForTags(t *testing.T) {
 		if r := mustOK(t, w.ku("", false, nil, "secret", "list")); r.out != "" || !strings.Contains(r.errOut, "No secrets found") {
 			t.Fatalf("nothing may have been stored: %q %q", r.out, r.errOut)
 		}
-		if r := w.ku("v\n", false, nil, "secret", "set", "DB_URL", "app:shop", "x", "--yes"); !strings.Contains(r.errOut, "argument 3 is not a tag") {
+		if r := w.ku("v\n", false, nil, "secret", "set", "DB_URL", "app:shop", "x", "--yes"); !strings.Contains(r.errOut, "Argument 3 is not a tag") {
 			t.Fatalf("the message names the position: %q", r.errOut)
 		}
 	})

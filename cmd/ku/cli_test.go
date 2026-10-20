@@ -73,7 +73,7 @@ func TestCanonicalSecretFlows(t *testing.T) {
 
 		// get without a choice
 		r = w.ku("", false, nil, "secret", "get", "STRIPE_KEY", "env:prod")
-		if r.code != 1 || r.errOut != "✗ Choose how to get it: --reveal or --out <file>\n" {
+		if r.code != 2 || r.errOut != "Usage: "+getUsage+"\n" {
 			t.Fatalf("get: %q", r.errOut)
 		}
 		if w.stepUps != 0 {
@@ -128,7 +128,7 @@ func TestCanonicalSecretFlows(t *testing.T) {
 		// revoke blocks run until the next set
 		mustOK(t, w.ku("", false, nil, "secret", "revoke", "STRIPE_KEY", "env:prod"))
 		r = w.ku("", false, map[string]string{}, "run", "env:prod", "--", "true")
-		if r.code != 1 || !strings.Contains(r.errOut, "✗ STRIPE_KEY is blocked. Save a new value: ku secret set STRIPE_KEY app:shop env:prod team:pay") {
+		if r.code != 1 || !strings.Contains(r.errOut, "✗ STRIPE_KEY is blocked until you save a new value.\n  Run: ku secret set STRIPE_KEY app:shop env:prod team:pay\n") {
 			t.Fatalf("blocked:\n%q", r.errOut)
 		}
 

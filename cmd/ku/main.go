@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // version is set at release time: -ldflags "-X main.version=2026.10.0".
@@ -89,26 +91,101 @@ func (a *app) configDir() string {
 // say prints a status line to stderr so stdout stays clean for values and pipes.
 func (a *app) say(format string, args ...any) { fmt.Fprintf(a.err, format+"\n", args...) }
 
-func (a *app) fail(format string, args ...any) int {
-	fmt.Fprintf(a.err, "✗ "+format+"\n", args...)
-	return 1
+// Exit codes: 1 when the command ran and failed, 2 when the arguments were wrong (ku-server uses the same).
+const (
+	exitFail  = 1
+	exitUsage = 2
+)
+
+// nextStep is an error that carries the one command that fixes it; fail prints it on its own line.
+type nextStep struct{ msg, run string }
+
+func (e *nextStep) Error() string { return e.msg }
+
+// sentence makes s read as a sentence: a capital first letter and a final period (unless it ends a list with ":").
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	if r := []rune(s); unicode.IsLower(r[0]) {
+		s = string(unicode.ToUpper(r[0])) + string(r[1:])
+	}
+	if !strings.ContainsAny(s[len(s)-1:], ".!?:") {
+		s += "."
+	}
+	return s
 }
 
-const usage = `Usage: ku <command>
+// fail prints "✗ <Sentence.>" on stderr and returns exitFail. An error argument that is a nextStep adds the line
+// with the command that fixes it.
+func (a *app) fail(format string, args ...any) int {
+	fmt.Fprintf(a.err, "✗ %s\n", sentence(fmt.Sprintf(format, args...)))
+	for _, x := range args {
+		var n *nextStep
+		if err, ok := x.(error); ok && errors.As(err, &n) {
+			fmt.Fprintf(a.err, "  Run: %s\n", n.run)
+		}
+	}
+	return exitFail
+}
 
-  profile add|use|list|remove    manage servers (start here: ku profile add <name> --url <url>)
-  login                          sign in to the active profile
-  link <app>                     link this folder to an app
-  run [name] [tags] -- <cmd>     run a command with secrets
-  secret list|set|get|update|revoke|archive
-  workspace invite|group|grant|ungrant|remove|audit
-  account factor list|add|remove  your second steps: add a passkey or an authenticator app, remove one
+// failNext is fail plus the exact command to run next.
+func (a *app) failNext(run, format string, args ...any) int {
+	a.fail(format, args...)
+	fmt.Fprintf(a.err, "  Run: %s\n", run)
+	return exitFail
+}
+
+// argFail is fail for an argument that is wrong, which exits like a usage error.
+func (a *app) argFail(format string, args ...any) int {
+	a.fail(format, args...)
+	return exitUsage
+}
+
+// usageFail prints the usage line of the command that got wrong arguments. It never says what was typed: a secret
+// passed as an argument by mistake must not come back in the terminal.
+func (a *app) usageFail(line string) int {
+	fmt.Fprintf(a.err, "Usage: %s\n", line)
+	return exitUsage
+}
+
+// usage is the help: one line per command, "noun verb arguments", then what it does.
+const usage = `Usage: ku <command> [options]
+
+  profile add <name> --url <url>             add a server (start here)
+  profile use <name>                         switch the active server
+  profile list                               list servers
+  profile remove <name>                      forget a server and its session
+  login                                      sign in to the active server
+  link [<app>]                               link this folder to an app
+  run [name] [tags] -- <command>             run a command with secrets
+  secret list [name] [tags]                  list secrets, never their values
+  secret set <name> [tags]                   save a value
+  secret get <name> [tags]                   reveal a value (--reveal or --out)
+  secret update <name|tags> [+tag -tag]      rename, retag or change confirmation
+  secret revoke <name|tags>                  block a secret until a new value is saved
+  secret archive <name|tags>                 hide a secret
+  workspace invite <email>                   invite a person (--machine for CI)
+  workspace group <group> +id -id            change group members
+  workspace grant <who> <read|write> <tags>  give access to secrets with these tags
+  workspace ungrant <who> <tags>             take it away
+  workspace disable <identity>               block a person or machine
+  workspace enable <identity>                lift the block
+  workspace audit [name] [tags]              show who did what
+  account factor list                        list your passkeys and authenticator apps
+  account factor add <passkey|totp>          add one
+  account factor default <id>                offer it first
+  account factor remove <id>                 remove one
+  version                                    print the version
+
+Commands that talk to a server take --profile <name>.
 `
 
 func (a *app) run(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprint(a.err, usage)
-		return 1
+		return exitUsage
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -134,7 +211,7 @@ func (a *app) run(args []string) int {
 		return 0
 	}
 	fmt.Fprint(a.err, usage)
-	return 1
+	return exitUsage
 }
 
 // ---- argument parsing ----
@@ -162,15 +239,26 @@ func parseArgs(args []string, valued []string, bools ...string) (parsed, error) 
 		case slices.Contains(valued, name) && i+1 < len(args):
 			i++
 			p.flags[name] = args[i]
-		case slices.Contains(valued, name):
-			return p, fmt.Errorf("--%s needs a value", name)
 		case slices.Contains(bools, name) && !hasVal:
 			p.flags[name] = "true"
-		default:
-			return p, fmt.Errorf("unknown flag --%s", name)
+		default: // an unknown flag, or a valued one without its value
+			return p, errBadFlag
 		}
 	}
 	return p, nil
+}
+
+// errBadFlag does not name the flag: the callers answer with the usage line, which lists the valid ones.
+var errBadFlag = errors.New("unknown flag or missing value")
+
+// parse is parseArgs for a command: on a bad flag it prints the command's usage line and reports false.
+func (a *app) parse(usageLine string, args []string, valued []string, bools ...string) (parsed, bool) {
+	p, err := parseArgs(args, valued, bools...)
+	if err != nil {
+		a.usageFail(usageLine)
+		return p, false
+	}
+	return p, true
 }
 
 func (p parsed) has(name string) bool { _, ok := p.flags[name]; return ok }

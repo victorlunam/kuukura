@@ -140,7 +140,7 @@ func (a *app) resolve(flagProfile string) (profile, error) {
 	named := func(name string) (profile, error) {
 		pc, ok := cfg.Profiles[name]
 		if !ok {
-			return profile{}, fmt.Errorf("unknown profile %q. Add it with: ku profile add %s --url <url>", name, name)
+			return profile{}, &nextStep{fmt.Sprintf("Unknown profile %s.", name), "ku profile add " + name + " --url <url>"}
 		}
 		p.name, p.url = name, pc.URL
 		return p, nil
@@ -162,7 +162,7 @@ func (a *app) resolve(flagProfile string) (profile, error) {
 	case cfg.Active != "":
 		return named(cfg.Active)
 	}
-	return profile{}, errors.New("no server yet. Add one first: ku profile add <name> --url https://your-server")
+	return profile{}, &nextStep{"No server yet.", "ku profile add <name> --url https://your-server"}
 }
 
 func sortedKeys[V any](m map[string]V) []string { return slices.Sorted(maps.Keys(m)) }

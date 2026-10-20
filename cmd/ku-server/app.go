@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/victorlunam/kuukura/audit"
@@ -68,7 +67,7 @@ func withApp(fn func(ctx context.Context, a *app) error) error {
 
 func noArgs(usage string, args []string) error {
 	if len(args) != 0 {
-		return errors.New("usage: ku-server " + usage)
+		return usageError("ku-server " + usage)
 	}
 	return nil
 }

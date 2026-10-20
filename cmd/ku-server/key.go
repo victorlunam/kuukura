@@ -36,7 +36,7 @@ func runKeyInit(args []string) error {
 		path = env("VAULT_MASTER_KEY_FILE")
 	}
 	if path == "" {
-		return errors.New("usage: ku-server key init --key-file <path>")
+		return usageError("ku-server key init --key-file <path>")
 	}
 	key, err := keys.GenerateMasterKey(1)
 	if err != nil {
@@ -226,7 +226,7 @@ func runKeyShow(args []string) error {
 	}
 	return withApp(func(ctx context.Context, a *app) error {
 		if a.c.KeyProvider == "aws-kms" {
-			fmt.Println("not applicable: the key never leaves KMS")
+			fmt.Println("Not applicable: the key never leaves KMS.")
 			return nil
 		}
 		if !stdoutIsTerminal() {

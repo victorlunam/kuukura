@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 )
 
 // client talks to exactly one server: the resolved profile's. Redirects are never followed
@@ -73,15 +72,23 @@ func (c *client) call(method, path string, body, out any, hdr ...string) error {
 	return nil
 }
 
-// plain turns an error into short, non-technical copy.
+// plain turns an error into short, non-technical copy. Every problem code the API can return has its own message
+// here (a test walks api.Codes), so a code added there cannot fall through to the generic one by accident. The
+// server's detail is used where it says something the code does not; it never carries a secret value.
 func plain(err error) string {
 	var p *problem
 	if !errors.As(err, &p) {
 		return err.Error()
 	}
+	detail := func(fallback string) string {
+		if p.Detail != "" {
+			return sentence(p.Detail)
+		}
+		return fallback
+	}
 	switch p.Code {
 	case "unauthorized":
-		return "Your session ended. Run: ku login"
+		return "Your session ended."
 	case "forbidden":
 		return "You don't have access to that."
 	case "quota-exceeded":
@@ -90,17 +97,37 @@ func plain(err error) string {
 		}
 		return "Too many requests. Try again in a moment."
 	case "not-found":
-		return "No matching secret."
+		return detail("No matching secret.")
 	case "step-up-required":
 		return "This needs a confirmation with your passkey or authenticator app."
-	case "invalid-request", "needs-one", "conflict", "last-admin", "last-factor", "kind-mismatch":
-		if p.Detail != "" {
-			return strings.ToUpper(p.Detail[:1]) + p.Detail[1:] + "."
-		}
 	case "factor-required":
 		return "Your account has no passkey or authenticator app to confirm with. Ask your admin for a new invite."
+	case "confirmation-expired":
+		return "The confirmation expired. Run the command again."
 	case "https-required":
 		return "The server must be reached over https."
+	case "invalid-request":
+		return detail("The server did not accept that request.")
+	case "needs-one":
+		return detail("Pick exactly one secret.")
+	case "conflict":
+		return detail("That already exists.")
+	case "last-admin":
+		return detail("That is the last admin.")
+	case "last-factor":
+		return detail("This is your only passkey or authenticator app.")
+	case "kind-mismatch":
+		return detail("That secret holds a different kind of value.")
+	case "ambiguous":
+		return "More than one secret matches. Add a tag to pick one."
+	case "blocked":
+		return "That secret is blocked until you save a new value."
+	case "clash":
+		return "A secret with that name and those tags already exists."
+	case "needs-confirmation":
+		return "That secret does not exist yet."
+	case "method-not-allowed", "too-large":
+		return "The server did not understand that request. Update ku and try again."
 	}
 	return "Something went wrong on the server. Try again."
 }
@@ -119,7 +146,7 @@ func (a *app) withProfile(flagProfile string, needToken bool) (*client, profile,
 		tok, err := a.store.Get(p.name)
 		switch {
 		case errors.Is(err, errNoToken) || err == nil && tok == "":
-			return nil, p, errors.New("you are not logged in. Run: ku login")
+			return nil, p, &nextStep{"You are not logged in.", "ku login"}
 		case err != nil: // an unreadable session is not a missing one: say what is wrong
 			return nil, p, fmt.Errorf("cannot read the saved session: %w", err)
 		}

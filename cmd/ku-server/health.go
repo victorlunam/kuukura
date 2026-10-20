@@ -24,7 +24,7 @@ func runHealthcheck() error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("unhealthy")
+		return errors.New("the server did not answer healthy")
 	}
 	return nil
 }
