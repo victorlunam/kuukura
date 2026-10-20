@@ -9,6 +9,11 @@ ku profile add work --url https://vault.example.com     # a profile = a server a
 ku login
 ```
 
+macOS: a signed binary keeps the same identity across versions, so the Keychain stops asking every time. Release
+binaries are signed when the repository has the `MACOS_CERT_P12` and `MACOS_CERT_PASSWORD` secrets; otherwise the
+maintainer runs `scripts/sign-macos.sh <tag>`. They are signed, not notarized: if Gatekeeper blocks a downloaded
+copy, run `xattr -d com.apple.quarantine ku` once.
+
 ## Your second steps (passkey, authenticator app)
 
 ```sh
