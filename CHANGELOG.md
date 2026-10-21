@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.14] - 2026-10-21
+
 ### Added
 
 - A selector can leave out a tag: `ku run app:shop env:dev ~role:worker -- ...` skips the secrets tagged `role:worker`
@@ -219,7 +221,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.13...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.14...HEAD
+[2026.10.14]: https://github.com/victorlunam/kuukura/compare/v2026.10.13...v2026.10.14
 [2026.10.13]: https://github.com/victorlunam/kuukura/compare/v2026.10.12...v2026.10.13
 [2026.10.12]: https://github.com/victorlunam/kuukura/compare/v2026.10.11...v2026.10.12
 [2026.10.11]: https://github.com/victorlunam/kuukura/compare/v2026.10.10...v2026.10.11
