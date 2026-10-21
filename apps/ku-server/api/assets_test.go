@@ -31,7 +31,7 @@ func TestBrandAssetsAndPageHygiene(t *testing.T) {
 		inv, _ := e.ids.BootstrapAdmin(t.Context(), "root@example.test")
 		r := e.do("GET", "/invite?token="+inv.Token, "", nil)
 		body := r.Body.String()
-		if r.Code != 200 || !strings.Contains(body, `href="/favicon.svg"`) || !strings.Contains(body, "root@example.test") || !strings.Contains(body, "Continue with Google") {
+		if r.Code != 200 || !strings.Contains(body, `href="/favicon.svg"`) || !strings.Contains(body, "root@<wbr>example.test") || !strings.Contains(body, "Continue with Google") {
 			t.Fatalf("invite page: %d", r.Code)
 		}
 		// no external resources: every URL in the page is same-origin

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/victorlunam/kuukura/internal/cli"
 )
@@ -30,6 +31,10 @@ func (a *app) cmdProfile(args []string) int {
 			return a.usageFail(profileAdd)
 		}
 		name := p.pos[0]
+		// The server's pages show `ku profile add <alias> --url ...`: the placeholder must be replaced, not kept.
+		if strings.Trim(name, "<>") == "alias" {
+			return a.argFail("Replace <alias> with a name you choose for this server, for example: ku profile add work --url %s", p.flags["url"])
+		}
 		if !profileRE.MatchString(name) {
 			return a.argFail("Profile names use a-z, 0-9, dot, dash and underscore")
 		}

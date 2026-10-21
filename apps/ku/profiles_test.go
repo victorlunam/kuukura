@@ -29,6 +29,18 @@ func TestProfileNamesCannotBeAPath(t *testing.T) {
 	}
 }
 
+// The server's pages show `ku profile add <alias> --url ...`; keeping the placeholder (quoted, or as a bare word)
+// is refused with a message that says to pick a name.
+func TestTheAliasPlaceholderMustBeReplaced(t *testing.T) {
+	a, _, errb := testApp(t, nil)
+	for _, kept := range []string{"<alias>", "alias"} {
+		errb.Reset()
+		if a.cmdProfile([]string{"add", kept, "--url", "https://x.example.test"}) == 0 || !strings.Contains(errb.String(), "Replace <alias> with a name you choose") {
+			t.Fatalf("%q must be refused with a hint, got %q", kept, errb.String())
+		}
+	}
+}
+
 func TestConfigDirHonorsXDG(t *testing.T) {
 	env := map[string]string{}
 	a, _, _ := testApp(t, env)

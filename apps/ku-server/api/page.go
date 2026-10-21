@@ -22,11 +22,17 @@ var webFS embed.FS
 
 var pageTmpl = template.Must(template.New("page.html").Funcs(template.FuncMap{"email": emailHTML}).ParseFS(webFS, "web/page.html"))
 
-// emailHTML shows an address in bold, marked so a CDN's email obfuscation (Cloudflare's) leaves it alone: its
-// decoding script is blocked by our CSP, which would leave "[email protected]" on the page. html/template strips
-// comments from templates, so the markers are added here, around the escaped address.
+// emailHTML shows an address in bold so a CDN's email obfuscation (Cloudflare's) leaves it alone: its decoding
+// script is blocked by our CSP, which would leave "[email protected]" on the page. Two guards: the email_off
+// markers Cloudflare documents, and a <wbr> after the "@" so the address is no longer one run of text its scanner
+// matches (it looks and copies the same). html/template strips comments from templates, hence the markup here.
 func emailHTML(addr string) template.HTML {
-	return template.HTML("<!--email_off--><b>" + template.HTMLEscapeString(addr) + "</b><!--/email_off-->") // #nosec G203 -- escaped above
+	local, domain, ok := strings.Cut(addr, "@")
+	shown := template.HTMLEscapeString(addr)
+	if ok {
+		shown = template.HTMLEscapeString(local) + "@<wbr>" + template.HTMLEscapeString(domain)
+	}
+	return template.HTML("<!--email_off--><b>" + shown + "</b><!--/email_off-->") // #nosec G203 -- parts escaped above
 }
 
 func webFile(name string) string { return embedded(webFS, "web/"+name) }

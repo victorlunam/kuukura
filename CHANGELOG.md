@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.12] - 2026-10-21
+
 ### Added
 
 - `ku logout` ends the session on the server and forgets it on this machine.
@@ -13,10 +15,12 @@ A release is a tag: its section is copied into the GitHub release notes.
 ### Changed
 
 - The "all set" and server home pages show `ku profile add <alias> --url ...`: each person picks their own profile
-  name (pasted unchanged, the shell rejects the `<`).
+  name. Pasted unchanged the shell rejects the `<`, and `ku profile add` refuses `<alias>` or `alias` with a hint.
 
 ### Fixed
 
+- Behind Cloudflare the invite page could still show "[email protected]": the address now also carries a `<wbr>`
+  after the "@", so the obfuscation scanner does not match it (it looks and copies the same).
 - Deploy templates (Docker, Dokploy, Coolify) pass `VAULT_TRUSTED_PROXIES` to the container; before, setting it in the
   platform had no effect.
 
@@ -197,7 +201,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.11...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.12...HEAD
+[2026.10.12]: https://github.com/victorlunam/kuukura/compare/v2026.10.11...v2026.10.12
 [2026.10.11]: https://github.com/victorlunam/kuukura/compare/v2026.10.10...v2026.10.11
 [2026.10.10]: https://github.com/victorlunam/kuukura/compare/v2026.10.9...v2026.10.10
 [2026.10.9]: https://github.com/victorlunam/kuukura/compare/v2026.10.8...v2026.10.9
