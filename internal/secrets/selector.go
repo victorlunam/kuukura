@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/victorlunam/kuukura/internal/access"
@@ -10,15 +11,17 @@ import (
 
 var nameRE = regexp.MustCompile(`^[A-Z0-9_]{1,128}$`)
 
-// Selector is an optional name plus tags, ANDed.
+// Selector is an optional name plus tags, ANDed. Not lists tags a secret must not have.
 type Selector struct {
 	Name string
 	Tags []string
+	Not  []string
 }
 
 type selector struct {
 	name string
 	tags storage.Tags
+	not  storage.Tags
 }
 
 func (s Selector) parse() (selector, error) {
@@ -34,6 +37,16 @@ func (s Selector) parse() (selector, error) {
 		return out, fail(access.CodeInvalid, err.Error())
 	}
 	out.tags = t
+	n, err := storage.NormalizeTags(s.Not)
+	if err != nil {
+		return out, fail(access.CodeInvalid, err.Error())
+	}
+	for _, x := range n {
+		if slices.Contains(t, x) {
+			return out, fail(access.CodeInvalid, "a tag cannot be both required and excluded")
+		}
+	}
+	out.not = n
 	return out, nil
 }
 

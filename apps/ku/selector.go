@@ -9,6 +9,29 @@ import (
 type selReq struct {
 	Name string   `json:"name,omitempty"`
 	Tags []string `json:"tags"`
+	Not  []string `json:"not_tags,omitempty"`
+}
+
+// notMark starts an excluded tag ("~key:value"). The shell leaves it alone: a tilde expands only before a user
+// name, and a tag has a colon.
+const notMark = "~"
+
+// newSel builds the request from a name and tags where "~key:value" entries are exclusions.
+func newSel(name string, tags []string) selReq {
+	pos, not := splitNot(tags)
+	return selReq{name, nonNilTags(pos), not}
+}
+
+// splitNot separates the tags a secret must have from the "~key:value" ones it must not have.
+func splitNot(tags []string) (pos, not []string) {
+	for _, t := range tags {
+		if x, ok := strings.CutPrefix(t, notMark); ok {
+			not = append(not, x)
+		} else {
+			pos = append(pos, t)
+		}
+	}
+	return
 }
 
 // tagRE is the server's tag shape: key:value, each part lowercase letters, digits, dot, dash or underscore.
@@ -33,12 +56,14 @@ func (a *app) withApp(pr profile, tags []string) []string {
 
 // selectorFrom turns positionals into a name (first, no colon) and tags (key:value). Everything with a colon must
 // be a valid tag: a value such as postgres://user:pw@host/db is rejected here, before it can be sent anywhere.
+// A tag with a leading "~" is an exclusion and stays in tags with its mark (see splitNot). Every tag, excluded or
+// not, is key:value: "~role" alone is an error, not a name.
 func selectorFrom(pos []string) (name string, tags []string, err error) {
 	for i, t := range pos {
 		switch {
-		case strings.Contains(t, ":"):
+		case strings.HasPrefix(t, notMark), strings.Contains(t, ":"):
 			t = strings.ToLower(t)
-			if !tagRE.MatchString(t) {
+			if !tagRE.MatchString(strings.TrimPrefix(t, notMark)) {
 				return "", nil, notATag(i + 1)
 			}
 			tags = append(tags, t)

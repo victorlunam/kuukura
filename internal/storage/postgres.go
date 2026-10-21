@@ -34,6 +34,14 @@ func (p *postgresProvider) Contains(col string, sel Tags) (string, []any) {
 	return col + " @> ?::text[]", []any{p.TagsArg(sel)}
 }
 
+// Excludes uses array overlap: true when the column shares no tag with sel.
+func (p *postgresProvider) Excludes(col string, sel Tags) (string, []any) {
+	if len(sel) == 0 {
+		return "1=1", nil
+	}
+	return "NOT (" + col + " && ?::text[])", []any{p.TagsArg(sel)}
+}
+
 func (p *postgresProvider) TimeArg(t time.Time) any { return t.UTC() }
 
 func (p *postgresProvider) ForUpdate() string { return " FOR UPDATE" }

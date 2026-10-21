@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -15,14 +16,24 @@ import (
 type selectorJSON struct {
 	Name string   `json:"name"`
 	Tags []string `json:"tags"`
+	Not  []string `json:"not_tags"`
 }
 
-func (s selectorJSON) sel() secrets.Selector { return secrets.Selector{Name: s.Name, Tags: s.Tags} }
+func (s selectorJSON) sel() secrets.Selector {
+	return secrets.Selector{Name: s.Name, Tags: s.Tags, Not: s.Not}
+}
 
-// subject is the canonical selector string a step-up grant is bound to.
+// subject is the canonical selector string a step-up grant is bound to: the tags and the excluded ones (with a
+// leading "~"), sorted together. ku builds the same string (subjectOf), so an exclusion is part of what is confirmed.
 func (s selectorJSON) subject() string {
 	t, _ := storage.NormalizeTags(s.Tags)
-	return strings.TrimSpace(strings.ToUpper(s.Name) + " " + strings.Join(t, " "))
+	n, _ := storage.NormalizeTags(s.Not)
+	all := append([]string{}, t...)
+	for _, x := range n {
+		all = append(all, "~"+x)
+	}
+	slices.Sort(all)
+	return strings.TrimSpace(strings.ToUpper(s.Name) + " " + strings.Join(slices.Compact(all), " "))
 }
 
 type secretInfo struct {
@@ -40,7 +51,11 @@ func (s *Server) listSecrets(c echo.Context) error {
 	if t := c.QueryParam("tags"); t != "" {
 		tags = strings.Split(t, ",")
 	}
-	list, err := s.Secrets.List(c.Request().Context(), actor(c), secrets.Selector{Name: c.QueryParam("name"), Tags: tags})
+	var not []string
+	if t := c.QueryParam("not"); t != "" {
+		not = strings.Split(t, ",")
+	}
+	list, err := s.Secrets.List(c.Request().Context(), actor(c), secrets.Selector{Name: c.QueryParam("name"), Tags: tags, Not: not})
 	if err != nil {
 		return err
 	}
@@ -66,6 +81,9 @@ func (s *Server) setSecret(c echo.Context) error {
 	var r setReq
 	if err := decode(c, &r); err != nil {
 		return err
+	}
+	if len(r.Not) > 0 {
+		return badRequest("not_tags does not apply to a new secret.")
 	}
 	if r.Value != "" && r.ValueBase64 != "" {
 		return badRequest("Send value or value_base64, not both.")

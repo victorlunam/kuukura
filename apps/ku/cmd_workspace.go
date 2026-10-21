@@ -158,8 +158,12 @@ func (a *app) workspaceAudit(p parsed) int {
 	if name != "" {
 		q.Set("name", name)
 	}
-	if len(tags) > 0 {
-		q.Set("tags", strings.Join(tags, ","))
+	pos, not := splitNot(tags)
+	if len(pos) > 0 {
+		q.Set("tags", strings.Join(pos, ","))
+	}
+	if len(not) > 0 {
+		q.Set("not", strings.Join(not, ","))
 	}
 	var r struct {
 		Rows []struct {

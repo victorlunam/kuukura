@@ -73,7 +73,7 @@ func (a *app) secretUpdate(args []string) int {
 		return a.fail("%v", err)
 	}
 	tags = a.withApp(pr, tags)
-	body["selector"] = selReq{name, nonNilTags(tags)}
+	body["selector"] = newSel(name, tags)
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
 		return a.report(err, func(t string) string { return "ku secret update " + t })
@@ -170,7 +170,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 			return a.fail("Nothing changed")
 		}
 	}
-	sel := selReq{name, nonNilTags(tags)}
+	sel := newSel(name, tags)
 	var out struct {
 		Revoked []string `json:"revoked"`
 		Updated []string `json:"updated"`

@@ -67,7 +67,11 @@ func (a *app) cmdSecret(args []string) int {
 }
 
 func (a *app) listSecrets(c *client, name string, tags []string) ([]secretRow, error) {
-	q := url.Values{"tags": {strings.Join(tags, ",")}}
+	pos, not := splitNot(tags)
+	q := url.Values{"tags": {strings.Join(pos, ",")}}
+	if len(not) > 0 {
+		q.Set("not", strings.Join(not, ","))
+	}
 	if name != "" {
 		q.Set("name", name)
 	}
@@ -121,7 +125,7 @@ func (a *app) secretSet(args []string) int {
 	if err != nil {
 		return a.argFail("%v", err)
 	}
-	if name == "" || p.has("generate") && p.has("file") {
+	if _, not := splitNot(tags); name == "" || len(not) > 0 || p.has("generate") && p.has("file") {
 		return a.usageFail(setUsage)
 	}
 	c, prof, err := a.withProfile(p.flags["profile"], true)
@@ -175,7 +179,12 @@ func (a *app) secretSet(args []string) int {
 		err = c.call("POST", "/secrets/versions", body, &res)
 	}
 	if err != nil {
-		return a.reportWrite(err, tags, func(t string) string { return "ku secret set " + name + " " + t })
+		return a.reportWrite(err, tags, func(t string) string {
+			if strings.HasPrefix(t, notMark) { // set takes no exclusions
+				t = "key:value"
+			}
+			return "ku secret set " + name + " " + t
+		})
 	}
 	a.say("✓ Saved %s (version %d)", res.Name, res.Version)
 	if p.has("generate") {
@@ -234,7 +243,7 @@ func (a *app) secretGet(args []string) int {
 	}
 	tags = a.withApp(pr, tags)
 	var v valueResp
-	if err := a.callStepUp(c, "reveal", subjectOf(name, tags), "POST", "/secrets/reveal", selReq{name, nonNilTags(tags)}, &v); err != nil {
+	if err := a.callStepUp(c, "reveal", subjectOf(name, tags), "POST", "/secrets/reveal", newSel(name, tags), &v); err != nil {
 		return a.report(err, func(t string) string {
 			return joinWords("ku secret get", name, t, "--reveal")
 		})

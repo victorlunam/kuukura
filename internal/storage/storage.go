@@ -19,6 +19,8 @@ type Provider interface {
 	// Contains returns a SQL condition (and its args) true when every tag of
 	// sel is contained in the tags column col.
 	Contains(col string, sel Tags) (cond string, args []any)
+	// Excludes returns a SQL condition (and its args) true when none of the tags of sel is in the tags column col.
+	Excludes(col string, sel Tags) (cond string, args []any)
 	// TimeArg encodes a time as a query argument for a timestamp column.
 	TimeArg(t time.Time) any
 	// CheckAuditProtected fails if the connected role could update or delete audit rows

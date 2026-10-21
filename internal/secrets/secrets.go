@@ -65,6 +65,9 @@ func (s *Service) resolve(ctx context.Context, q storage.Querier, sel selector) 
 		args = append(args, sel.name)
 	}
 	cond, a := s.p.Contains("s.tags", sel.tags)
+	query += ` AND ` + cond
+	args = append(args, a...)
+	cond, a = s.p.Excludes("s.tags", sel.not)
 	query += ` AND ` + cond + ` ORDER BY s.name, s.tags, s.id`
 	args = append(args, a...)
 	rows, err := q.QueryContext(ctx, s.p.Rebind(query), args...)

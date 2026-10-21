@@ -121,12 +121,18 @@ Each change is audited as `update` on the principal with metadata `{ "factor": "
 
 ## Secrets
 
-`GET /secrets?name=&tags=app:shop,env:prod` (read) ->
+`GET /secrets?name=&tags=app:shop,env:prod&not=role:worker` (read) ->
 ```json
 { "secrets": [ { "name": "STRIPE_KEY", "version": 4, "tags": ["app:shop","env:prod"], "kind": "text",
                  "requires_authorize": false, "blocked": false } ] }
 ```
-Never a value, not even masked.
+Never a value, not even masked. `not` lists tags a secret must not have.
+
+A selector (the body of reveal, run, revoke and the `selector` of an update) is `{ "name": "...", "tags": [...],
+"not_tags": [...] }`: the secret must have every tag in `tags` and none in `not_tags`. A tag in both is 400
+`invalid-request`, and a selector with only `not_tags` is rejected like an empty one. For a step-up, the subject
+includes each excluded tag with a leading `~` (`NAME app:shop env:dev ~role:worker`, all tags sorted together), so a
+confirmation for one selector never covers another. `not_tags` is not accepted when creating a secret.
 
 `POST /secrets/versions` (write) - create a secret or add a version when name + tags match exactly:
 ```json
@@ -188,7 +194,8 @@ Being admin does not grant secret access.
   enrolled a passkey or authenticator app goes back to `invited`; a machine whose owner is disabled stays disabled
   (409 `conflict`); tokens revoked by the disable stay revoked. Any other status is 400 `invalid-request`.
   Audited as `disable`, and as `update` with metadata `{ "change": "enabled", "status": "..." }`.
-- `GET /workspace/audit?name=&tags=&limit=100` (`limit` 1 to 1000, default 100) ->
+- `GET /workspace/audit?name=&tags=&not=&limit=100` (`limit` 1 to 1000, default 100; `tags` and `not` narrow to rows
+  about secrets with all of those tags and none of these) ->
   `{ "rows": [ { "id": "...", "at": "2026-10-19T14:00:00Z", "principal": "dev@example.com", "action": "read",
   "secret": "STRIPE_KEY", "secret_id": "...", "version": 4, "result": "ok", "ip": "203.0.113.7",
   "target_type": "...", "target_id": "...", "metadata": {} } ] }`.

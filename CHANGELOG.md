@@ -6,6 +6,17 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Added
+
+- A selector can leave out a tag: `ku run app:shop env:dev ~role:worker -- ...` skips the secrets tagged `role:worker`
+  (also in `ku secret list|get|update|revoke|archive` and `ku workspace audit`). The API takes `not_tags` in a
+  selector and `not` in `GET /secrets` and `GET /workspace/audit`.
+
+### Changed
+
+- When several secrets share a name and the first one has only tags the others also have, the error now suggests
+  leaving out a tag of another one (`~role:worker`) instead of a generic `key:value`.
+
 ## [2026.10.13] - 2026-10-21
 
 ### Changed

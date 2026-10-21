@@ -49,6 +49,19 @@ func (p *sqliteProvider) Contains(col string, sel Tags) (string, []any) {
 	return "(" + strings.Join(conds, " AND ") + ")", args
 }
 
+func (p *sqliteProvider) Excludes(col string, sel Tags) (string, []any) {
+	if len(sel) == 0 {
+		return "1=1", nil
+	}
+	conds := make([]string, len(sel))
+	args := make([]any, len(sel))
+	for i, t := range sel {
+		conds[i] = "instr(" + col + ", ?) = 0"
+		args[i] = "," + t + ","
+	}
+	return "(" + strings.Join(conds, " AND ") + ")", args
+}
+
 // TimeArg is fixed width (microseconds), so text order is time order among values written through it. Columns
 // that fall back to their DEFAULT hold whole seconds ("...:05Z", written by strftime), which are not that width:
 // two of them tie within a second, and one sorts after a microsecond value of the same second ('Z' > '.').

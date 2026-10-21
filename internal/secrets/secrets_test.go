@@ -343,6 +343,16 @@ func TestAmbiguousName(t *testing.T) {
 		if vals, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop", "env:dev"}}, false); err != nil || len(vals) != 1 {
 			t.Fatalf("adding a tag resolves it: %v", err)
 		}
+		if vals, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}, Not: []string{"env:prod"}}, false); err != nil || len(vals) != 1 || string(vals[0].Data) != "a" {
+			t.Fatalf("excluding a tag resolves it: %v", err)
+		}
+		if _, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}, Not: []string{"app:shop"}}, false); code(err) != access.CodeInvalid {
+			t.Fatalf("a tag required and excluded: %v", err)
+		}
+		// exclusions alone select nothing to act on: a bulk change must name a name or a tag
+		if _, err := e.svc.Revoke(ctx, u, Selector{Not: []string{"env:prod"}}); code(err) != access.CodeInvalid {
+			t.Fatalf("revoke with only an exclusion: %v", err)
+		}
 	})
 }
 

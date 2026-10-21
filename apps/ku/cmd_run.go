@@ -54,7 +54,7 @@ func (a *app) cmdRun(args []string) int {
 	var res struct {
 		Secrets []valueResp `json:"secrets"`
 	}
-	sel := selReq{name, tags}
+	sel := newSel(name, tags)
 	if err := a.callStepUp(c, "run", subjectOf(name, tags), "POST", "/run", sel, &res); err != nil {
 		return a.report(err, func(t string) string {
 			return joinWords("ku run", name, t, "--", strings.Join(command, " "))

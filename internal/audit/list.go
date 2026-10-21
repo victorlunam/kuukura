@@ -53,6 +53,7 @@ func scanRow(rows *sql.Rows, extra ...any) (Row, error) {
 type Filter struct {
 	Name string
 	Tags storage.Tags
+	Not  storage.Tags
 }
 
 // Row counts of List: a limit outside 1..MaxLimit (including 0, "not given") means DefaultLimit.
@@ -75,6 +76,12 @@ func (l *Log) List(ctx context.Context, f Filter, limit int) ([]Row, error) {
 	}
 	if len(f.Tags) > 0 {
 		cond, a := l.p.Contains("s.tags", f.Tags)
+		q += ` AND ` + cond
+		args = append(args, a...)
+	}
+	if len(f.Not) > 0 {
+		// Like Tags, this narrows to rows about secrets: a row with no secret has no tags column and drops out.
+		cond, a := l.p.Excludes("s.tags", f.Not)
 		q += ` AND ` + cond
 		args = append(args, a...)
 	}

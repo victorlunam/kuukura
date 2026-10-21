@@ -249,6 +249,24 @@ In a linked folder every `ku secret` and `ku run` command uses `app:<app>` unles
 prints `app: <app> (linked folder)` on stderr when it does. `ku secret set NAME` there saves a secret tagged
 `app:<app>`; outside a linked folder, `ku secret set` needs at least one tag.
 
+Every tag is `key:value`. Several tags select the secrets that have all of them, and a leading `~` leaves out the
+secrets that have a tag, which is how one app holds two secrets with the same name, for example one for the api and one
+for a worker:
+
+```sh
+ku secret set DB_PASSWORD app:shop env:dev
+ku secret set DB_PASSWORD app:shop env:dev role:worker
+ku run env:dev ~role:worker -- npm run dev        # the api's DB_PASSWORD only
+ku run env:dev role:worker -- npm run worker      # the worker's
+```
+
+`ku run`, `ku secret list|get|update|revoke|archive` and `ku workspace audit` take `~key:value`. In `ku secret update`
+it picks the secrets, and `+key:value` and `-key:value` change them:
+`ku secret update app:shop env:dev ~role:worker +env:prod`. `~role` without a value is an error, an exclusion never
+selects on its own (`revoke`, `update`, `archive`, `get` and `run` still need a name or a tag), and `ku secret set` and
+grants take no `~`. When a name matches several secrets, the error shows the tag to add or leave out. In a monorepo, a
+secret with no `role:` tag and one with `role:worker` both match `app:<app>`: exclude the role you do not want.
+
 Creating an app: `ku link darwin-cloud` links the folder and, when no grant or secret mentions `app:darwin-cloud` yet,
 creates the app and gives you `write` on it in one step. An app that already exists still needs an admin's grant
 (`ku workspace grant`); `ku link` says so and the link still works, and linking again is harmless. If the server

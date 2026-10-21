@@ -73,7 +73,8 @@ func itemLines(items []string, indent string) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// distinguishingTag finds a tag of the first item that not every item has, to suggest in a hint.
+// distinguishingTag finds a tag of the first item that not every item has, to suggest in a hint. When the first
+// item has only tags the others share, it suggests excluding a tag of another item ("~key:value").
 func distinguishingTag(items []string) string {
 	if len(items) < 2 {
 		return "key:value"
@@ -87,6 +88,14 @@ func distinguishingTag(items []string) string {
 		}
 		if !all {
 			return t
+		}
+	}
+	for _, it := range items[1:] {
+		_, ts := splitItem(it)
+		for _, t := range ts {
+			if !slices.Contains(first, t) {
+				return notMark + t
+			}
 		}
 	}
 	return "key:value"

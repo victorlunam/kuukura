@@ -60,6 +60,53 @@ func TestTagsRoundTrip(t *testing.T) {
 	})
 }
 
+// Excluding tags must give identical answers on both backends, including the prefix lookalike.
+func TestTagExclusion(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {
+		by := newPrincipal(t, p)
+		secrets := map[string]storage.Tags{
+			"S_NONE":   {},
+			"S_SHOP":   {"app:shop"},
+			"S_WORKER": {"app:shop", "role:worker"},
+			"S_BOTH":   {"app:shop", "role:worker", "team:pay"},
+			"S_LOOK":   {"app:shop", "role:worker2"}, // prefix lookalike of role:worker
+		}
+		for n, tags := range secrets {
+			if _, err := newSecret(t, p, by, n, tags); err != nil {
+				t.Fatal(err)
+			}
+		}
+		cases := []struct {
+			sel  storage.Tags
+			want []string
+		}{
+			{storage.Tags{}, []string{"S_BOTH", "S_LOOK", "S_NONE", "S_SHOP", "S_WORKER"}},
+			{storage.Tags{"role:worker"}, []string{"S_LOOK", "S_NONE", "S_SHOP"}},
+			{storage.Tags{"role:worker", "team:pay"}, []string{"S_LOOK", "S_NONE", "S_SHOP"}},
+			{storage.Tags{"env:qa"}, []string{"S_BOTH", "S_LOOK", "S_NONE", "S_SHOP", "S_WORKER"}},
+		}
+		for _, c := range cases {
+			cond, args := p.Excludes("tags", c.sel)
+			rows, err := p.DB().Query(p.Rebind(`SELECT name FROM secrets WHERE `+cond+` ORDER BY name`), args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for rows.Next() {
+				var n string
+				if err := rows.Scan(&n); err != nil {
+					t.Fatal(err)
+				}
+				got = append(got, n)
+			}
+			rows.Close()
+			if !slices.Equal(got, c.want) {
+				t.Fatalf("excluding %v: got %v want %v", c.sel, got, c.want)
+			}
+		}
+	})
+}
+
 // Grant tag containment must give identical answers on both backends.
 func TestGrantTagContainment(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, _ string, p storage.Provider) {

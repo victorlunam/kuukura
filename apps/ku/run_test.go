@@ -74,6 +74,81 @@ func TestRun(t *testing.T) {
 	})
 }
 
+// A monorepo app holds a secret for the api and one for a worker under the same name: a selector that cannot name
+// the worker's role used to fail. ~key:value leaves it out, and the ambiguity error suggests it.
+func TestExcludeTags(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		w, _ := userWorld(t, p)
+		mustOK(t, w.ku("api-pw\n", false, nil, "secret", "set", "DB_PASSWORD", "app:shop", "env:dev", "--yes"))
+		mustOK(t, w.ku("worker-pw\n", false, nil, "secret", "set", "DB_PASSWORD", "app:shop", "role:cf-worker", "env:dev", "--yes"))
+		show := []string{"--", "sh", "-c", "echo $DB_PASSWORD"}
+
+		// ambiguous: the hint excludes the worker's role instead of the generic key:value
+		r := w.ku("", false, nil, append([]string{"run", "app:shop", "env:dev"}, show...)...)
+		want := "  Add or remove a tag to pick one, for example: ku run ~role:cf-worker -- sh -c echo $DB_PASSWORD\n"
+		if r.code != 1 || !strings.HasSuffix(r.errOut, want) {
+			t.Fatalf("ambiguous:\n%q", r.errOut)
+		}
+
+		// excluding it runs only the api's secret; the worker's is still there for its own selector
+		r = mustOK(t, w.ku("", false, nil, append([]string{"run", "app:shop", "env:dev", "~role:cf-worker"}, show...)...))
+		if strings.TrimSpace(r.out) != "api-pw" {
+			t.Fatalf("run without the worker: %q", r.out)
+		}
+		r = mustOK(t, w.ku("", false, nil, append([]string{"run", "role:cf-worker", "env:dev"}, show...)...))
+		if strings.TrimSpace(r.out) != "worker-pw" {
+			t.Fatalf("run of the worker: %q", r.out)
+		}
+
+		// list honors it, and so does the audit
+		r = mustOK(t, w.ku("", false, nil, "secret", "list", "app:shop", "~role:cf-worker"))
+		if strings.Contains(r.out, "role:cf-worker") || !strings.Contains(r.out, "DB_PASSWORD") {
+			t.Fatalf("list: %q", r.out)
+		}
+
+		// the same tag required and excluded is an error, and set takes no exclusions
+		if r := w.ku("", false, nil, "secret", "list", "app:shop", "~app:shop"); r.code != 1 {
+			t.Fatalf("required and excluded: %v", r)
+		}
+		if r := w.ku("v\n", false, nil, "secret", "set", "X_KEY", "app:shop", "~role:cf-worker", "--yes"); r.code != 2 {
+			t.Fatalf("set with an exclusion: %v", r)
+		}
+		// every tag is key:value, an excluded one too, and it is never taken for a name
+		for _, bad := range []string{"~role", "~", "~role:", "~:x"} {
+			if r := w.ku("", false, nil, "secret", "list", "app:shop", bad); r.code != 2 || !strings.Contains(r.errOut, "is not a tag (key:value)") {
+				t.Fatalf("%q: %v", bad, r)
+			}
+		}
+		// grants take no exclusions (they are patterns of the secret's own tags)
+		if r := w.ku("", false, nil, "workspace", "grant", "root@example.test", "read", "~role:cf-worker"); r.code == 0 || !strings.Contains(r.errOut, "is not a tag (key:value)") {
+			t.Fatalf("a grant with an exclusion must be refused: %v", r)
+		}
+
+		// update: ~ keeps the selector apart from +tag and -tag, which change the selected secrets
+		mustOK(t, w.ku("", false, nil, "secret", "update", "app:shop", "env:dev", "~role:cf-worker", "+env:prod", "-env:dev", "--yes"))
+		r = mustOK(t, w.ku("", false, nil, "secret", "list", "env:prod"))
+		if strings.Count(r.out, "DB_PASSWORD") != 1 || strings.Contains(r.out, "role:cf-worker") {
+			t.Fatalf("update with an exclusion: %q", r.out)
+		}
+		r = mustOK(t, w.ku("", false, nil, "secret", "list", "role:cf-worker"))
+		if !strings.Contains(r.out, "env:dev") {
+			t.Fatalf("the worker's secret must be untouched: %q", r.out)
+		}
+
+		// a confirmation is bound to the exclusion too: authorizing app:shop does not authorize app:shop ~role:cf-worker
+		mustOK(t, w.ku("y\n", true, nil, "secret", "update", "app:shop", "role:cf-worker", "--authorize", "on", "--yes"))
+		before := w.stepUps
+		r = mustOK(t, w.ku("", false, nil, append([]string{"run", "app:shop", "env:dev"}, show...)...))
+		if w.stepUps != before+1 || strings.TrimSpace(r.out) != "worker-pw" {
+			t.Fatalf("authorize: steps=%d out=%q", w.stepUps, r.out)
+		}
+		r = mustOK(t, w.ku("", false, nil, append([]string{"run", "app:shop", "env:prod"}, show...)...))
+		if w.stepUps != before+1 || strings.TrimSpace(r.out) != "api-pw" {
+			t.Fatalf("an excluded run of a plain secret needs no confirmation: steps=%d out=%q", w.stepUps, r.out)
+		}
+	})
+}
+
 func TestMachineTokenInCI(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		w, admin := userWorld(t, p)

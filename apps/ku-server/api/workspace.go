@@ -121,8 +121,16 @@ func (s *Server) auditRows(c echo.Context) error {
 	if err != nil {
 		return badRequest(err.Error())
 	}
+	var not []string
+	if t := c.QueryParam("not"); t != "" {
+		not = strings.Split(t, ",")
+	}
+	nn, err := storage.NormalizeTags(not)
+	if err != nil {
+		return badRequest(err.Error())
+	}
 	limit, _ := strconv.Atoi(c.QueryParam("limit")) // anything unusable falls back to the log's default
-	rows, err := s.Audit.List(ctx, audit.Filter{Name: c.QueryParam("name"), Tags: nt}, limit)
+	rows, err := s.Audit.List(ctx, audit.Filter{Name: c.QueryParam("name"), Tags: nt, Not: nn}, limit)
 	if err != nil {
 		return err
 	}
