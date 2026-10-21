@@ -6,6 +6,11 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Changed
+
+- The "all set" page suggests the inviter's profile name when the invite came from `ku workspace invite`; an invite
+  from `ku-server user invite` (no inviter alias) keeps the `<alias>` placeholder.
+
 ## [2026.10.12] - 2026-10-21
 
 ### Added

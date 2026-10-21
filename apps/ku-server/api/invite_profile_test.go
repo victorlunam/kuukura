@@ -14,9 +14,10 @@ import (
 	"github.com/victorlunam/kuukura/internal/storage/storagetest"
 )
 
-// The inviter's profile name travels with the invite as the header label only. The "all set" page never picks
-// the invitee's profile name: it shows a literal <alias> to replace (pasted unchanged, a shell rejects the `<`).
-func TestAllSetPageLeavesTheProfileNameToTheInvitee(t *testing.T) {
+// An invite from `ku workspace invite` carries the inviter's profile name and the "all set" page suggests it;
+// without one (`ku-server user invite`) the page shows a literal <alias> to replace (pasted unchanged, a shell
+// rejects the `<`). The server's home page always shows the placeholder.
+func TestAllSetPageSuggestsTheInvitersAliasOrAPlaceholder(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		e := setup(t, p)
 		admin, _ := e.admin()
@@ -66,11 +67,14 @@ func TestAllSetPageLeavesTheProfileNameToTheInvitee(t *testing.T) {
 			t.Fatalf("redirect: %q %v", res.Redirect, err)
 		}
 
-		for _, path := range []string{res.Redirect, "/auth/done", "/"} {
+		if b := e.do("GET", res.Redirect, "", nil).Body.String(); !strings.Contains(b, "ku profile add some_name --url https://"+domain) ||
+			!strings.Contains(b, "the name the person who invited you uses") || !strings.Contains(b, ">ku login<") {
+			t.Fatalf("invite from the CLI suggests the inviter's alias: %s", b)
+		}
+		for _, path := range []string{"/auth/done", "/"} {
 			b := e.do("GET", path, "", nil).Body.String()
-			if !strings.Contains(b, "ku profile add &lt;alias&gt; --url https://"+domain) || !strings.Contains(b, ">ku login<") ||
-				strings.Contains(b, "ku profile add some_name") {
-				t.Fatalf("%s: the command must leave the profile name to the person: %s", path, b)
+			if !strings.Contains(b, "ku profile add &lt;alias&gt; --url https://"+domain) || !strings.Contains(b, ">ku login<") {
+				t.Fatalf("%s: without an inviter alias the command shows the placeholder: %s", path, b)
 			}
 		}
 	})

@@ -136,9 +136,10 @@
   {{else if eq .Mode "done"}}
   <h1>You're all set</h1>
   <p class="lead">Your account is ready. In your terminal, add this server and sign in:</p>
-  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add &lt;alias&gt; --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+  <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd1">ku profile add {{if .Suggest}}{{.Suggest}}{{else}}&lt;alias&gt;{{end}} --url {{.Origin}}</code><button type="button" data-copy="#cmd1" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
   <div class="term"><svg aria-hidden="true"><use href="#i-terminal"/></svg><code id="cmd2">ku login</code><button type="button" data-copy="#cmd2" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-  <p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>Replace <b>&lt;alias&gt;</b> with a name you choose for this server, for example <b>work</b>. It is only a label on your machine; the address is what matters.</span></p>
+  {{if .Suggest}}<p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span><b>{{.Suggest}}</b> is the name the person who invited you uses for this server. You can pick another; it is only a label on your machine.</span></p>
+  {{else}}<p class="note"><svg aria-hidden="true"><use href="#i-lifebuoy"/></svg><span>Replace <b>&lt;alias&gt;</b> with a name you choose for this server, for example <b>work</b>. It is only a label on your machine; the address is what matters.</span></p>{{end}}
 
   {{else if eq .Mode "home"}}
   <h1>kuukura server</h1>

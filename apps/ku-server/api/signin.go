@@ -91,8 +91,11 @@ func (s *Server) logout(c echo.Context) error {
 }
 
 func (s *Server) donePage(c echo.Context) error {
+	// The inviter's profile name (from `ku workspace invite`) is a sensible default for the invitee; without one
+	// (an invite from `ku-server user invite`) the page shows a placeholder that has to be replaced.
+	inviter := auth.CleanLabel(c.QueryParam("profile"))
 	return s.page(c, http.StatusOK, pageData{Title: "You're all set", Mode: "done", Art: art("done"), Step: 3,
-		Label: auth.CleanLabel(c.QueryParam("profile"))})
+		Label: inviter, Suggest: inviter})
 }
 
 func (s *Server) failPage(c echo.Context) error {
