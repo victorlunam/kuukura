@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.15] - 2026-10-22
+
 ### Changed
 
 - When `ku run` or `ku secret get` finds several secrets with the same name, each row now says which tag picks it
@@ -232,7 +234,8 @@ First release.
   release workflow, local development mode, threat model and an ASVS level 2 checklist.
 - macOS binaries signed with a Developer ID when the signing secrets exist.
 
-[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.14...HEAD
+[Unreleased]: https://github.com/victorlunam/kuukura/compare/v2026.10.15...HEAD
+[2026.10.15]: https://github.com/victorlunam/kuukura/compare/v2026.10.14...v2026.10.15
 [2026.10.14]: https://github.com/victorlunam/kuukura/compare/v2026.10.13...v2026.10.14
 [2026.10.13]: https://github.com/victorlunam/kuukura/compare/v2026.10.12...v2026.10.13
 [2026.10.12]: https://github.com/victorlunam/kuukura/compare/v2026.10.11...v2026.10.12
