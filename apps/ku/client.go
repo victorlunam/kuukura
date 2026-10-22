@@ -26,6 +26,7 @@ type problem struct {
 	Detail     string   `json:"detail"`
 	Items      []string `json:"items"`
 	retryAfter string
+	matched    []string // set by withMatches: every secret the selector matches ("NAME tag tag"), for an ambiguity
 }
 
 func (p *problem) Error() string { return p.Code }

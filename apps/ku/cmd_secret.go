@@ -98,7 +98,7 @@ func (a *app) secretList(args []string) int {
 	tags = a.withApp(pr, tags)
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
-		return a.report(err, func(t string) string { return "ku secret list " + t })
+		return a.report(err, nil)
 	}
 	if len(rows) == 0 {
 		a.say("No secrets found.")
@@ -179,12 +179,7 @@ func (a *app) secretSet(args []string) int {
 		err = c.call("POST", "/secrets/versions", body, &res)
 	}
 	if err != nil {
-		return a.reportWrite(err, tags, func(t string) string {
-			if strings.HasPrefix(t, notMark) { // set takes no exclusions
-				t = "key:value"
-			}
-			return "ku secret set " + name + " " + t
-		})
+		return a.reportWrite(err, tags)
 	}
 	a.say("✓ Saved %s (version %d)", res.Name, res.Version)
 	if p.has("generate") {
@@ -241,11 +236,16 @@ func (a *app) secretGet(args []string) int {
 	if err != nil {
 		return a.fail("%v", err)
 	}
+	typed := tags // what was typed: a hint repeats it, never the app that a linked folder adds on its own
 	tags = a.withApp(pr, tags)
 	var v valueResp
 	if err := a.callStepUp(c, "reveal", subjectOf(name, tags), "POST", "/secrets/reveal", newSel(name, tags), &v); err != nil {
-		return a.report(err, func(t string) string {
-			return joinWords("ku secret get", name, t, "--reveal")
+		return a.report(a.withMatches(c, err, name, tags), func(pick string) string {
+			out := "--reveal"
+			if p.has("out") {
+				out = "--out <path>"
+			}
+			return joinWords("ku secret get", name, strings.Join(typed, " "), pick, out)
 		})
 	}
 	data, err := v.bytes()

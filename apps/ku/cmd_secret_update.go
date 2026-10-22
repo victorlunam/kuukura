@@ -76,7 +76,7 @@ func (a *app) secretUpdate(args []string) int {
 	body["selector"] = newSel(name, tags)
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
-		return a.report(err, func(t string) string { return "ku secret update " + t })
+		return a.report(err, nil)
 	}
 	if len(rows) == 0 {
 		return a.fail("No matching secret.")
@@ -119,7 +119,7 @@ func (a *app) secretUpdate(args []string) int {
 			fmt.Fprintln(a.err, "  Nothing changed.")
 			return 1
 		}
-		return a.reportWrite(err, tags, func(t string) string { return "ku secret update " + t })
+		return a.reportWrite(err, tags)
 	}
 	switch {
 	case body["rename"] != nil && len(rows) == 1:
@@ -154,7 +154,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 	tags = a.withApp(pr, tags)
 	rows, err := a.listSecrets(c, name, tags)
 	if err != nil {
-		return a.report(err, func(t string) string { return "ku secret " + verb + " " + t })
+		return a.report(err, nil)
 	}
 	if len(rows) == 0 {
 		return a.fail("No matching secret.")
@@ -181,7 +181,7 @@ func (a *app) secretBulk(args []string, verb string) int {
 		err = c.call("PATCH", "/secrets", map[string]any{"selector": sel, "archived": true}, &out)
 	}
 	if err != nil {
-		return a.reportWrite(err, tags, func(t string) string { return "ku secret " + verb + " " + t })
+		return a.reportWrite(err, tags)
 	}
 	n := len(rows)
 	switch {

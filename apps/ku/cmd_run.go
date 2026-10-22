@@ -40,6 +40,7 @@ func (a *app) cmdRun(args []string) int {
 	if err != nil {
 		return a.fail("%v", err)
 	}
+	typed := tags // what was typed: a hint repeats it, never the app that a linked folder adds on its own
 	tags = a.withApp(pr, tags)
 	if len(tags) == 0 {
 		a.fail("This folder is not linked to an app")
@@ -56,8 +57,9 @@ func (a *app) cmdRun(args []string) int {
 	}
 	sel := newSel(name, tags)
 	if err := a.callStepUp(c, "run", subjectOf(name, tags), "POST", "/run", sel, &res); err != nil {
-		return a.report(err, func(t string) string {
-			return joinWords("ku run", name, t, "--", strings.Join(command, " "))
+		// The command is not repeated: joined with spaces it loses its quoting, and a copy of it would not run.
+		return a.report(a.withMatches(c, err, name, tags), func(pick string) string {
+			return joinWords("ku run", name, strings.Join(typed, " "), pick, "-- <command>")
 		})
 	}
 

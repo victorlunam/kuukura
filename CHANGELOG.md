@@ -6,6 +6,17 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+### Changed
+
+- When `ku run` or `ku secret get` finds several secrets with the same name, each row now says which tag picks it
+  (`add ~role:worker to pick this one`), and the example repeats the tags you typed. When one tag is not enough it
+  suggests the few that are (`add ~role:api ~role:worker`), and a row says which other secrets its tags would leave
+  out of the run (`also leaves out SENTRY_DSN`); the example uses a suggestion that leaves nothing out when there is
+  one. Before, the example dropped the tags you typed (`ku run app:shop` suggested `ku run env:dev`, which selects
+  `env:dev` of every app) and rewrote your command without its quoting. The other commands no longer print an example.
+- When two or more names are duplicated at once, the error is about the first by name every time; before it could
+  name either one from one run to the next.
+
 ## [2026.10.14] - 2026-10-21
 
 ### Added

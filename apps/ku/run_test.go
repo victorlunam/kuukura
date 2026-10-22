@@ -30,7 +30,12 @@ func TestRun(t *testing.T) {
 
 		// ambiguous: the exact copy and the hint
 		r = w.ku("", false, nil, "run", "app:shop", "--", "npm", "run", "dev")
-		wantAmb := "✗ 2 secrets are called BASE_URL:\n    BASE_URL  app:shop env:dev\n    BASE_URL  app:shop env:prod\n  Add or remove a tag to pick one, for example: ku run env:dev -- npm run dev\n"
+		// each row says which tag picks it, and the example keeps app:shop: without it the copy would select env:dev
+		// of every app
+		wantAmb := "✗ 2 secrets are called BASE_URL:\n" +
+			"    BASE_URL  app:shop env:dev   add env:dev to pick this one\n" +
+			"    BASE_URL  app:shop env:prod  add env:prod to pick this one (also leaves out API_KEY, TLS_CERT)\n" +
+			"  For example: ku run app:shop env:dev -- <command>\n"
 		if r.code != 1 || !strings.HasSuffix(r.errOut, wantAmb) {
 			t.Fatalf("ambiguous:\n%q", r.errOut)
 		}
@@ -83,11 +88,19 @@ func TestExcludeTags(t *testing.T) {
 		mustOK(t, w.ku("worker-pw\n", false, nil, "secret", "set", "DB_PASSWORD", "app:shop", "role:cf-worker", "env:dev", "--yes"))
 		show := []string{"--", "sh", "-c", "echo $DB_PASSWORD"}
 
-		// ambiguous: the hint excludes the worker's role instead of the generic key:value
+		// ambiguous: each row says which tag picks it (the api's by leaving the role out), and the example repeats
+		// what was typed, not the command (its quoting would be lost)
 		r := w.ku("", false, nil, append([]string{"run", "app:shop", "env:dev"}, show...)...)
-		want := "  Add or remove a tag to pick one, for example: ku run ~role:cf-worker -- sh -c echo $DB_PASSWORD\n"
-		if r.code != 1 || !strings.HasSuffix(r.errOut, want) {
-			t.Fatalf("ambiguous:\n%q", r.errOut)
+		if r.code != 1 {
+			t.Fatalf("ambiguous exit: %d", r.code)
+		}
+		for _, want := range []string{
+			"add ~role:cf-worker to pick this one\n", "add role:cf-worker to pick this one\n",
+			"  For example: ku run app:shop env:dev ~role:cf-worker -- <command>\n",
+		} {
+			if !strings.Contains(r.errOut, want) {
+				t.Fatalf("ambiguous, missing %q:\n%s", want, r.errOut)
+			}
 		}
 
 		// excluding it runs only the api's secret; the worker's is still there for its own selector
@@ -147,6 +160,28 @@ func TestExcludeTags(t *testing.T) {
 			t.Fatalf("an excluded run of a plain secret needs no confirmation: steps=%d out=%q", w.stepUps, r.out)
 		}
 	})
+}
+
+// A suggestion must leave exactly one secret: with three or more one tag may not be enough, so it can be several.
+func TestPickers(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		items []string
+		want  []string
+	}{
+		{"only one has a tag", []string{"A app:x", "A app:x role:w"}, []string{"~role:w", "role:w"}},
+		{"each has its own", []string{"A app:x env:dev", "A app:x env:prod"}, []string{"env:dev", "env:prod"}},
+		{"the middle one needs two", []string{"A x:1", "A x:1 y:1", "A x:1 y:1 z:1"}, []string{"~y:1", "y:1 ~z:1", "z:1"}},
+		// D has every tag the others have and none of its own: it takes all three to tell it apart
+		{"all tags of one", []string{"A p:1 q:1", "A p:1 r:1", "A q:1 r:1", "A p:1 q:1 r:1"}, []string{"~r:1", "~q:1", "~p:1", "p:1 q:1 r:1"}},
+		// the plain one is told apart from each role by leaving each out
+		{"the one without roles", []string{"A e:d", "A e:d r:api", "A e:d r:worker"}, []string{"~r:api ~r:worker", "r:api", "r:worker"}},
+	} {
+		got := pickers(c.items)
+		if strings.Join(got, "|") != strings.Join(c.want, "|") {
+			t.Fatalf("%s: got %q want %q", c.name, got, c.want)
+		}
+	}
 }
 
 func TestMachineTokenInCI(t *testing.T) {

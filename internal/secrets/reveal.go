@@ -63,13 +63,18 @@ func (s *Service) fetch(ctx context.Context, a access.Actor, in Selector, action
 		if single && len(rows) > 1 {
 			return fail(access.CodeAmbiguous, "several secrets match", labels(rows)...)
 		}
+		// rows come ordered by name, so the first repeated name is the same on every try (a map would pick any)
 		seen := map[string][]Info{}
+		var order []string
 		for _, r := range rows {
+			if _, ok := seen[r.Name]; !ok {
+				order = append(order, r.Name)
+			}
 			seen[r.Name] = append(seen[r.Name], r)
 		}
-		for _, g := range seen {
-			if len(g) > 1 {
-				return fail(access.CodeAmbiguous, g[0].Name+" matches several secrets", labels(g)...)
+		for _, n := range order {
+			if g := seen[n]; len(g) > 1 {
+				return fail(access.CodeAmbiguous, n+" matches several secrets", labels(g)...)
 			}
 		}
 		var blocked []string

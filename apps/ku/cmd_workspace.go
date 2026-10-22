@@ -59,7 +59,7 @@ func (a *app) cmdWorkspace(args []string) int {
 		return a.fail("%v", err)
 	}
 	report := func(err error) int {
-		return a.report(err, func(t string) string { return "ku workspace " + sub + " ..." })
+		return a.report(err, nil)
 	}
 	switch sub {
 	case "invite":
@@ -176,7 +176,7 @@ func (a *app) workspaceAudit(p parsed) int {
 		} `json:"rows"`
 	}
 	if err := c.call("GET", "/workspace/audit?"+q.Encode(), nil, &r); err != nil {
-		return a.report(err, func(t string) string { return "ku workspace audit " + t })
+		return a.report(err, nil)
 	}
 	if len(r.Rows) == 0 {
 		a.say("Nothing recorded yet.")

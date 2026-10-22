@@ -264,7 +264,9 @@ ku run env:dev role:worker -- npm run worker      # the worker's
 it picks the secrets, and `+key:value` and `-key:value` change them:
 `ku secret update app:shop env:dev ~role:worker +env:prod`. `~role` without a value is an error, an exclusion never
 selects on its own (`revoke`, `update`, `archive`, `get` and `run` still need a name or a tag), and `ku secret set` and
-grants take no `~`. When a name matches several secrets, the error shows the tag to add or leave out. In a monorepo, a
+grants take no `~`. When a name matches several secrets, `ku run` and `ku secret get` list them and say, on each row,
+the tags that pick it (`add ~role:worker to pick this one`, or `add ~role:api ~role:worker` when one is not enough),
+what else they would leave out of the run, and an example that repeats what you typed. In a monorepo, a
 secret with no `role:` tag and one with `role:worker` both match `app:<app>`: exclude the role you do not want.
 
 Creating an app: `ku link darwin-cloud` links the folder and, when no grant or secret mentions `app:darwin-cloud` yet,

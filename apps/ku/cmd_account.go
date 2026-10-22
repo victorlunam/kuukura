@@ -37,7 +37,7 @@ func (a *app) cmdAccount(args []string) int {
 	if err != nil {
 		return a.fail("%v", err)
 	}
-	report := func(err error) int { return a.report(err, func(string) string { return "ku account factor " + sub }) }
+	report := func(err error) int { return a.report(err, nil) }
 	switch sub {
 	case "list":
 		fs, err := a.factors(c)

@@ -324,6 +324,27 @@ func TestClashAndBulkAllOrNothing(t *testing.T) {
 	})
 }
 
+// Two names repeated at once: the error is always about the first by name, never whichever a map gave.
+func TestAmbiguousNameIsTheSameEveryTime(t *testing.T) {
+	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
+		ctx := t.Context()
+		e := setup(t, p)
+		u := e.human("member")
+		e.grant(u, "write", "app:shop")
+		for _, n := range []string{"ZED_KEY", "ALPHA_KEY", "MID_KEY"} {
+			e.set(u, n, "a", "app:shop", "env:dev")
+			e.set(u, n, "b", "app:shop", "env:dev", "role:w")
+		}
+		for range 20 {
+			_, err := e.svc.Run(ctx, u, Selector{Tags: []string{"app:shop"}}, false)
+			var de *Error
+			if !errors.As(err, &de) || de.Code != access.CodeAmbiguous || !strings.HasPrefix(de.Msg, "ALPHA_KEY ") {
+				t.Fatalf("got %v", err)
+			}
+		}
+	})
+}
+
 func TestAmbiguousName(t *testing.T) {
 	storagetest.Each(t, func(t *testing.T, kind string, p storage.Provider) {
 		ctx := t.Context()
