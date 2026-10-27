@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/keybase/go-keychain v0.0.1
-	github.com/labstack/echo/v4 v4.16.0
+	github.com/labstack/echo/v4 v4.16.2
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pquerna/otp v1.5.0
 	github.com/zalando/go-keyring v0.2.8
