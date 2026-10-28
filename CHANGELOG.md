@@ -6,6 +6,8 @@ A release is a tag: its section is copied into the GitHub release notes.
 
 ## [Unreleased]
 
+## [2026.10.16] - 2026-10-28
+
 ### Changed
 
 - The Kuukura agent skill now lives in `skills/kuukura/SKILL.md` so skills CLI installs include only the skill,
