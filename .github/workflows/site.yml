@@ -1,10 +1,10 @@
 name: site
 on:
   pull_request:
-    paths: ['apps/web/**', 'packages/brand/**', 'docs/**', 'SECURITY.md', 'CHANGELOG.md', 'SKILL.md', 'apps/ku/main.go', 'apps/ku-server/main.go', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', '.github/workflows/site.yml']
+    paths: ['apps/web/**', 'packages/brand/**', 'docs/**', 'SECURITY.md', 'CHANGELOG.md', 'skills/**', 'apps/ku/main.go', 'apps/ku-server/main.go', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', '.github/workflows/site.yml']
   push:
     branches: [main]
-    paths: ['apps/web/**', 'packages/brand/**', 'docs/**', 'SECURITY.md', 'CHANGELOG.md', 'SKILL.md', 'apps/ku/main.go', 'apps/ku-server/main.go', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', '.github/workflows/site.yml']
+    paths: ['apps/web/**', 'packages/brand/**', 'docs/**', 'SECURITY.md', 'CHANGELOG.md', 'skills/**', 'apps/ku/main.go', 'apps/ku-server/main.go', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', '.github/workflows/site.yml']
   # a release changes the footer's "latest release": redeploy by hand from the Actions tab
   workflow_dispatch:
 

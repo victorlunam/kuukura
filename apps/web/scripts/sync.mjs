@@ -1,4 +1,4 @@
-// Prebuild: turns the repository's Markdown (docs/*.md, SECURITY.md, CHANGELOG.md, SKILL.md) into Starlight pages
+// Prebuild: turns repository Markdown (docs/*.md, SECURITY.md, CHANGELOG.md, skills/kuukura/SKILL.md) into Starlight pages
 // and copies the brand assets. The repository files stay the single source; everything written here is generated
 // and gitignored.
 //
@@ -30,7 +30,7 @@ const SOURCES = {
   'local-testing': 'docs/local-testing.md',
   deploy: 'docs/deploy.md',
   agents: 'docs/agents.md',
-  skill: 'SKILL.md',
+  skill: 'skills/kuukura/SKILL.md',
   security: 'SECURITY.md',
   'threat-model': 'docs/threat-model.md',
   'asvs-l2': 'docs/asvs-l2.md',

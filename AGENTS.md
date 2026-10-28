@@ -46,4 +46,4 @@ pnpm --filter web check && pnpm web:build && pnpm --filter web linkcheck
 - Never write a release number in docs or templates; the tag is the version.
 - Edit files with the editor tools, not shell heredocs or redirection.
 
-[SKILL.md](SKILL.md) is the product's skill for agents that use `ku`, not instructions for you.
+[SKILL.md](skills/kuukura/SKILL.md) is the product's skill for agents that use `ku`, not instructions for you.
