@@ -75,7 +75,7 @@ flowchart LR
 - **Hand a secret to a program without handing it to a person.** `ku run -- cmd` injects environment variables; file secrets arrive as a temporary path.
 - **Least privilege by default.** Read and write grants per tag, groups, and admins who manage people but have no secret access by role.
 - **CI without shared passwords.** Machine tokens are limited by their own grants and their owner's, and can never reveal a value.
-- **Safe with AI coding agents.** An agent skill ([SKILL.md](SKILL.md)) lets agents run commands with secrets without seeing values. Read the [limits](docs/agents.md) first.
+- **Safe with AI coding agents.** An agent skill ([SKILL.md](skills/kuukura/SKILL.md)) teaches agents to run commands with secrets without retrieving values. Install with `npx skills add victorlunam/kuukura --skill kuukura`. Read the [limits, version pinning and updates](docs/agents.md) first.
 - **Invite-only access.** Sign in with Google plus a passkey or authenticator app, with recovery codes; nobody can sign up on their own.
 - **A log you can check.** `ku-server audit verify` detects edited or removed rows in the middle of the chain.
 - **Guard rails in the CLI.** `ku run` refuses variable names that load code (such as `LD_PRELOAD`), and values are never accepted as arguments.
