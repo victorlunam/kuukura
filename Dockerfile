@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The build stage always runs on the builder's own platform and cross-compiles: Go targets arm64 natively, so a
 # multi-arch build never runs the compiler under QEMU emulation.
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS build
 ARG TARGETOS TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
